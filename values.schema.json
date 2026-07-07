@@ -228,6 +228,36 @@
         "ingress": {
           "$ref": "#/definitions/Ingress"
         },
+        "publicAlb": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "ingressClassName": {
+              "type": "string"
+            },
+            "scheme": {
+              "type": "string"
+            },
+            "targetType": {
+              "type": "string"
+            },
+            "listenPorts": {
+              "type": "string"
+            },
+            "host": {
+              "type": "string"
+            },
+            "blockedPrefixes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
         "initContainers": {
           "type": "array"
         },

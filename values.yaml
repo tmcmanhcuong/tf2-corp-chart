@@ -415,6 +415,20 @@ components:
       env: true
     service:
       port: 8080
+    publicAlb:
+      enabled: false
+      ingressClassName: alb
+      scheme: internet-facing
+      targetType: ip
+      listenPorts: '[{"HTTP":80}]'
+      host: ""
+      blockedPrefixes:
+        - /grafana
+        - /jaeger
+        - /loadgen
+        - /feature
+        - /flagservice
+        - /otlp-http
     podAnnotations:
       resource.opentelemetry.io/service.namespace: techx-corp
       io.opentelemetry.discovery.metrics/enabled: 'true'
