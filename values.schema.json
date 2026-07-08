@@ -272,6 +272,18 @@
         },
         "additionalVolumes": {
           "type": "array"
+        },
+        "stateful": {
+          "type": "boolean"
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer"
+        },
+        "volumeClaimTemplates": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
         }
       },
       "required": [
@@ -356,6 +368,9 @@
         },
         "rollout": {
           "$ref": "#/definitions/Rollout"
+        },
+        "storageClassName": {
+          "type": "string"
         }
       },
       "required": [

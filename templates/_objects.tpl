@@ -13,15 +13,17 @@ spec:
   replicas: {{ .replicas | default .defaultValues.replicas }}
   revisionHistoryLimit: {{ .revisionHistoryLimit | default .defaultValues.revisionHistoryLimit }}
   {{- $rollout := mergeOverwrite (dict) (deepCopy (default dict .defaultValues.rollout)) (deepCopy (default dict .rollout)) }}
+  {{- if not .stateful }}
   {{- if $rollout.strategy }}
   strategy:
     {{- $rollout.strategy | toYaml | nindent 4 }}
   {{- end }}
-  {{- if not (kindIs "invalid" $rollout.minReadySeconds) }}
-  minReadySeconds: {{ $rollout.minReadySeconds }}
-  {{- end }}
   {{- if not (kindIs "invalid" $rollout.progressDeadlineSeconds) }}
   progressDeadlineSeconds: {{ $rollout.progressDeadlineSeconds }}
+  {{- end }}
+  {{- end }}
+  {{- if not (kindIs "invalid" $rollout.minReadySeconds) }}
+  minReadySeconds: {{ $rollout.minReadySeconds }}
   {{- end }}
   selector:
     matchLabels:
