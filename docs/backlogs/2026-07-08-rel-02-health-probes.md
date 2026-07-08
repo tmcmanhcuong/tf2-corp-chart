@@ -104,8 +104,8 @@ Task REL-02 được xem là đạt khi:
 Chạy validate chart:
 
 ```powershell
-helm lint .\phase3\techx-corp-chart
-helm template techx .\phase3\techx-corp-chart > rendered.yaml
+helm lint .
+helm template techx . > rendered.yaml
 ```
 
 Khi deploy lên cluster:
