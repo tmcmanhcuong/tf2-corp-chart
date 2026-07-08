@@ -155,6 +155,12 @@
         "replicas": {
           "type": "integer"
         },
+        "stateful": {
+          "type": "boolean"
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer"
+        },
         "revisionHistoryLimit": {
           "type": "integer"
         },
@@ -269,6 +275,12 @@
         },
         "sidecarContainers": {
           "type": "array"
+        },
+        "volumeClaimTemplates": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
         },
         "additionalVolumes": {
           "type": "array"

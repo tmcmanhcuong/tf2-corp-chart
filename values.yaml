@@ -1171,8 +1171,12 @@ opentelemetry-collector:
       metrics:
         enabled: true
   resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
     limits:
-      memory: 200Mi
+      cpu: 500m
+      memory: 400Mi
   service:
     enabled: true
   ports:
@@ -1202,14 +1206,28 @@ opentelemetry-collector:
         endpoint: jaeger:4317
         tls:
           insecure: true
+        retry_on_failure:
+          enabled: true
+          initial_interval: 1s
+          max_interval: 30s
+          max_elapsed_time: 300s
         sending_queue:
-          batch: {}
+          enabled: true
+          num_consumers: 4
+          queue_size: 2048
       otlphttp/prometheus:
         endpoint: http://prometheus:9090/api/v1/otlp
         tls:
           insecure: true
+        retry_on_failure:
+          enabled: true
+          initial_interval: 1s
+          max_interval: 30s
+          max_elapsed_time: 300s
         sending_queue:
-          batch: {}
+          enabled: true
+          num_consumers: 4
+          queue_size: 2048
       opensearch:
         logs_index: otel-logs
         logs_index_time_format: "yyyy-MM-dd"
@@ -1217,12 +1235,25 @@ opentelemetry-collector:
           endpoint: http://opensearch:9200
           tls:
             insecure: true
+        retry_on_failure:
+          enabled: true
+          initial_interval: 1s
+          max_interval: 30s
+          max_elapsed_time: 300s
+        sending_queue:
+          enabled: true
+          num_consumers: 4
+          queue_size: 2048
 
     processors:
       memory_limiter:
         check_interval: 5s
         limit_percentage: 80
         spike_limit_percentage: 25
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+        send_batch_max_size: 2048
       resourcedetection:
         detectors: [env, system]
       transform:
@@ -1311,8 +1342,12 @@ jaeger:
       - name: JAEGER_GRPC_PORT
         value: "4317"
     resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
       limits:
-        memory: 600Mi
+        cpu: 500m
+        memory: 700Mi
   userconfig:
     service:
       extensions: [jaeger_storage, jaeger_query, healthcheckv2]
@@ -1366,7 +1401,10 @@ jaeger:
             endpoint: ${env:JAEGER_HOST}:${env:JAEGER_GRPC_PORT}
 
     processors:
-      batch: {}
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+        send_batch_max_size: 2048
 
     exporters:
       jaeger_storage_exporter:
@@ -1429,12 +1467,17 @@ prometheus:
         - postgresql.table.name
         - postgresql.index.name
     persistentVolume:
-      enabled: false
+      enabled: true
+      size: 8Gi
     service:
       servicePort: 9090
     resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
       limits:
-        memory: 400Mi
+        cpu: 500m
+        memory: 700Mi
     securityContext:
       runAsUser: 65534
       runAsNonRoot: true
@@ -1476,12 +1519,22 @@ grafana:
     datasources:
       enabled: true
     resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
       limits:
         cpu: 150m
         memory: 256Mi
   resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
     limits:
+      cpu: 300m
       memory: 300Mi
+  persistence:
+    enabled: true
+    size: 1Gi
   securityContext:
     runAsNonRoot: true
     runAsUser: 472
@@ -1505,7 +1558,8 @@ opensearch:
   singleNode: true
   opensearchJavaOpts: "-Xms400m -Xmx400m"
   persistence:
-    enabled: false
+    enabled: true
+    size: 10Gi
   extraEnvs:
     - name: "bootstrap.memory_lock"
       value: "true"
@@ -1514,6 +1568,10 @@ opensearch:
     - name: "DISABLE_SECURITY_PLUGIN"
       value: "true"
   resources:
+    requests:
+      cpu: 500m
+      memory: 800Mi
     limits:
+      cpu: 1000m
       memory: 1100Mi
 
