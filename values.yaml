@@ -889,6 +889,8 @@ components:
 
   kafka:
     enabled: true
+    stateful: true
+    terminationGracePeriodSeconds: 60
     useDefault:
       env: true
     replicas: 1
@@ -919,11 +921,17 @@ components:
       runAsUser: 1000  # appuser
       runAsGroup: 1000
       runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: false
-      capabilities:
-        drop:
-          - ALL
+    volumeClaimTemplates:
+      - metadata:
+          name: kafka-data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: 5Gi
+    additionalVolumeMounts:
+      - name: kafka-data
+        mountPath: /opt/kafka/data
 
   llm:
     enabled: true
@@ -941,6 +949,8 @@ components:
 
   postgresql:
     enabled: true
+    stateful: true
+    terminationGracePeriodSeconds: 60
     useDefault:
       env: false
     imageOverride:
@@ -989,18 +999,22 @@ components:
     resources:
       limits:
         memory: 100Mi
-    securityContext:
-      runAsUser: 999  # postgres
-      runAsGroup: 999
-      runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: false
-      capabilities:
-        drop:
-          - ALL
+    volumeClaimTemplates:
+      - metadata:
+          name: postgresql-data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: 5Gi
+    additionalVolumeMounts:
+      - name: postgresql-data
+        mountPath: /var/lib/postgresql/data
 
   valkey-cart:
     enabled: true
+    stateful: true
+    terminationGracePeriodSeconds: 60
     useDefault:
       env: false
     imageOverride:
@@ -1024,11 +1038,30 @@ components:
       runAsUser: 999  # valkey
       runAsGroup: 1000
       runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: false
-      capabilities:
-        drop:
-          - ALL
+    mountedConfigMaps:
+      - name: valkey-cart-config
+        mountPath: /etc/valkey
+        data:
+          valkey.conf: |
+            appendonly yes
+            appendfsync everysec
+            save 60 100
+            save 300 10
+            maxmemory 32mb
+            maxmemory-policy allkeys-lru
+            loglevel notice
+    command: ["valkey-server", "/etc/valkey/valkey.conf"]
+    volumeClaimTemplates:
+      - metadata:
+          name: valkey-cart-data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: 2Gi
+    additionalVolumeMounts:
+      - name: valkey-cart-data
+        mountPath: /data
 
 opentelemetry-collector:
   enabled: true
