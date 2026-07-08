@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=./values.schema.json
+﻿# yaml-language-server: $schema=./values.schema.json
 default:
   rollout:
     strategy:
@@ -743,7 +743,7 @@ components:
       - name: OTEL_PYTHON_LOG_CORRELATION
         value: "true"
       - name: OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT
-        value: "true"
+        value: "false"
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
@@ -938,6 +938,8 @@ components:
 
   kafka:
     enabled: true
+    stateful: true
+    terminationGracePeriodSeconds: 60
     useDefault:
       env: true
     # NOTE: Singleton data/broker component. Non-surge rollout is used because it relies on single-writer / non-HA storage, which does not support zero-downtime rolling updates.
@@ -978,11 +980,17 @@ components:
       runAsUser: 1000  # appuser
       runAsGroup: 1000
       runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: false
-      capabilities:
-        drop:
-          - ALL
+    volumeClaimTemplates:
+      - metadata:
+          name: kafka-data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: 5Gi
+    additionalVolumeMounts:
+      - name: kafka-data
+        mountPath: /opt/kafka/data
 
   llm:
     enabled: true
@@ -1000,6 +1008,8 @@ components:
 
   postgresql:
     enabled: true
+    stateful: true
+    terminationGracePeriodSeconds: 60
     useDefault:
       env: false
     # NOTE: Singleton data/broker component. Non-surge rollout is used because it relies on single-writer / non-HA storage, which does not support zero-downtime rolling updates.
@@ -1058,18 +1068,22 @@ components:
     resources:
       limits:
         memory: 100Mi
-    securityContext:
-      runAsUser: 999  # postgres
-      runAsGroup: 999
-      runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: false
-      capabilities:
-        drop:
-          - ALL
+    volumeClaimTemplates:
+      - metadata:
+          name: postgresql-data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: 5Gi
+    additionalVolumeMounts:
+      - name: postgresql-data
+        mountPath: /var/lib/postgresql/data
 
   valkey-cart:
     enabled: true
+    stateful: true
+    terminationGracePeriodSeconds: 60
     useDefault:
       env: false
     # NOTE: Singleton data/broker component. Non-surge rollout is used because it relies on single-writer / non-HA storage, which does not support zero-downtime rolling updates.
@@ -1103,11 +1117,30 @@ components:
       runAsUser: 999  # valkey
       runAsGroup: 1000
       runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: false
-      capabilities:
-        drop:
-          - ALL
+    mountedConfigMaps:
+      - name: valkey-cart-config
+        mountPath: /etc/valkey
+        data:
+          valkey.conf: |
+            appendonly yes
+            appendfsync everysec
+            save 60 100
+            save 300 10
+            maxmemory 32mb
+            maxmemory-policy allkeys-lru
+            loglevel notice
+    command: ["valkey-server", "/etc/valkey/valkey.conf"]
+    volumeClaimTemplates:
+      - metadata:
+          name: valkey-cart-data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: 2Gi
+    additionalVolumeMounts:
+      - name: valkey-cart-data
+        mountPath: /data
 
 opentelemetry-collector:
   enabled: true
@@ -1483,15 +1516,4 @@ opensearch:
   resources:
     limits:
       memory: 1100Mi
-  podSecurityContext:
-    fsGroup: 1000
-    runAsUser: 1000
-    seccompProfile:
-      type: RuntimeDefault
-  securityContext:
-    runAsNonRoot: true
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: false
-    capabilities:
-      drop:
-        - ALL
+

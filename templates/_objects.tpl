@@ -4,7 +4,7 @@ Demo component Deployment template
 {{- define "techx-corp.deployment" }}
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ if .stateful }}StatefulSet{{ else }}Deployment{{ end }}
 metadata:
   name: {{ .name }}
   labels:
@@ -39,6 +39,9 @@ spec:
         {{- toYaml .podAnnotations | nindent 8 }}
       {{- end }}
     spec:
+      {{- if .terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .terminationGracePeriodSeconds }}
+      {{- end }}
       {{- if or .defaultValues.image.pullSecrets ((.imageOverride).pullSecrets) }}
       imagePullSecrets:
         {{- ((.imageOverride).pullSecrets) | default .defaultValues.image.pullSecrets | toYaml | nindent 8}}
@@ -187,6 +190,10 @@ spec:
         {{- if .additionalVolumes }}
         {{- tpl (toYaml .additionalVolumes) . | nindent 8 }}
         {{- end }}
+  {{- if and .stateful .volumeClaimTemplates }}
+  volumeClaimTemplates:
+    {{- tpl (toYaml .volumeClaimTemplates) . | nindent 4 }}
+  {{- end }}
 {{- end }}
 
 {{/*
