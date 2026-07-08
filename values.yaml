@@ -1,13 +1,5 @@
-﻿# yaml-language-server: $schema=./values.schema.json
+# yaml-language-server: $schema=./values.schema.json
 default:
-  rollout:
-    strategy:
-      type: RollingUpdate
-      rollingUpdate:
-        maxUnavailable: 0
-        maxSurge: 1
-    minReadySeconds: 10
-    progressDeadlineSeconds: 300
   # List of environment variables applied to all components
   env:
     - name: OTEL_SERVICE_NAME
@@ -26,7 +18,7 @@ default:
   image:
     # SEED registry (image mẫu BTC cấp). Mỗi TF ĐỔI sang ECR của account mình:
     #   helm ... --set default.image.repository=<ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/techx-corp
-    repository: 493499579600.dkr.ecr.ap-southeast-1.amazonaws.com/techx-corp
+    repository: nghiadaulau/techx-corp
     # Overrides the image tag whose default is the chart appVersion.
     # The service's name will be applied to the end of this value.
     tag: "1.0"
@@ -41,28 +33,8 @@ default:
     nodeSelector: {}
     affinity: {}
     tolerations: []
-  # Default podSecurityContext for all components
-  podSecurityContext:
-    seccompProfile:
-      type: RuntimeDefault
   # Default securityContext for all components
-  securityContext:
-    runAsNonRoot: true
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    capabilities:
-      drop:
-        - ALL
-  # Default initContainerSecurityContext for all components
-  initContainerSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 10001
-    runAsGroup: 10001
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    capabilities:
-      drop:
-        - ALL
+  securityContext: {}
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -215,11 +187,6 @@ components:
     resources:
       limits:
         memory: 120Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
-      - name: otel-log-dir
-        mountPath: /var/log/opentelemetry/dotnet
     initContainers:
       - name: wait-for-kafka
         image: busybox:latest
@@ -229,9 +196,6 @@ components:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      grpc:
-        port: 8080
     service:
       port: 8080
     podAnnotations:
@@ -250,17 +214,26 @@ components:
     resources:
       limits:
         memory: 300Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
+    # gRPC health check (io.grpc.health.v1.Health). JVM khởi động chậm -> nới initialDelay.
+    livenessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 20
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 5
+    readinessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
 
   cart:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      grpc:
-        port: 8080
     service:
       port: 8080
     podAnnotations:
@@ -281,21 +254,30 @@ components:
     resources:
       limits:
         memory: 160Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
     initContainers:
       - name: wait-for-valkey-cart
         image: busybox:latest
         command: ["sh", "-c", "until nc -z -v -w30 valkey-cart 6379; do echo waiting for valkey-cart; sleep 2; done;"]
+    # gRPC health check qua Grpc.HealthCheck (readinessCheck kiểm tra kết nối valkey-cart).
+    livenessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 5
+    readinessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
 
   checkout:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      grpc:
-        port: 8080
     service:
       port: 8080
     podAnnotations:
@@ -332,14 +314,26 @@ components:
       - name: wait-for-kafka
         image: busybox:latest
         command: ["sh", "-c", "until nc -z -v -w30 kafka 9092; do echo waiting for kafka; sleep 2; done;"]
+    # gRPC health check (grpc_health_v1). Checkout là luồng ra tiền -> readiness gate chặt.
+    livenessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readinessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
 
   currency:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      grpc:
-        port: 8080
     service:
       port: 8080
     podAnnotations:
@@ -356,14 +350,26 @@ components:
     resources:
       limits:
         memory: 20Mi
+    # gRPC health check (grpc::health::v1::Health).
+    livenessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readinessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
 
   email:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      tcpSocket:
-        port: 8080
     service:
       port: 8080
     podAnnotations:
@@ -382,9 +388,22 @@ components:
     resources:
       limits:
         memory: 100Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
+    # Sinatra chỉ expose route nghiệp vụ (POST /send_order_confirmation), không có health endpoint
+    # -> dùng tcpSocket để xác nhận cổng đã lắng nghe.
+    livenessProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 5
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
 
   fraud-detection:
     enabled: true
@@ -408,9 +427,6 @@ components:
     resources:
       limits:
         memory: 300Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
     initContainers:
       - name: wait-for-kafka
         image: busybox:latest
@@ -420,10 +436,6 @@ components:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      httpGet:
-        path: /
-        port: 8080
     service:
       port: 8080
     podAnnotations:
@@ -468,9 +480,23 @@ components:
     resources:
       limits:
         memory: 250Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
+    # Next.js phục vụ storefront ở "/" -> httpGet. Node khởi động + build page nên nới initialDelay.
+    livenessProbe:
+      httpGet:
+        path: /
+        port: 8080
+      initialDelaySeconds: 20
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 5
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
     securityContext:
       runAsUser: 1001  # nextjs
       runAsGroup: 1001
@@ -480,26 +506,8 @@ components:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      httpGet:
-        path: /
-        port: 8080
     service:
       port: 8080
-    publicAlb:
-      enabled: false
-      ingressClassName: alb
-      scheme: internet-facing
-      targetType: ip
-      listenPorts: '[{"HTTP":80}]'
-      host: ""
-      blockedPrefixes:
-        - /grafana
-        - /jaeger
-        - /loadgen
-        - /feature
-        - /flagservice
-        - /otlp-http
     podAnnotations:
       resource.opentelemetry.io/service.namespace: techx-corp
       io.opentelemetry.discovery.metrics/enabled: 'true'
@@ -551,18 +559,27 @@ components:
     resources:
       limits:
         memory: 65Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
+    # Cổng vào duy nhất. Readiness dùng endpoint /ready của Envoy admin (port 10000);
+    # liveness chỉ cần cổng data-plane 8080 còn lắng nghe.
+    livenessProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 5
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 10000
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
     securityContext:
       runAsUser: 101  # envoy
       runAsGroup: 101
       runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
 
   image-provider:
     enabled: true
@@ -588,18 +605,21 @@ components:
     resources:
       limits:
         memory: 50Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
-    securityContext:
-      runAsUser: 101  # nginx
-      runAsGroup: 101
-      runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
+    # Nginx phục vụ ảnh tĩnh (browse path) -> tcpSocket kiểm tra cổng.
+    livenessProbe:
+      tcpSocket:
+        port: 8081
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 5
+    readinessProbe:
+      tcpSocket:
+        port: 8081
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
 
   load-generator:
     enabled: true
@@ -639,17 +659,11 @@ components:
     resources:
       limits:
         memory: 1500Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
 
   payment:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      grpc:
-        port: 8080
     service:
       port: 8080
     podAnnotations:
@@ -668,9 +682,21 @@ components:
     resources:
       limits:
         memory: 140Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
+    # gRPC health check (grpc-js-health-check, status SERVING).
+    livenessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readinessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
     securityContext:
       runAsUser: 1000  # node
       runAsGroup: 1000
@@ -680,9 +706,6 @@ components:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      grpc:
-        port: 8080
     service:
       port: 8080
     podAnnotations:
@@ -705,14 +728,26 @@ components:
     resources:
       limits:
         memory: 20Mi
+    # gRPC health check (grpc_health_v1).
+    livenessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readinessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
 
   product-reviews:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      grpc:
-        port: 3551
     service:
       port: 3551
     podAnnotations:
@@ -743,23 +778,32 @@ components:
       - name: OTEL_PYTHON_LOG_CORRELATION
         value: "true"
       - name: OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT
-        value: "false"
+        value: "true"
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
       limits:
         memory: 100Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
+    # gRPC health check (grpc_health_v1) trên cổng service 3551.
+    livenessProbe:
+      grpc:
+        port: 3551
+      initialDelaySeconds: 15
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 5
+    readinessProbe:
+      grpc:
+        port: 3551
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
 
   quote:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      tcpSocket:
-        port: 8080
     service:
       port: 8080
     podAnnotations:
@@ -778,18 +822,25 @@ components:
     resources:
       limits:
         memory: 40Mi
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
+    # Slim/PHP chỉ expose POST /getquote, không có health endpoint -> tcpSocket.
+    livenessProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 5
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
     securityContext:
       runAsUser: 33  # www-data
       runAsGroup: 33
       runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
 
   recommendation:
     enabled: true
@@ -817,17 +868,26 @@ components:
     resources:
       limits:
         memory: 500Mi            # This is high to enable supporting the recommendationCache feature flag use case
-    mountedEmptyDirs:
-      - name: tmp-dir
-        mountPath: /tmp
+    # gRPC health check (grpc_health_v1).
+    livenessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 5
+    readinessProbe:
+      grpc:
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
 
   shipping:
     enabled: true
     useDefault:
       env: true
-    readinessProbe:
-      tcpSocket:
-        port: 8080
     service:
       port: 8080
     podAnnotations:
@@ -844,6 +904,21 @@ components:
     resources:
       limits:
         memory: 20Mi
+    # actix-web chỉ expose /get-quote và /ship-order, không có health endpoint -> tcpSocket.
+    livenessProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 5
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
 
   flagd:
     enabled: true
@@ -852,9 +927,6 @@ components:
       tag: "v0.12.9"
     useDefault:
       env: true
-    readinessProbe:
-      tcpSocket:
-        port: 8013
     replicas: 1
     ports:
       - name: rpc
@@ -873,6 +945,22 @@ components:
     resources:
       limits:
         memory: 75Mi
+    # tcpSocket trên cổng rpc 8013. Chỉ kiểm tra cổng lắng nghe, KHÔNG đọc flag ->
+    # không đụng đường dây sự cố (xem RULES). Threshold rộng để tránh restart storm.
+    livenessProbe:
+      tcpSocket:
+        port: 8013
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 6
+    readinessProbe:
+      tcpSocket:
+        port: 8013
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
     command:
       - "/flagd-build"
       - "start"
@@ -885,8 +973,6 @@ components:
     mountedEmptyDirs:
       - name: config-rw
         mountPath: /etc/flagd
-      - name: tmp-dir
-        mountPath: /tmp
     # flagd-ui as a sidecar container in the same pod so the flag json file can be shared
     sidecarContainers:
       - name: flagd-ui
@@ -908,20 +994,9 @@ components:
         resources:
           limits:
             memory: 250Mi
-        securityContext:
-          runAsUser: 10001
-          runAsGroup: 10001
-          runAsNonRoot: true
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-              - ALL
         volumeMounts:
           - name: config-rw
             mountPath: /app/data
-          - name: tmp-dir
-            mountPath: /tmp
     initContainers:
       - name: init-config
         image: busybox
@@ -938,20 +1013,8 @@ components:
 
   kafka:
     enabled: true
-    stateful: true
-    terminationGracePeriodSeconds: 60
     useDefault:
       env: true
-    # NOTE: Singleton data/broker component. Non-surge rollout is used because it relies on single-writer / non-HA storage, which does not support zero-downtime rolling updates.
-    rollout:
-      strategy:
-        type: RollingUpdate
-        rollingUpdate:
-          maxUnavailable: 1
-          maxSurge: 0
-    readinessProbe:
-      tcpSocket:
-        port: 9092
     replicas: 1
     ports:
       - name: plaintext
@@ -976,21 +1039,25 @@ components:
     resources:
       limits:
         memory: 700Mi
+    # Broker Kafka (KRaft). Khởi động chậm -> initialDelay lớn, threshold rộng tránh restart storm.
+    livenessProbe:
+      tcpSocket:
+        port: 9092
+      initialDelaySeconds: 45
+      periodSeconds: 20
+      timeoutSeconds: 5
+      failureThreshold: 6
+    readinessProbe:
+      tcpSocket:
+        port: 9092
+      initialDelaySeconds: 20
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
     securityContext:
       runAsUser: 1000  # appuser
       runAsGroup: 1000
       runAsNonRoot: true
-    volumeClaimTemplates:
-      - metadata:
-          name: kafka-data
-        spec:
-          accessModes: [ "ReadWriteOnce" ]
-          resources:
-            requests:
-              storage: 5Gi
-    additionalVolumeMounts:
-      - name: kafka-data
-        mountPath: /opt/kafka/data
 
   llm:
     enabled: true
@@ -1005,23 +1072,26 @@ components:
         value: flagd
       - name: FLAGD_PORT
         value: "8013"
+    # Backend AI (cổng 8000). Best-effort theo SLO -> tcpSocket, threshold rộng.
+    livenessProbe:
+      tcpSocket:
+        port: 8000
+      initialDelaySeconds: 20
+      periodSeconds: 20
+      timeoutSeconds: 5
+      failureThreshold: 6
+    readinessProbe:
+      tcpSocket:
+        port: 8000
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
 
   postgresql:
     enabled: true
-    stateful: true
-    terminationGracePeriodSeconds: 60
     useDefault:
       env: false
-    # NOTE: Singleton data/broker component. Non-surge rollout is used because it relies on single-writer / non-HA storage, which does not support zero-downtime rolling updates.
-    rollout:
-      strategy:
-        type: RollingUpdate
-        rollingUpdate:
-          maxUnavailable: 1
-          maxSurge: 0
-    readinessProbe:
-      tcpSocket:
-        port: 5432
     imageOverride:
       repository: "postgres"
       tag: "17.6"
@@ -1068,34 +1138,26 @@ components:
     resources:
       limits:
         memory: 100Mi
-    volumeClaimTemplates:
-      - metadata:
-          name: postgresql-data
-        spec:
-          accessModes: [ "ReadWriteOnce" ]
-          resources:
-            requests:
-              storage: 5Gi
-    additionalVolumeMounts:
-      - name: postgresql-data
-        mountPath: /var/lib/postgresql/data
+    # DB quan hệ chính (product-catalog, product-reviews, accounting). tcpSocket cổng 5432.
+    livenessProbe:
+      tcpSocket:
+        port: 5432
+      initialDelaySeconds: 20
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 6
+    readinessProbe:
+      tcpSocket:
+        port: 5432
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
 
   valkey-cart:
     enabled: true
-    stateful: true
-    terminationGracePeriodSeconds: 60
     useDefault:
       env: false
-    # NOTE: Singleton data/broker component. Non-surge rollout is used because it relies on single-writer / non-HA storage, which does not support zero-downtime rolling updates.
-    rollout:
-      strategy:
-        type: RollingUpdate
-        rollingUpdate:
-          maxUnavailable: 1
-          maxSurge: 0
-    readinessProbe:
-      tcpSocket:
-        port: 6379
     imageOverride:
       repository: "valkey/valkey"
       tag: "9.0.1-alpine3.23"
@@ -1113,47 +1175,28 @@ components:
     resources:
       limits:
         memory: 20Mi
+    # Key-value store cho giỏ hàng (cart -> valkey-cart:6379). tcpSocket cổng 6379.
+    livenessProbe:
+      tcpSocket:
+        port: 6379
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 5
+    readinessProbe:
+      tcpSocket:
+        port: 6379
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
     securityContext:
       runAsUser: 999  # valkey
       runAsGroup: 1000
       runAsNonRoot: true
-    mountedConfigMaps:
-      - name: valkey-cart-config
-        mountPath: /etc/valkey
-        data:
-          valkey.conf: |
-            appendonly yes
-            appendfsync everysec
-            save 60 100
-            save 300 10
-            maxmemory 32mb
-            maxmemory-policy allkeys-lru
-            loglevel notice
-    command: ["valkey-server", "/etc/valkey/valkey.conf"]
-    volumeClaimTemplates:
-      - metadata:
-          name: valkey-cart-data
-        spec:
-          accessModes: [ "ReadWriteOnce" ]
-          resources:
-            requests:
-              storage: 2Gi
-    additionalVolumeMounts:
-      - name: valkey-cart-data
-        mountPath: /data
 
 opentelemetry-collector:
   enabled: true
-  podSecurityContext:
-    seccompProfile:
-      type: RuntimeDefault
-  securityContext:
-    runAsNonRoot: true
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    capabilities:
-      drop:
-        - ALL
   image:
     repository: "otel/opentelemetry-collector-contrib"
   fullnameOverride: otel-collector
@@ -1285,16 +1328,6 @@ jaeger:
   enabled: true
   fullnameOverride: jaeger
   jaeger:
-    podSecurityContext:
-      seccompProfile:
-        type: RuntimeDefault
-    securityContext:
-      runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
     storage:
       type: memory
     extraEnv:
@@ -1435,20 +1468,6 @@ prometheus:
     resources:
       limits:
         memory: 400Mi
-    securityContext:
-      runAsUser: 65534
-      runAsNonRoot: true
-      runAsGroup: 65534
-      fsGroup: 65534
-      seccompProfile:
-        type: RuntimeDefault
-    containerSecurityContext:
-      runAsNonRoot: true
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
 
 grafana:
   enabled: true
@@ -1482,20 +1501,6 @@ grafana:
   resources:
     limits:
       memory: 300Mi
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 472
-    runAsGroup: 472
-    fsGroup: 472
-    seccompProfile:
-      type: RuntimeDefault
-  containerSecurityContext:
-    runAsNonRoot: true
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    capabilities:
-      drop:
-        - ALL
 
 opensearch:
   enabled: true
@@ -1516,4 +1521,3 @@ opensearch:
   resources:
     limits:
       memory: 1100Mi
-
