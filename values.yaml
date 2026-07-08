@@ -293,6 +293,21 @@ components:
     enabled: true
     useDefault:
       env: true
+    # REL-01: 2 replicas + anti-affinity so the checkout path survives a single pod/node loss.
+    replicas: 2
+    schedulingRules:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/component
+                      operator: In
+                      values:
+                        - checkout
+                topologyKey: kubernetes.io/hostname
     readinessProbe:
       grpc:
         port: 8080
@@ -480,6 +495,21 @@ components:
     enabled: true
     useDefault:
       env: true
+    # REL-01: 2 replicas + anti-affinity so the public entrypoint survives a single pod/node loss.
+    replicas: 2
+    schedulingRules:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/component
+                      operator: In
+                      values:
+                        - frontend-proxy
+                topologyKey: kubernetes.io/hostname
     readinessProbe:
       httpGet:
         path: /
