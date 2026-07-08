@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=./values.schema.json
+﻿# yaml-language-server: $schema=./values.schema.json
 default:
   # List of environment variables applied to all components
   env:
@@ -623,7 +623,7 @@ components:
       - name: OTEL_PYTHON_LOG_CORRELATION
         value: "true"
       - name: OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT
-        value: "true"
+        value: "false"
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
@@ -1230,3 +1230,4 @@ opensearch:
   resources:
     limits:
       memory: 1100Mi
+
