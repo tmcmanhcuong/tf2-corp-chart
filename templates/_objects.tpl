@@ -12,6 +12,17 @@ metadata:
 spec:
   replicas: {{ .replicas | default .defaultValues.replicas }}
   revisionHistoryLimit: {{ .revisionHistoryLimit | default .defaultValues.revisionHistoryLimit }}
+  {{- $rollout := mergeOverwrite (dict) (deepCopy (default dict .defaultValues.rollout)) (deepCopy (default dict .rollout)) }}
+  {{- if $rollout.strategy }}
+  strategy:
+    {{- $rollout.strategy | toYaml | nindent 4 }}
+  {{- end }}
+  {{- if not (kindIs "invalid" $rollout.minReadySeconds) }}
+  minReadySeconds: {{ $rollout.minReadySeconds }}
+  {{- end }}
+  {{- if not (kindIs "invalid" $rollout.progressDeadlineSeconds) }}
+  progressDeadlineSeconds: {{ $rollout.progressDeadlineSeconds }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "techx-corp.selectorLabels" . | nindent 6 }}
@@ -72,6 +83,10 @@ spec:
           securityContext:
             {{- $securityContext | toYaml | nindent 12 }}
           {{- end }}
+          {{- if .startupProbe }}
+          startupProbe:
+            {{- .startupProbe | toYaml | nindent 12 }}
+          {{- end }}
           {{- if .livenessProbe }}
           livenessProbe:
             {{- .livenessProbe | toYaml | nindent 12 }}
@@ -124,6 +139,10 @@ spec:
           {{- if not (empty $sidecarSecurityContext) }}
           securityContext:
             {{- $sidecarSecurityContext | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .startupProbe }}
+          startupProbe:
+            {{- .startupProbe | toYaml | nindent 12 }}
           {{- end }}
           {{- if .livenessProbe }}
           livenessProbe:
