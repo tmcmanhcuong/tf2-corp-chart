@@ -256,6 +256,10 @@
             "host": {
               "type": "string"
             },
+            "blockSensitivePaths": {
+              "type": "boolean",
+              "description": "When true, public ALB returns HTTP 403 for blockedPrefixes (storefront-only posture). When false, all paths forward to frontend-proxy."
+            },
             "blockedPrefixes": {
               "type": "array",
               "items": {

@@ -1,5 +1,10 @@
 {{- $frontendProxy := index .Values.components "frontend-proxy" }}
 {{- if and $frontendProxy $frontendProxy.enabled $frontendProxy.publicAlb $frontendProxy.publicAlb.enabled }}
+{{- /* blockSensitivePaths defaults to true when unset (secure by default on public ALB) */ -}}
+{{- $blockPaths := true -}}
+{{- if hasKey $frontendProxy.publicAlb "blockSensitivePaths" -}}
+  {{- $blockPaths = $frontendProxy.publicAlb.blockSensitivePaths -}}
+{{- end -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -11,14 +16,19 @@ metadata:
     alb.ingress.kubernetes.io/scheme: {{ $frontendProxy.publicAlb.scheme | quote }}
     alb.ingress.kubernetes.io/target-type: {{ $frontendProxy.publicAlb.targetType | quote }}
     alb.ingress.kubernetes.io/listen-ports: {{ $frontendProxy.publicAlb.listenPorts | quote }}
+    {{- if $blockPaths }}
+    # Fixed 403 for blocked admin/telemetry paths (storefront-only posture)
     alb.ingress.kubernetes.io/actions.block-public-path: '{"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"403","messageBody":"Access Denied"}}'
+    {{- end }}
 spec:
   ingressClassName: {{ $frontendProxy.publicAlb.ingressClassName | quote }}
   rules:
     - {{ if $frontendProxy.publicAlb.host }}host: {{ $frontendProxy.publicAlb.host | quote }}
       {{ end }}http:
         paths:
-          {{- range $frontendProxy.publicAlb.blockedPrefixes }}
+          {{- /* Blocked rules MUST come before catch-all / for ALB path matching order */ -}}
+          {{- if $blockPaths }}
+          {{- range ($frontendProxy.publicAlb.blockedPrefixes | default list) }}
           - path: {{ . }}
             pathType: Prefix
             backend:
@@ -27,6 +37,8 @@ spec:
                 port:
                   name: use-annotation
           {{- end }}
+          {{- end }}
+          # ALLOWED storefront surface: / , /api/* , /images/* (and other non-blocked prefixes)
           - path: /
             pathType: Prefix
             backend:

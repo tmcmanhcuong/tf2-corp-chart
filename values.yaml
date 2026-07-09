@@ -25,11 +25,13 @@ default:
   #  - name: OTEL_K8S_NODE_NAME
   #    value: "someConstantValue"
   image:
-    # SEED registry (image mẫu BTC cấp). Mỗi TF ĐỔI sang ECR của account mình:
+    # Image format: REGISTRY/PROJECT/SERVICE:VERSION
+    #   e.g. 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp/ad:sha-a1b2c3d
+    # repository = REGISTRY/PROJECT (service name is appended by the chart template)
     #   helm ... --set default.image.repository=<ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/techx-corp
-    repository: 493499579600.dkr.ecr.ap-southeast-1.amazonaws.com/techx-corp
-    # Overrides the image tag whose default is the chart appVersion.
-    # The service's name will be applied to the end of this value.
+    #            --set default.image.tag=sha-a1b2c3d
+    repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp
+    # Tag/VERSION only (no service suffix). Service is part of the repository path.
     tag: "1.0"
     pullPolicy: IfNotPresent
     pullSecrets: []
@@ -500,6 +502,13 @@ components:
       targetType: ip
       listenPorts: '[{"HTTP":80}]'
       host: ""
+      # Storefront-only security posture on public ALB:
+      #   ALLOWED (via catch-all /):  / , /api/* , /images/*
+      #   BLOCKED (HTTP 403 fixed-response when blockSensitivePaths=true):
+      #     /grafana, /jaeger, /loadgen, /feature, /flagservice, /otlp-http
+      # Toggle: --set components.frontend-proxy.publicAlb.blockSensitivePaths=false
+      # Or drive from Terraform output storefront_alb_helm_set_flags
+      blockSensitivePaths: true
       blockedPrefixes:
         - /grafana
         - /jaeger
