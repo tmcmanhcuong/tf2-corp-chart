@@ -1649,3 +1649,18 @@ opensearch:
     limits:
       memory: 1100Mi
 
+# Metrics Server — required for HPA (autoscaling/v2 CPU & memory metrics).
+# Set enabled: false if the cluster already runs metrics-server (e.g. kube-system).
+metrics-server:
+  enabled: true
+  fullnameOverride: metrics-server
+  # EKS / many managed node groups: kubelet serving certs are not trusted by default.
+  args:
+    - --kubelet-insecure-tls
+  resources:
+    requests:
+      cpu: 100m
+      memory: 200Mi
+    limits:
+      memory: 200Mi
+

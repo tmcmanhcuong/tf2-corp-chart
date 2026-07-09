@@ -29,6 +29,7 @@
 - **SEC-05:** ESO installed, `ClusterSecretStore` Ready, ASM values bootstrapped, **`techx-corp-secrets`** ExternalSecrets Ready (or use `-f values-demo.yaml` for local demo only).
 - Images đã có trên ECR theo format nested (xem Phase 3 / platform repo).
 - **Helm** v3+, **kubectl**, **bash** (smoke test).
+- **Metrics Server:** chart cài kèm subchart `metrics-server` (default `enabled: true`) để HPA (`frontend`, `checkout`) đọc CPU/memory. **Không** cần cài sẵn trong `kube-system`. Nếu cluster **đã** có Metrics Server (một APIService `v1beta1.metrics.k8s.io` duy nhất), tắt trong overlay: `metrics-server.enabled: false`.
 
 ## 4. Hằng số & quy ước image
 
@@ -200,6 +201,44 @@ argocd app wait techx-corp --sync --health --timeout 600
 
 Value layer: `values.yaml` + `values-public-alb.yaml` + `values-dev|prod.yaml` (xem `gitops/clusters/`).
 
+#### Truy cập Argo CD UI / first admin (initial)
+
+Không public Ingress (v1). Port-forward:
+
+```bash
+kubectl -n argocd port-forward svc/argocd-server 8080:443
+# → https://localhost:8080
+```
+
+| Field | Value |
+|---|---|
+| **Username** | `admin` (fixed initial account) |
+| **Password** | From Secret `argocd-initial-admin-secret` (namespace `argocd`) |
+
+**Query first/initial admin password:**
+
+```bash
+# Bash / Git Bash / WSL
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d && echo
+```
+
+```powershell
+# Windows PowerShell
+[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(
+  (kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}")
+))
+```
+
+Infra Terraform helper (when `argocd_enabled=true` — prints the same kubectl query):
+
+```bash
+terraform -chdir=../techx-corp-infra/environments/development \
+  output -raw argocd_admin_password_command
+# run the printed command
+```
+
+Xoay password sau login đầu; secret `argocd-initial-admin-secret` có thể bị xóa sau khi đổi (query trên sẽ fail).
 ### 4B. Helm break-glass (chỉ khẩn cấp)
 
 Tắt Argo auto-sync trước. Argo **không** chuyển Helm release state; dual-drive gây lệch.
@@ -226,19 +265,43 @@ helm upgrade --install techx-corp ./techx-corp-chart \
 
 ```bash
 helm upgrade --install techx-corp-secrets ./techx-corp-chart/secrets-chart \
-  -n techx-corp --create-namespace \
+  -n techx-corp-dev --create-namespace \
   -f ./techx-corp-chart/secrets-chart/values.yaml \
   -f ./techx-corp-chart/secrets-chart/values-dev.yaml
-kubectl -n techx-corp wait --for=condition=Ready externalsecret --all --timeout=120s
+kubectl -n techx-corp-dev wait --for=condition=Ready externalsecret --all --timeout=120s
 
-helm upgrade --install techx-corp ./techx-corp-chart \
-  -n techx-corp --create-namespace \
-  -f ./techx-corp-chart/values.yaml \
-  -f ./techx-corp-chart/values-public-alb.yaml \
-  -f ./techx-corp-chart/values-dev.yaml \
+# From techx-corp-chart/ working directory:
+helm upgrade --install techx-corp-dev . \
+  -n techx-corp-dev --create-namespace \
+  -f values.yaml \
+  -f values-public-alb.yaml \
+  -f values-dev.yaml \
   --wait --atomic --timeout 10m --history-max 10
 ```
 
+### Helm NOTES — Argo CD credential in ra sau install/upgrade
+
+Khi `helm upgrade --install` **thành công**, chart in **NOTES** (cuối output), gồm block **ARGO CD DEFAULT ADMIN CREDENTIAL (initial admin)**:
+
+- Username: `admin`
+- Password: Helm `lookup` Secret `argocd/argocd-initial-admin-secret` (nếu còn trên cluster)
+- **Luôn in** lệnh query first admin init:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d && echo
+```
+
+Xem lại NOTES sau này:
+
+```bash
+helm get notes techx-corp-dev -n techx-corp-dev
+# hoặc prod:
+helm get notes techx-corp -n techx-corp
+```
+
+> **Lưu ý:** `--dry-run=client` không đọc được secret (lookup rỗng). Cần kết nối cluster thật.  
+> Secret biến mất sau khi đổi password admin — lúc đó chỉ còn cách reset password Argo CD (xem runbook GitOps).
 ### Ý nghĩa tham số an toàn
 
 | Flag / value | Mục đích |
@@ -248,6 +311,20 @@ helm upgrade --install techx-corp ./techx-corp-chart \
 | `--wait` / Argo `app wait` | Chờ ready / health (timeout 10m) |
 | `--atomic` | **Chỉ Helm**; Argo không có parity — partial sync có thể xảy ra |
 | `--history-max 10` | Giới hạn revision history (Helm) |
+| `metrics-server.enabled` | Default `true` trong `values.yaml`. Set `false` nếu cluster đã có Metrics Server (tránh conflict APIService / RBAC) |
+
+### Subchart Metrics Server (HPA)
+
+Chart dependency: **metrics-server 3.13.1** (`https://kubernetes-sigs.github.io/metrics-server/`), condition `metrics-server.enabled`.
+
+| Value | Default | Ghi chú |
+|---|---|---|
+| `metrics-server.enabled` | `true` | Tắt nếu đã cài cluster-wide |
+| `metrics-server.fullnameOverride` | `metrics-server` | Tên Deployment/Service trong release namespace |
+| `metrics-server.args` | `--kubelet-insecure-tls` | Thường cần trên EKS (kubelet serving cert) |
+| `metrics-server.resources` | requests 100m/200Mi, limit memory 200Mi | |
+
+HPA templates (`templates/hpa.yaml`) dùng `autoscaling/v2` + CPU/memory utilization — **cần** Metrics Server (API `metrics.k8s.io`). Components bật HPA mặc định: `frontend`, `checkout` (`components.*.autoscaling.enabled`).
 
 ### Kiểm tra image trong Pod
 
@@ -326,6 +403,28 @@ kubectl get ingress frontend-proxy-public -n techx-corp \
 ```
 
 (DNS ALB có thể mất 2–5 phút.)
+
+### Metrics Server & HPA
+
+```bash
+# Metrics Server pod (release namespace)
+kubectl -n techx-corp get deploy,pods -l app.kubernetes.io/name=metrics-server
+kubectl -n techx-corp rollout status deploy/metrics-server --timeout=120s
+
+# API available (cluster-scoped)
+kubectl get apiservice v1beta1.metrics.k8s.io
+kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes | head -c 200; echo
+
+# Resource metrics (after ~15–30s scrape)
+kubectl top nodes
+kubectl top pods -n techx-corp
+
+# HPA objects for services with autoscaling
+kubectl -n techx-corp get hpa
+kubectl -n techx-corp describe hpa frontend checkout
+```
+
+Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready; `kubectl top` trả về CPU/memory.
 
 ### Smoke test
 
@@ -417,6 +516,33 @@ kubectl -n external-secrets logs deploy/external-secrets --tail=50
 - Kiểm tra events: `kubectl -n techx-corp get events --sort-by='.lastTimestamp' | tail -30`
 - `--atomic` sẽ rollback khi timeout; xem `helm history`.
 
+### Metrics Server / HPA
+
+```bash
+kubectl -n techx-corp logs deploy/metrics-server --tail=50
+kubectl get apiservice v1beta1.metrics.k8s.io -o yaml
+kubectl -n techx-corp get hpa
+```
+
+| Symptom | Fix |
+|---|---|
+| HPA `TARGETS` = `<unknown>` / `failed to get cpu utilization` | Metrics Server chưa Ready hoặc APIService not Available. Check deploy + logs; đợi 1–2 phút sau Ready. |
+| `x509: cannot validate certificate` / kubelet TLS errors in logs | Giữ `args: [--kubelet-insecure-tls]` (default chart). Không bỏ trên EKS managed nodes trừ khi đã cấu hình trusted kubelet certs. |
+| APIService create conflict / `already exists` | Cluster đã có Metrics Server (thường `kube-system`). Set `metrics-server.enabled: false` và upgrade/sync. |
+| `kubectl top` → `Metrics API not available` | Pod CrashLoop / APIService False. `kubectl describe apiservice v1beta1.metrics.k8s.io`; fix readiness, network to kubelets. |
+| Duplicate Metrics Server | Chỉ **một** Metrics Server per cluster. App chart default ON — tắt subchart nếu infra đã cài. |
+
+Tắt subchart (cluster đã có Metrics Server):
+
+```bash
+# Break-glass Helm
+helm upgrade techx-corp ./techx-corp-chart -n techx-corp \
+  --reuse-values --set metrics-server.enabled=false \
+  --wait --timeout 5m
+
+# GitOps: ghi metrics-server.enabled: false vào values-dev.yaml / values-prod.yaml rồi Argo sync
+```
+
 ---
 
 ## Tài liệu liên quan
@@ -425,5 +551,8 @@ kubectl -n external-secrets logs deploy/external-secrets --tail=50
 - `techx-corp-platform/docs/DEPLOYMENT.md` — E2E đầy đủ  
 - `techx-corp-infra` — nested ECR + IAM + SEC-05 ASM/ESO  
 - [operations/external-secrets.md](./operations/external-secrets.md) — ESO bootstrap / cutover / rotation  
-- `values.yaml` — `secretKeyRef` production path; `values-demo.yaml` for local plaintext  
+- `values.yaml` — `secretKeyRef` production path; `values-demo.yaml` for local plaintext; `metrics-server` subchart values  
 - `secrets-chart/` — ExternalSecrets Helm release (`techx-corp-secrets`)  
+- `Chart.yaml` — subchart deps (OTel, Prometheus, Grafana, Jaeger, OpenSearch, **metrics-server**)  
+- `templates/NOTES.txt` — post-install notes (port-forward, ALB, **Argo CD admin credential**)  
+- [operations/gitops-argocd.md](./operations/gitops-argocd.md) — GitOps runbook + UI access  
