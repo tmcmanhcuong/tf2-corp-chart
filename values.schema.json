@@ -288,6 +288,9 @@
           "items": {
             "type": "object"
           }
+        },
+        "autoscaling": {
+          "$ref": "#/definitions/Autoscaling"
         }
       },
       "required": [
@@ -912,6 +915,31 @@
         "name",
         "mountPath"
       ]
+    },
+    "Autoscaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minReplicas": {
+          "type": "integer"
+        },
+        "maxReplicas": {
+          "type": "integer"
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer"
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "title": "Autoscaling"
     },
     "PodSecurityContext": {
       "type": "object",
