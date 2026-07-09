@@ -27,3 +27,7 @@ dependencies:
     version: 3.6.0
     repository: https://opensearch-project.github.io/helm-charts/
     condition: opensearch.enabled
+  - name: external-secrets
+    version: 0.10.7
+    repository: https://charts.external-secrets.io
+    condition: external-secrets.enabled

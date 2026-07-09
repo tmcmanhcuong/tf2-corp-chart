@@ -1,4 +1,38 @@
 ﻿# yaml-language-server: $schema=./values.schema.json
+
+# ──────────────────────────────────────────────────────────────────
+# External Secrets Operator (ESO) configuration
+# Credential thật lưu trong AWS Secrets Manager, không hardcode ở đây.
+# Sau khi terraform apply, lấy eso_role_arn từ output rồi điền vào
+# external-secrets.serviceAccount.annotations bên dưới.
+#
+# Secrets cần tạo trong AWS Secrets Manager trước khi deploy:
+#   <secretPrefix>/postgres-credentials
+#     → postgres-user, postgres-password
+#   <secretPrefix>/app-db-credentials
+#     → db-password, accounting-connection-string,
+#       product-catalog-connection-string, product-reviews-connection-string
+#   <secretPrefix>/grafana-admin
+#     → admin-user, admin-password
+#   <secretPrefix>/flagd-ui-secret
+#     → secret-key-base
+# ──────────────────────────────────────────────────────────────────
+externalSecrets:
+  enabled: true
+  region: us-east-1
+  # prefix phải khớp với cluster name để đúng IAM policy (least-privilege)
+  secretPrefix: techx-tf2
+  # ESO sync lại mỗi 1 giờ; giảm xuống nếu cần rotation nhanh hơn
+  refreshInterval: 1h
+
+external-secrets:
+  enabled: true
+  serviceAccount:
+    annotations:
+      # Điền ARN từ: terraform output -raw eso_role_arn
+      # vd: arn:aws:iam::493499579600:role/techx-tf2-eso-role
+      eks.amazonaws.com/role-arn: ""
+
 default:
   rollout:
     strategy:
@@ -209,7 +243,10 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4318
       - name: DB_CONNECTION_STRING
-        value: Host=postgresql;Username=otelu;Password=otelp;Database=otel
+        valueFrom:
+          secretKeyRef:
+            name: app-db-credentials
+            key: accounting-connection-string
       - name: OTEL_DOTNET_AUTO_TRACES_ENTITYFRAMEWORKCORE_INSTRUMENTATION_ENABLED
         value: "false"
     resources:
@@ -697,7 +734,10 @@ components:
       - name: GOMEMLIMIT
         value: 16MiB
       - name: DB_CONNECTION_STRING
-        value: postgres://otelu:otelp@postgresql/otel?sslmode=disable
+        valueFrom:
+          secretKeyRef:
+            name: app-db-credentials
+            key: product-catalog-connection-string
       - name: OTEL_SEMCONV_STABILITY_OPT_IN
         value: database
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -737,7 +777,10 @@ components:
       - name: FLAGD_PORT
         value: "8013"
       - name: DB_CONNECTION_STRING
-        value: host=postgresql user=otelu password=otelp dbname=otel
+        valueFrom:
+          secretKeyRef:
+            name: app-db-credentials
+            key: product-reviews-connection-string
       - name: PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION
         value: python
       - name: OTEL_PYTHON_LOG_CORRELATION
@@ -902,7 +945,10 @@ components:
           - name: FLAGD_UI_PORT
             value: "4000"
           - name: SECRET_KEY_BASE
-            value: yYrECL4qbNwleYInGJYvVnSkwJuSQJ4ijPTx5tirGUXrbznFIBFVJdPl5t6O9ASw
+            valueFrom:
+              secretKeyRef:
+                name: flagd-ui-secret
+                key: secret-key-base
           - name: PHX_HOST
             value: localhost
         resources:
@@ -1032,9 +1078,14 @@ components:
       resource.opentelemetry.io/service.namespace: techx-corp
       io.opentelemetry.discovery.metrics/enabled: 'true'
       io.opentelemetry.discovery.metrics/scraper: postgresql
+      # KNOWN LIMITATION: Kubernetes pod annotations không hỗ trợ secretKeyRef.
+      # Password ở đây dùng cho OTel Collector scraper (metrics-only, read-only user).
+      # Credential này tách biệt với app credentials (otelu/otelp).
+      # Rotation: cập nhật annotation này + đổi password trên PostgreSQL cùng lúc.
+      # Tracked: SEC-05 - future work có thể dùng OTel Collector env var substitution.
       io.opentelemetry.discovery.metrics/config: |
         username: root
-        password: otel
+        password: ${env:POSTGRES_SCRAPER_PASSWORD}
         metrics:
           postgresql.blks_hit:
             enabled: true
@@ -1056,9 +1107,15 @@ components:
           insecure: true
     env:
       - name: POSTGRES_USER
-        value: root
+        valueFrom:
+          secretKeyRef:
+            name: postgres-credentials
+            key: postgres-user
       - name: POSTGRES_PASSWORD
-        value: otel
+        valueFrom:
+          secretKeyRef:
+            name: postgres-credentials
+            key: postgres-password
       - name: POSTGRES_DB
         value: otel
     mountedConfigMaps:
@@ -1465,7 +1522,11 @@ grafana:
     server:
       root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana"
       serve_from_sub_path: true
-  adminPassword: admin
+  # adminPassword đã được xóa - credential lấy từ K8s Secret do ESO tạo
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
   plugins:
     - grafana-opensearch-datasource
   sidecar:
