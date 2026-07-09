@@ -1,0 +1,25 @@
+# Separate release: helm upgrade --install techx-corp-secrets ./secrets-chart -n techx-corp
+# Deploy AFTER ClusterSecretStore is Ready and AFTER ASM values are bootstrapped.
+# Deploy BEFORE (or wait Ready before) the main techx-corp app chart.
+
+namespace: techx-corp
+
+secretStore:
+  name: aws-secretsmanager
+  kind: ClusterSecretStore
+
+refreshInterval: 1h
+
+# Prefer Orphan during migration so deleting ExternalSecret does not GC the K8s Secret.
+creationPolicy: Orphan
+
+# ASM path prefix (must match Terraform secrets_manager_name_prefix)
+remoteKeyPrefix: techx-corp/production
+
+# Target K8s Secret names consumed by the app chart (secretKeyRef)
+targets:
+  postgresqlAdmin: techx-corp-postgresql-admin
+  postgresqlApp: techx-corp-postgresql-app
+  flagdUi: techx-corp-flagd-ui
+  productReviews: techx-corp-product-reviews
+  grafanaAdmin: techx-corp-grafana-admin

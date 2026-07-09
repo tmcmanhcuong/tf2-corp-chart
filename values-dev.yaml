@@ -5,12 +5,16 @@
 # Before changing tag: rebuild and push ALL bake services with that tag, then verify ECR.
 #
 # Snapshot live tag before first Argo sync so drift is minimal.
+# Secrets (SEC-05): use secretKeyRef path; deploy secrets-chart with values-dev remoteKeyPrefix first.
+
+externalSecrets:
+  enabled: true
 
 default:
   image:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-dev-corp
     # Replace with currently running tag before cutover (e.g. sha-a1b2c3d).
-    tag: "1.0"
+    tag: "latest"
 
 components:
   frontend-proxy:

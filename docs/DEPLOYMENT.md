@@ -19,13 +19,14 @@
 | Repository | Vai trò |
 |---|---|
 | **`techx-corp-platform`** | Build/push images (CI/CD hoặc bake) |
-| **`techx-corp-infra`** | VPC, EKS, nested ECR, IAM (GHA OIDC, ALB Controller) |
-| **`techx-corp-chart`** | Helm chart, ALB values, smoke test, rollout safety |
+| **`techx-corp-infra`** | VPC, EKS, nested ECR, IAM (GHA OIDC, ALB Controller, ESO IRSA, ASM shells) |
+| **`techx-corp-chart`** | Helm chart, secrets-chart (ESO), ALB values, smoke test, rollout safety |
 
 ## 3. Điều kiện tiên quyết
 
 - Cluster EKS đã sẵn sàng (`techx-tf2` production), `kubectl` context đúng.
 - AWS Load Balancer Controller đã cài trong `kube-system`.
+- **SEC-05:** ESO installed, `ClusterSecretStore` Ready, ASM values bootstrapped, **`techx-corp-secrets`** ExternalSecrets Ready (or use `-f values-demo.yaml` for local demo only).
 - Images đã có trên ECR theo format nested (xem Phase 3 / platform repo).
 - **Helm** v3+, **kubectl**, **bash** (smoke test).
 
@@ -86,11 +87,67 @@ Component có `imageOverride.repository` (postgres, flagd, …) dùng full `repo
 
 Tóm tắt:
 
-1. Terraform bootstrap + `enviroments/production` (EKS, nested ECR `techx-corp/*`, GHA role).
+1. Terraform bootstrap + `environments/production` (EKS, nested ECR `techx-corp/*`, GHA role).
 2. `aws eks update-kubeconfig --region us-east-1 --name techx-tf2`
-3. Cài AWS Load Balancer Controller từ output Terraform `aws_load_balancer_controller_helm_command`.
+3. Cài AWS Load Balancer Controller từ Terraform output `aws_load_balancer_controller_helm_command`.
+
+   Output includes **`region`**, **`vpcId`**, and IRSA `role-arn`. Required so the controller does not rely on EC2 IMDS (pods often cannot reach metadata → CrashLoop with `failed to get VPC ID` / `ec2imds … deadline exceeded`).
+
+   ```bash
+   helm repo add eks https://aws.github.io/eks-charts && helm repo update
+   terraform -chdir=../techx-corp-infra/environments/production \
+     output -raw aws_load_balancer_controller_helm_command
+   # Run the printed helm upgrade --install
+   kubectl -n kube-system rollout status deployment/aws-load-balancer-controller --timeout=120s
+   ```
 
 Nested ECR (Terraform module `ecr`) phải tồn tại **trước** khi pod pull image, ví dụ: `techx-corp/ad`, `techx-corp/checkout`, …
+
+4. **SEC-05 secrets path** (before app chart with default `values.yaml`):
+
+   Bootstrap ASM values from `techx-corp-infra` (current live credentials only). Use full extension:
+
+   ```powershell
+   # Windows PowerShell (recommended)
+   .\scripts\bootstrap-asm-secrets.ps1 techx-corp/production us-east-1
+   ```
+
+   ```cmd
+   REM Windows CMD
+   scripts\bootstrap-asm-secrets.cmd techx-corp/production us-east-1
+   ```
+
+   ```bash
+   # Bash / Git Bash / WSL
+   ./scripts/bootstrap-asm-secrets.sh techx-corp/production us-east-1
+   ```
+
+   Install ESO (infra) and wait until Helm `STATUS: deployed` — do not interrupt `--wait`.  
+   If you see `another operation is in progress`, uninstall then reinstall (infra DEPLOYMENT troubleshooting §5).
+
+   ```bash
+   # From techx-corp-infra
+   terraform -chdir=environments/production output -raw external_secrets_helm_command
+   # run printed command; then:
+   helm status external-secrets -n external-secrets   # expect deployed
+
+   terraform -chdir=environments/production output -raw external_secrets_cluster_secret_store_manifest | kubectl apply -f -
+   kubectl get clustersecretstore aws-secretsmanager
+   ```
+
+   Then ExternalSecrets release (after ESO + ClusterSecretStore Ready):
+
+   ```bash
+   helm upgrade --install techx-corp-secrets ./secrets-chart \
+     -n techx-corp --create-namespace \
+     -f secrets-chart/values.yaml \
+     -f secrets-chart/values-prod.yaml   # or values-dev.yaml
+   kubectl -n techx-corp wait --for=condition=Ready externalsecret --all --timeout=120s
+   ```
+
+   Runbook: [operations/external-secrets.md](./operations/external-secrets.md).
+
+   Local demo **without** ESO: add `-f values-demo.yaml` to the app chart (plaintext demo only).
 
 ---
 
@@ -150,8 +207,16 @@ Tắt Argo auto-sync trước. Argo **không** chuyển Helm release state; dual
 ### Production (break-glass)
 
 ```bash
+# Secrets release first (SEC-05)
+helm upgrade --install techx-corp-secrets ./techx-corp-chart/secrets-chart \
+  -n techx-corp --create-namespace \
+  -f ./techx-corp-chart/secrets-chart/values.yaml \
+  -f ./techx-corp-chart/secrets-chart/values-prod.yaml
+kubectl -n techx-corp wait --for=condition=Ready externalsecret --all --timeout=120s
+
 helm upgrade --install techx-corp ./techx-corp-chart \
   -n techx-corp --create-namespace \
+  -f ./techx-corp-chart/values.yaml \
   -f ./techx-corp-chart/values-public-alb.yaml \
   -f ./techx-corp-chart/values-prod.yaml \
   --wait --atomic --timeout 10m --history-max 10
@@ -160,8 +225,15 @@ helm upgrade --install techx-corp ./techx-corp-chart \
 ### Development (break-glass)
 
 ```bash
+helm upgrade --install techx-corp-secrets ./techx-corp-chart/secrets-chart \
+  -n techx-corp --create-namespace \
+  -f ./techx-corp-chart/secrets-chart/values.yaml \
+  -f ./techx-corp-chart/secrets-chart/values-dev.yaml
+kubectl -n techx-corp wait --for=condition=Ready externalsecret --all --timeout=120s
+
 helm upgrade --install techx-corp ./techx-corp-chart \
   -n techx-corp --create-namespace \
+  -f ./techx-corp-chart/values.yaml \
   -f ./techx-corp-chart/values-public-alb.yaml \
   -f ./techx-corp-chart/values-dev.yaml \
   --wait --atomic --timeout 10m --history-max 10
@@ -318,6 +390,28 @@ kubectl logs -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controll
 kubectl describe ingress frontend-proxy-public -n techx-corp
 ```
 
+| Symptom | Fix |
+|---|---|
+| `failed to get VPC ID` / `ec2imds GetMetadata` / `context deadline exceeded` | Helm install missing `region`/`vpcId`. Re-run Terraform output `aws_load_balancer_controller_helm_command` (see Phase 1–2). |
+| Controller Ready, Ingress no ADDRESS | Check subnet tags `kubernetes.io/role/elb=1` / `internal-elb=1`; Ingress class/annotations for ALB. |
+| IRSA / AccessDenied in logs | SA must have `eks.amazonaws.com/role-arn` from Terraform ALB controller role. |
+
+### ExternalSecrets / CreateContainerConfigError (SEC-05)
+
+```bash
+kubectl -n techx-corp get externalsecret
+kubectl -n techx-corp describe externalsecret techx-corp-postgresql-app
+kubectl get clustersecretstore aws-secretsmanager
+kubectl -n external-secrets logs deploy/external-secrets --tail=50
+```
+
+| Symptom | Fix |
+|---|---|
+| ExternalSecret not Ready | ASM value missing / wrong key; IRSA on ESO SA; ClusterSecretStore region |
+| `CreateContainerConfigError` / secret not found | Deploy `techx-corp-secrets` and `kubectl wait --for=condition=Ready` before app chart |
+| Auth to ASM fails | Check ESO SA annotation `eks.amazonaws.com/role-arn` matches Terraform output |
+| `another operation (install/upgrade/rollback) is in progress` | Helm release stuck `pending-install` / `pending-upgrade`. See infra DEPLOYMENT troubleshooting §5: `helm status` → `helm uninstall` → reinstall from `external_secrets_helm_command`. Do not start a second upgrade while pending. |
+
 ### Helm upgrade stuck
 
 - Kiểm tra events: `kubectl -n techx-corp get events --sort-by='.lastTimestamp' | tail -30`
@@ -329,5 +423,7 @@ kubectl describe ingress frontend-proxy-public -n techx-corp
 
 - `techx-corp-platform/docs/CICD.md` — build/push OIDC  
 - `techx-corp-platform/docs/DEPLOYMENT.md` — E2E đầy đủ  
-- `techx-corp-infra` — nested ECR + IAM  
-- `values.yaml` — comment `default.image` (format REGISTRY/PROJECT/SERVICE:VERSION)  
+- `techx-corp-infra` — nested ECR + IAM + SEC-05 ASM/ESO  
+- [operations/external-secrets.md](./operations/external-secrets.md) — ESO bootstrap / cutover / rotation  
+- `values.yaml` — `secretKeyRef` production path; `values-demo.yaml` for local plaintext  
+- `secrets-chart/` — ExternalSecrets Helm release (`techx-corp-secrets`)  

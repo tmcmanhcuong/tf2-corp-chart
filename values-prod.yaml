@@ -5,8 +5,12 @@
 # Promotion: full bake all services → verify every ECR tag exists → open PR → merge → Argo sync.
 # Do not open a values-prod PR while image push is still in progress.
 #
-# Secrets: prefer SEC-05 (ESO) before production GitOps cutover.
-# Do not newly commit real production credentials into this file.
+# Secrets (SEC-05): values.yaml uses secretKeyRef. Bootstrap ASM + deploy secrets-chart first.
+# Do not commit real production credentials into this file.
+# See docs/operations/external-secrets.md
+
+externalSecrets:
+  enabled: true
 
 default:
   image:

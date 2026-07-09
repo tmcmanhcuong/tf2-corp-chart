@@ -47,6 +47,23 @@
     "grafana": {
       "type": "object"
     },
+    "externalSecrets": {
+      "type": "object",
+      "description": "SEC-05 documentation block; ExternalSecrets live in secrets-chart release",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "When true, app chart expects ESO-synced Secrets (default production path)"
+        },
+        "secretStoreName": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        }
+      }
+    },
     "opensearch": {
       "type": "object"
     }
