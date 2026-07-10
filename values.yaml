@@ -1,4 +1,4 @@
-﻿# yaml-language-server: $schema=./values.schema.json
+# yaml-language-server: $schema=./values.schema.json
 default:
   rollout:
     strategy:
@@ -326,8 +326,18 @@ components:
       - name: GOMEMLIMIT
         value: 16MiB
     resources:
-      limits:
+      requests:
+        cpu: 50m
         memory: 20Mi
+      limits:
+        cpu: 100m
+        memory: 50Mi
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: 80
     initContainers:
       - name: wait-for-kafka
         image: busybox:latest
@@ -466,8 +476,18 @@ components:
       - name: PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
         value: http://localhost:8080/otlp-http/v1/traces             # This expects users to use `kubectl port-forward ...`
     resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
       limits:
+        cpu: 200m
         memory: 250Mi
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: 80
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
