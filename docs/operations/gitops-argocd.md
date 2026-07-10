@@ -24,14 +24,16 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 kubectl apply -f gitops/clusters/dev/   # hoặc prod/
 ```
 
-5. Sync thủ công (auto-sync OFF lúc này):
+5. Application bật **auto-sync + self-heal** (`prune: false`). Sau apply, Argo sẽ
+   tự sync khi OutOfSync. Vẫn có thể force/review:
 
 ```bash
-argocd app diff techx-corp
-argocd app sync techx-corp --dry-run
-argocd app sync techx-corp
-argocd app wait techx-corp --sync --health --timeout 600
-./scripts/smoke-test.sh --namespace techx-corp
+# Dev: techx-corp-dev / namespace techx-corp-dev
+# Prod: techx-corp / namespace techx-corp
+argocd app diff techx-corp-dev
+argocd app sync techx-corp-dev --dry-run   # optional review
+argocd app wait techx-corp-dev --sync --health --timeout 600
+./scripts/smoke-test.sh --namespace techx-corp-dev
 ```
 
 ## Ownership sau cutover
@@ -106,10 +108,15 @@ Required reviewers / CODEOWNERS không chỉ `values-prod.yaml`, mà cả:
 - Prod cutover: không commit credential thật mới; **ưu tiên hoàn thành SEC-05 (ESO)** trước.  
 - Secret nên được tạo trên cluster (ESO), không nhét password production vào GitOps render.
 
-## Auto-sync (sau khi ổn định)
+## Auto-sync (mặc định)
 
-**Dev (Phase 4):** bật `automated.selfHeal: true`, `prune: false`.  
-**Prod (Phase 5):** giữ manual sync cho đến khi process chín; sau đó cân nhắc self-heal, prune vẫn OFF cho đến Phase 7.
+**Dev và prod:** `automated.selfHeal: true`, `prune: false` trên Application
+(`gitops/clusters/*/application.yaml`).
+
+- Git commit → Argo reconcile → auto-apply khi OutOfSync.
+- Live cluster drift bị self-heal (Git thắng).
+- Resource xóa khỏi Git **không** bị prune tự động (an toàn; bật prune sau Phase 7 nếu cần).
+- Tắt tạm: `argocd app set <APP> --sync-policy none` (hoặc sửa manifest / bỏ `automated`).
 
 Không bật `ServerSideApply` trong baseline v1.
 

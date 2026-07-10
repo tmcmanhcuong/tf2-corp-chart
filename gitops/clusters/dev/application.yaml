@@ -1,12 +1,11 @@
-# Development Application — first cutover: NO automated sync, NO prune, NO ServerSideApply.
-# After stable (Phase 4): enable automated.prune=false, selfHeal=true.
+# Development Application — automated sync + self-heal; prune OFF; NO ServerSideApply.
 #
-# Primary rollback: git revert → merge → Argo sync.
+# Primary rollback: git revert → merge → Argo auto-syncs.
 # History rollback: break-glass only (disable auto-sync first; then update Git).
 #
 # Tracking: Argo injects label argocd.argoproj.io/instance=<metadata.name>
 # on every managed object. Adopting an existing Helm release shows OutOfSync
-# for that label alone until the first manual sync stamps it. Expected; do not
+# for that label alone until the first sync stamps it. Expected; do not
 # ignoreDifferences on this label.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -35,8 +34,10 @@ spec:
     server: https://kubernetes.default.svc
     namespace: techx-corp-dev
 
-  # First cutover: omit automated block entirely (manual sync only).
   syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       # Do NOT enable ServerSideApply in v1 baseline.
