@@ -10,6 +10,10 @@ charts/
 *local-values.yaml
 *private*.yaml
 *.tmp.yaml
+# File secrets thật - KHÔNG BAO GIỜ commit
+*secrets*.env
+*secrets*.sh.local
+.secrets/
 
 # Các tệp tin hệ điều hành tự sinh
 .DS_Store
