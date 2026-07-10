@@ -35,5 +35,26 @@ spec:
     - group: ""
       kind: Namespace
 
+  # Same ignore posture as dev (ESO secrets-chart, Helm history, STS PVCs, kube defaults).
   orphanedResources:
     warn: true
+    ignore:
+      - kind: ConfigMap
+        name: kube-root-ca.crt
+      - kind: ServiceAccount
+        name: default
+      - kind: Secret
+        name: sh.helm.release*
+      - kind: Secret
+        name: techx-corp-*
+      - group: external-secrets.io
+        kind: ExternalSecret
+        name: techx-corp-*
+      - kind: PersistentVolumeClaim
+        name: kafka-data-kafka-0
+      - kind: PersistentVolumeClaim
+        name: postgresql-data-postgresql-0
+      - kind: PersistentVolumeClaim
+        name: valkey-cart-data-valkey-cart-0
+      - group: elbv2.k8s.aws
+        kind: TargetGroupBinding

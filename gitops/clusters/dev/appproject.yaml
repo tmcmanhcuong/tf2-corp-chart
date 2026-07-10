@@ -46,5 +46,29 @@ spec:
   # Do not allow this project to manage Argo CD itself.
   namespaceResourceBlacklist: []
 
+  # Warn on unexpected objects in destination NS. Ignore known non-chart owners:
+  # - kube defaults, Helm release Secrets (pre-GitOps), ESO secrets + CRs (secrets-chart),
+  # - StatefulSet PVCs (volumeClaimTemplates, not standalone chart objects).
   orphanedResources:
     warn: true
+    ignore:
+      - kind: ConfigMap
+        name: kube-root-ca.crt
+      - kind: ServiceAccount
+        name: default
+      - kind: Secret
+        name: sh.helm.release*
+      - kind: Secret
+        name: techx-corp-*
+      - group: external-secrets.io
+        kind: ExternalSecret
+        name: techx-corp-*
+      - kind: PersistentVolumeClaim
+        name: kafka-data-kafka-0
+      - kind: PersistentVolumeClaim
+        name: postgresql-data-postgresql-0
+      - kind: PersistentVolumeClaim
+        name: valkey-cart-data-valkey-cart-0
+      # AWS Load Balancer Controller creates these for ALB Ingress (not in chart).
+      - group: elbv2.k8s.aws
+        kind: TargetGroupBinding
