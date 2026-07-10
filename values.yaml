@@ -1,4 +1,4 @@
-﻿# yaml-language-server: $schema=./values.schema.json
+# yaml-language-server: $schema=./values.schema.json
 default:
   rollout:
     strategy:
@@ -213,8 +213,12 @@ components:
       - name: OTEL_DOTNET_AUTO_TRACES_ENTITYFRAMEWORKCORE_INSTRUMENTATION_ENABLED
         value: "false"
     resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
       limits:
-        memory: 120Mi
+        cpu: 300m
+        memory: 256Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -248,7 +252,11 @@ components:
       - name: OTEL_LOGS_EXPORTER
         value: otlp
     resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
       limits:
+        cpu: 300m
         memory: 300Mi
     mountedEmptyDirs:
       - name: tmp-dir
@@ -279,8 +287,12 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
       limits:
-        memory: 160Mi
+        cpu: 300m
+        memory: 256Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -324,10 +336,14 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
       - name: GOMEMLIMIT
-        value: 16MiB
+        value: 100MiB
     resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
       limits:
-        memory: 20Mi
+        cpu: 200m
+        memory: 128Mi
     initContainers:
       - name: wait-for-kafka
         image: busybox:latest
@@ -354,8 +370,12 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
+      requests:
+        cpu: 20m
+        memory: 32Mi
       limits:
-        memory: 20Mi
+        cpu: 100m
+        memory: 64Mi
 
   email:
     enabled: true
@@ -380,8 +400,12 @@ components:
       - name: FLAGD_PORT
         value: "8013"
     resources:
-      limits:
+      requests:
+        cpu: 50m
         memory: 100Mi
+      limits:
+        cpu: 200m
+        memory: 200Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -406,7 +430,11 @@ components:
       - name: OTEL_INSTRUMENTATION_MESSAGING_EXPERIMENTAL_RECEIVE_TELEMETRY_ENABLED
         value: "true"
     resources:
+      requests:
+        cpu: 100m
+        memory: 150Mi
       limits:
+        cpu: 300m
         memory: 300Mi
     mountedEmptyDirs:
       - name: tmp-dir
@@ -466,8 +494,12 @@ components:
       - name: PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
         value: http://localhost:8080/otlp-http/v1/traces             # This expects users to use `kubectl port-forward ...`
     resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
       limits:
-        memory: 250Mi
+        cpu: 300m
+        memory: 256Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -549,8 +581,12 @@ components:
       - name: OTEL_COLLECTOR_PORT_HTTP
         value: "4318"
     resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
       limits:
-        memory: 65Mi
+        cpu: 150m
+        memory: 128Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -586,8 +622,12 @@ components:
       - name: OTEL_COLLECTOR_HOST
         value: $(OTEL_COLLECTOR_NAME)
     resources:
+      requests:
+        cpu: 20m
+        memory: 32Mi
       limits:
-        memory: 50Mi
+        cpu: 100m
+        memory: 64Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -637,7 +677,11 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
+      requests:
+        cpu: 200m
+        memory: 500Mi
       limits:
+        cpu: 500m
         memory: 1500Mi
     mountedEmptyDirs:
       - name: tmp-dir
@@ -666,8 +710,12 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
+      requests:
+        cpu: 50m
+        memory: 100Mi
       limits:
-        memory: 140Mi
+        cpu: 200m
+        memory: 200Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -695,7 +743,7 @@ components:
       - name: FLAGD_PORT
         value: "8013"
       - name: GOMEMLIMIT
-        value: 16MiB
+        value: 100MiB
       - name: DB_CONNECTION_STRING
         value: postgres://otelu:otelp@postgresql/otel?sslmode=disable
       - name: OTEL_SEMCONV_STABILITY_OPT_IN
@@ -703,8 +751,12 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
       limits:
-        memory: 20Mi
+        cpu: 200m
+        memory: 128Mi
 
   product-reviews:
     enabled: true
@@ -747,8 +799,12 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
-      limits:
+      requests:
+        cpu: 50m
         memory: 100Mi
+      limits:
+        cpu: 200m
+        memory: 200Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -776,8 +832,12 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
       limits:
-        memory: 40Mi
+        cpu: 150m
+        memory: 128Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -815,7 +875,11 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
       limits:
+        cpu: 300m
         memory: 500Mi            # This is high to enable supporting the recommendationCache feature flag use case
     mountedEmptyDirs:
       - name: tmp-dir
@@ -842,8 +906,12 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
+      requests:
+        cpu: 20m
+        memory: 32Mi
       limits:
-        memory: 20Mi
+        cpu: 100m
+        memory: 64Mi
 
   flagd:
     enabled: true
@@ -869,10 +937,14 @@ components:
       - name: FLAGD_OTEL_COLLECTOR_URI
         value: $(OTEL_COLLECTOR_NAME):4317
       - name: GOMEMLIMIT
-        value: 60MiB
+        value: 100MiB
     resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
       limits:
-        memory: 75Mi
+        cpu: 150m
+        memory: 128Mi
     command:
       - "/flagd-build"
       - "start"
@@ -906,8 +978,12 @@ components:
           - name: PHX_HOST
             value: localhost
         resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
           limits:
-            memory: 250Mi
+            cpu: 200m
+            memory: 256Mi
         securityContext:
           runAsUser: 10001
           runAsGroup: 10001
@@ -974,7 +1050,11 @@ components:
       - name: KAFKA_CONTROLLER_QUORUM_VOTERS
         value: 1@kafka:9093
     resources:
+      requests:
+        cpu: 200m
+        memory: 700Mi
       limits:
+        cpu: 200m
         memory: 700Mi
     securityContext:
       runAsUser: 1000  # appuser
@@ -1066,8 +1146,12 @@ components:
         mountPath: /docker-entrypoint-initdb.d
         existingConfigMap: postgresql-init
     resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
       limits:
-        memory: 100Mi
+        cpu: 100m
+        memory: 128Mi
     volumeClaimTemplates:
       - metadata:
           name: postgresql-data
@@ -1111,8 +1195,12 @@ components:
         username: valkey
         collection_interval: 10s
     resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
       limits:
-        memory: 20Mi
+        cpu: 50m
+        memory: 128Mi
     securityContext:
       runAsUser: 999  # valkey
       runAsGroup: 1000
@@ -1171,7 +1259,11 @@ opentelemetry-collector:
       metrics:
         enabled: true
   resources:
+    requests:
+      cpu: 50m
+      memory: 100Mi
     limits:
+      cpu: 200m
       memory: 200Mi
   service:
     enabled: true
@@ -1311,7 +1403,11 @@ jaeger:
       - name: JAEGER_GRPC_PORT
         value: "4317"
     resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
       limits:
+        cpu: 300m
         memory: 600Mi
   userconfig:
     service:
@@ -1433,7 +1529,11 @@ prometheus:
     service:
       servicePort: 9090
     resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
       limits:
+        cpu: 300m
         memory: 400Mi
     securityContext:
       runAsUser: 65534
@@ -1476,11 +1576,18 @@ grafana:
     datasources:
       enabled: true
     resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
       limits:
         cpu: 150m
         memory: 256Mi
   resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
     limits:
+      cpu: 200m
       memory: 300Mi
   securityContext:
     runAsNonRoot: true
@@ -1514,6 +1621,10 @@ opensearch:
     - name: "DISABLE_SECURITY_PLUGIN"
       value: "true"
   resources:
+    requests:
+      cpu: 200m
+      memory: 1100Mi
     limits:
+      cpu: 200m
       memory: 1100Mi
 
