@@ -15,13 +15,13 @@ default:
   image:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-dev-corp
     # Replace with currently running tag before cutover (e.g. sha-a1b2c3d).
-    tag: "sha-0d4b544"
+    tag: "sha-58f4f93"
 
 # Custom OpenSearch image from ECR (same tag as default.image.tag).
 opensearch:
   image:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-dev-corp/opensearch
-    tag: "sha-0d4b544"
+    tag: "sha-58f4f93"
 
 components:
   frontend-proxy:
