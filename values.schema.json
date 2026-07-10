@@ -64,9 +64,6 @@
         }
       }
     },
-    "opensearch": {
-      "type": "object"
-    },
     "metrics-server": {
       "type": "object",
       "description": "Kubernetes Metrics Server (required for HPA CPU/memory metrics)"
@@ -145,6 +142,9 @@
           "$ref": "#/definitions/Component"
         },
         "valkey-cart": {
+          "$ref": "#/definitions/Component"
+        },
+        "opensearch": {
           "$ref": "#/definitions/Component"
         }
       },

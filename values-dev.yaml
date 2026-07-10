@@ -1,9 +1,10 @@
 # Development overlay for Argo CD / Helm GitOps (REL-09).
 # Layer order: values.yaml → values-public-alb.yaml → values-dev.yaml
 #
-# Image contract: default.image.tag is GLOBAL for all nested services.
-# opensearch.image.tag must match default.image.tag (subchart cannot inherit parent defaults).
-# Before changing tag: rebuild and push ALL bake services (including opensearch) with that tag, then verify ECR.
+# Image contract: default.image.repository + default.image.tag is GLOBAL for all
+# nested services including opensearch:
+#   {{ default.image.repository }}/{{ service }}:{{ default.image.tag }}
+# Before changing tag: rebuild and push ALL bake services with that tag, then verify ECR.
 #
 # Snapshot live tag before first Argo sync so drift is minimal.
 # Secrets (SEC-05): use secretKeyRef path; deploy secrets-chart with values-dev remoteKeyPrefix first.
@@ -16,12 +17,6 @@ default:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-dev-corp
     # Replace with currently running tag before cutover (e.g. sha-a1b2c3d).
     tag: "sha-0a1ac72"
-
-# # Custom OpenSearch image from ECR (same tag as default.image.tag).
-# opensearch:
-#   image:
-#     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-dev-corp/opensearch
-#     tag: "sha-32415f0"
 
 components:
   frontend-proxy:

@@ -1307,6 +1307,77 @@ components:
       - name: valkey-cart-data
         mountPath: /data
 
+  # Custom platform image: default.image.repository/opensearch:default.image.tag
+  # (src/opensearch/Dockerfile — strips unused plugins). No separate image override.
+  opensearch:
+    enabled: true
+    stateful: true
+    podSecurityContext:
+      fsGroup: 1000
+      runAsUser: 1000
+    terminationGracePeriodSeconds: 60
+    useDefault:
+      env: false
+    # Singleton search node; non-surge rollout (single-writer data path).
+    rollout:
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: 1
+          maxSurge: 0
+    readinessProbe:
+      tcpSocket:
+        port: 9200
+      initialDelaySeconds: 30
+      periodSeconds: 10
+    livenessProbe:
+      tcpSocket:
+        port: 9200
+      initialDelaySeconds: 60
+      periodSeconds: 20
+    replicas: 1
+    ports:
+      - name: http
+        value: 9200
+      - name: transport
+        value: 9300
+    env:
+      - name: OPENSEARCH_JAVA_OPTS
+        value: "-Xms400m -Xmx400m"
+      - name: discovery.type
+        value: single-node
+      - name: bootstrap.memory_lock
+        value: "true"
+      - name: DISABLE_INSTALL_DEMO_CONFIG
+        value: "true"
+      - name: DISABLE_SECURITY_PLUGIN
+        value: "true"
+      - name: cluster.name
+        value: demo-cluster
+      - name: network.host
+        value: "0.0.0.0"
+    resources:
+      requests:
+        cpu: 200m
+        memory: 1100Mi
+      limits:
+        cpu: 200m
+        memory: 1100Mi
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false
+      capabilities:
+        drop:
+          - ALL
+    mountedEmptyDirs:
+      - name: opensearch-data
+        mountPath: /usr/share/opensearch/data
+      - name: tmp-dir
+        mountPath: /tmp
+
 opentelemetry-collector:
   enabled: true
   podSecurityContext:
@@ -1687,39 +1758,6 @@ grafana:
     capabilities:
       drop:
         - ALL
-
-opensearch:
-  enabled: true
-  fullnameOverride: opensearch
-  clusterName: demo-cluster
-  nodeGroup: techx-corp
-  singleNode: true
-  opensearchJavaOpts: "-Xms400m -Xmx400m"
-  # Custom image from platform bake (src/opensearch/Dockerfile) — strips unused plugins
-  # including performance-analyzer. Official chart does not append service name; full path required.
-  # majorVersion must be set because release tags (sha-*/v*) are not semver for the chart helper.
-  # Tag must stay in sync with default.image.tag on every promotion (global tag contract).
-  majorVersion: "3"
-  image:
-    repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp/opensearch
-    tag: "1.0"
-    pullPolicy: IfNotPresent
-  persistence:
-    enabled: false
-  extraEnvs:
-    - name: "bootstrap.memory_lock"
-      value: "true"
-    - name: "DISABLE_INSTALL_DEMO_CONFIG"
-      value: "true"
-    - name: "DISABLE_SECURITY_PLUGIN"
-      value: "true"
-  resources:
-    requests:
-      cpu: 200m
-      memory: 1100Mi
-    limits:
-      cpu: 200m
-      memory: 1100Mi
 
 # Metrics Server — required for HPA (autoscaling/v2 CPU & memory metrics).
 # Set enabled: false if the cluster already runs metrics-server (e.g. kube-system).

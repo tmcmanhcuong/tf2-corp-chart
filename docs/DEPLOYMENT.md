@@ -95,14 +95,14 @@ Ví dụ:
 |---|---|
 | `default.image.repository` | **REGISTRY/PROJECT** — không kèm service |
 | `default.image.tag` | **VERSION** — không còn suffix `-service` |
-| `opensearch.image.repository` | **Full path** `REGISTRY/PROJECT/opensearch` (subchart không append service) |
-| `opensearch.image.tag` | Cùng **VERSION** với `default.image.tag` (global tag contract) |
 
 > **Deprecated:** `repository:tag` dạng `.../techx-corp:1.0-ad` (service trong tag).
 
 Component có `imageOverride.repository` (postgres, flagd, …) dùng full `repository:tag` public image, không append service path.
 
-OpenSearch dùng image build từ platform (`src/opensearch/Dockerfile`, push ECR) thay vì `opensearchproject/opensearch` public. Khi promote tag, cập nhật **cả** `default.image.tag` và `opensearch.image.tag` (và repository theo env).
+OpenSearch is a **first-party chart component** (`components.opensearch`) using the custom platform image  
+`{{ default.image.repository }}/opensearch:{{ default.image.tag }}`  
+(build: `src/opensearch/Dockerfile`). Promote by updating **only** `default.image.tag` (and repository per env).
 
 ---
 
@@ -348,7 +348,6 @@ kubectl -n techx-corp-dev wait --for=condition=Ready externalsecret --all --time
 # 3) App chart (from nothing = same command as upgrade --install)
 #    Set image tag in values-dev.yaml first:
 #      default.image.tag: "sha-xxxxxxxx"
-#      opensearch.image.tag: "sha-xxxxxxxx"   # must match default.image.tag
 helm upgrade --install techx-corp-dev . \
   -n techx-corp-dev --create-namespace \
   -f values.yaml \
@@ -374,7 +373,7 @@ helm upgrade --install techx-corp-secrets ./secrets-chart \
 kubectl -n techx-corp wait --for=condition=Ready externalsecret --all --timeout=120s
 
 # 3) App chart
-#    Set image tag in values-prod.yaml first (default.image.tag + opensearch.image.tag).
+#    Set image tag in values-prod.yaml first (default.image.tag).
 helm upgrade --install techx-corp . \
   -n techx-corp --create-namespace \
   -f values.yaml \
@@ -397,11 +396,11 @@ bash scripts/smoke-test.sh --namespace techx-corp-dev
 
 #### B2. Update image tag only
 
-**Contract:** một **VERSION** global cho mọi nested service bake **và** OpenSearch:
+**Contract:** một **VERSION** global (`default.image.tag`) cho mọi nested bake service, **including** `opensearch`.
 
-| File | Keys to set (same VERSION) |
+| File | Key |
 |---|---|
-| `values-dev.yaml` / `values-prod.yaml` | `default.image.tag` **and** `opensearch.image.tag` |
+| `values-dev.yaml` / `values-prod.yaml` | `default.image.tag` only |
 
 Verify images exist on ECR **before** upgrade (mọi service bake, kể cả `opensearch`).
 
@@ -410,7 +409,6 @@ Verify images exist on ECR **before** upgrade (mọi service bake, kể cả `op
 ```bash
 # 1) Edit overlay in Git (example dev):
 #    default.image.tag: "sha-NEW"
-#    opensearch.image.tag: "sha-NEW"
 # 2) Commit + push (dev branch techx-dev-corp / prod main)
 # 3) Sync
 argocd app diff techx-corp-dev          # or techx-corp
@@ -422,7 +420,7 @@ argocd app wait techx-corp-dev --sync --health --timeout 600
 
 ```bash
 # --- Development ---
-# Edit values-dev.yaml: default.image.tag + opensearch.image.tag = sha-NEW
+# Edit values-dev.yaml: default.image.tag = sha-NEW
 helm upgrade --install techx-corp-dev . \
   -n techx-corp-dev \
   -f values.yaml \
@@ -431,7 +429,7 @@ helm upgrade --install techx-corp-dev . \
   --wait --atomic --timeout 15m --history-max 10
 
 # --- Production ---
-# Edit values-prod.yaml: default.image.tag + opensearch.image.tag = sha-NEW
+# Edit values-prod.yaml: default.image.tag = sha-NEW
 helm upgrade --install techx-corp . \
   -n techx-corp \
   -f values.yaml \
@@ -440,7 +438,7 @@ helm upgrade --install techx-corp . \
   --wait --atomic --timeout 15m --history-max 10
 ```
 
-**Break-glass Helm** — set tag trên CLI (không sửa file; **vẫn** phải set OpenSearch cùng VERSION):
+**Break-glass Helm** — set tag trên CLI (không sửa file):
 
 ```bash
 # Development — replace sha-NEW
@@ -450,7 +448,6 @@ helm upgrade techx-corp-dev . \
   -f values-public-alb.yaml \
   -f values-dev.yaml \
   --set default.image.tag=sha-NEW \
-  --set opensearch.image.tag=sha-NEW \
   --wait --atomic --timeout 15m --history-max 10
 
 # Production — replace sha-NEW
@@ -460,7 +457,6 @@ helm upgrade techx-corp . \
   -f values-public-alb.yaml \
   -f values-prod.yaml \
   --set default.image.tag=sha-NEW \
-  --set opensearch.image.tag=sha-NEW \
   --wait --atomic --timeout 15m --history-max 10
 ```
 

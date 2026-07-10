@@ -62,7 +62,7 @@ Nếu không cập nhật Git, Argo sẽ coi trạng thái rollback là **OutOfS
 
 ## Promote image tag
 
-Contract chart: **một** `default.image.tag` cho **mọi** service nested, **và** `opensearch.image.tag` cùng VERSION (subchart OpenSearch không inherit `default.image`).
+Contract chart: **một** `default.image.tag` cho **mọi** service nested (including `opensearch` as a first-party component).
 
 ```text
 Build ALL services with same tag (21-image release set, includes opensearch)
@@ -70,7 +70,7 @@ Build ALL services with same tag (21-image release set, includes opensearch)
   → Verify every required repo has the tag (including PROJECT/opensearch)
   → Smoke/security checks
   → Open PR (values-dev.yaml or values-prod.yaml):
-      default.image.tag + opensearch.image.repository/tag
+      default.image.tag only
   → Review / merge
   → Argo sync (+ wait 600s)
 ```
