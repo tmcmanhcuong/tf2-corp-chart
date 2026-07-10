@@ -62,14 +62,15 @@ Nếu không cập nhật Git, Argo sẽ coi trạng thái rollback là **OutOfS
 
 ## Promote image tag
 
-Contract chart: **một** `default.image.tag` cho **mọi** service nested.
+Contract chart: **một** `default.image.tag` cho **mọi** service nested, **và** `opensearch.image.tag` cùng VERSION (subchart OpenSearch không inherit `default.image`).
 
 ```text
-Build ALL services with same tag
+Build ALL services with same tag (21-image release set, includes opensearch)
   → Push ECR
-  → Verify every required repo has the tag
+  → Verify every required repo has the tag (including PROJECT/opensearch)
   → Smoke/security checks
-  → Open PR (values-dev.yaml or values-prod.yaml)
+  → Open PR (values-dev.yaml or values-prod.yaml):
+      default.image.tag + opensearch.image.repository/tag
   → Review / merge
   → Argo sync (+ wait 600s)
 ```
@@ -82,7 +83,7 @@ Partial bake + global tag mới → `ImagePullBackOff`.
 ```bash
 TAG=sha-a1b2c3d
 PROJECT=techx-corp   # or techx-dev-corp
-for svc in ad cart checkout frontend frontend-proxy product-catalog; do
+for svc in ad cart checkout frontend frontend-proxy product-catalog opensearch; do
   aws ecr describe-images --repository-name "${PROJECT}/${svc}" \
     --image-ids imageTag="${TAG}" --region us-east-1 >/dev/null \
     && echo "OK ${PROJECT}/${svc}:${TAG}" \
@@ -90,7 +91,7 @@ for svc in ad cart checkout frontend frontend-proxy product-catalog; do
 done
 ```
 
-(Mở rộng list đủ catalog bake trước khi merge prod.)
+(Mở rộng list đủ catalog bake 21 services trước khi merge prod.)
 
 ## Prod path protection
 

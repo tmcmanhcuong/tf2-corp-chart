@@ -2,7 +2,8 @@
 # Layer order: values.yaml → values-public-alb.yaml → values-prod.yaml
 #
 # Image contract: default.image.tag is GLOBAL for all nested services.
-# Promotion: full bake all services → verify every ECR tag exists → open PR → merge → Argo sync.
+# opensearch.image.tag must match default.image.tag (subchart cannot inherit parent defaults).
+# Promotion: full bake all services (including opensearch) → verify every ECR tag → open PR → merge → Argo sync.
 # Do not open a values-prod PR while image push is still in progress.
 #
 # Secrets (SEC-05): values.yaml uses secretKeyRef. Bootstrap ASM + deploy secrets-chart first.
@@ -16,6 +17,12 @@ default:
   image:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp
     # Replace with currently running tag before cutover (e.g. sha-a1b2c3d or v1.2.3).
+    tag: "1.0"
+
+# Custom OpenSearch image from ECR (same tag as default.image.tag).
+opensearch:
+  image:
+    repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp/opensearch
     tag: "1.0"
 
 components:

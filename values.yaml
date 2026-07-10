@@ -1735,6 +1735,15 @@ opensearch:
   nodeGroup: techx-corp
   singleNode: true
   opensearchJavaOpts: "-Xms400m -Xmx400m"
+  # Custom image from platform bake (src/opensearch/Dockerfile) — strips unused plugins
+  # including performance-analyzer. Official chart does not append service name; full path required.
+  # majorVersion must be set because release tags (sha-*/v*) are not semver for the chart helper.
+  # Tag must stay in sync with default.image.tag on every promotion (global tag contract).
+  majorVersion: "3"
+  image:
+    repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp/opensearch
+    tag: "1.0"
+    pullPolicy: IfNotPresent
   persistence:
     enabled: false
   extraEnvs:

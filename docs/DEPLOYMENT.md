@@ -95,10 +95,14 @@ Ví dụ:
 |---|---|
 | `default.image.repository` | **REGISTRY/PROJECT** — không kèm service |
 | `default.image.tag` | **VERSION** — không còn suffix `-service` |
+| `opensearch.image.repository` | **Full path** `REGISTRY/PROJECT/opensearch` (subchart không append service) |
+| `opensearch.image.tag` | Cùng **VERSION** với `default.image.tag` (global tag contract) |
 
 > **Deprecated:** `repository:tag` dạng `.../techx-corp:1.0-ad` (service trong tag).
 
 Component có `imageOverride.repository` (postgres, flagd, …) dùng full `repository:tag` public image, không append service path.
+
+OpenSearch dùng image build từ platform (`src/opensearch/Dockerfile`, push ECR) thay vì `opensearchproject/opensearch` public. Khi promote tag, cập nhật **cả** `default.image.tag` và `opensearch.image.tag` (và repository theo env).
 
 ---
 
