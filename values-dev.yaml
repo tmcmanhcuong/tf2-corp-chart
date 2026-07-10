@@ -14,7 +14,7 @@ default:
   image:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-dev-corp
     # Replace with currently running tag before cutover (e.g. sha-a1b2c3d).
-    tag: "latest"
+    tag: "sha-0d4b544"
 
 components:
   frontend-proxy:
