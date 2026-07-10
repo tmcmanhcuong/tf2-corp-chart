@@ -1,7 +1,8 @@
 apiVersion: v2
 type: application
 name: techx-corp
-version: 0.40.9
+# [W1][REL-02] Bổ sung readiness/liveness probe cho các service trọng yếu.
+version: 0.40.10
 description: TechX Corp platform helm chart
 maintainers:
   - name: TechX Corp Platform Team
