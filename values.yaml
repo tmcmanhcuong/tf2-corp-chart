@@ -1,14 +1,37 @@
 # yaml-language-server: $schema=./values.schema.json
-#
-# SEC-05: Sensitive credentials use secretKeyRef → ESO-synced Secrets.
-# Deploy order: ESO + ClusterSecretStore → techx-corp-secrets → wait Ready → techx-corp.
-# Local demo with plaintext: -f values-demo.yaml (never for production).
-# Docs: docs/operations/external-secrets.md
 
+# ──────────────────────────────────────────────────────────────────
+# External Secrets Operator (ESO) configuration
+# Credential thật lưu trong AWS Secrets Manager, không hardcode ở đây.
+# Sau khi terraform apply, lấy eso_role_arn từ output rồi điền vào
+# external-secrets.serviceAccount.annotations bên dưới.
+#
+# Secrets cần tạo trong AWS Secrets Manager trước khi deploy:
+#   <secretPrefix>/postgres-credentials
+#     → postgres-user, postgres-password
+#   <secretPrefix>/app-db-credentials
+#     → db-password, accounting-connection-string,
+#       product-catalog-connection-string, product-reviews-connection-string
+#   <secretPrefix>/grafana-admin
+#     → admin-user, admin-password
+#   <secretPrefix>/flagd-ui-secret
+#     → secret-key-base
+# ──────────────────────────────────────────────────────────────────
 externalSecrets:
   enabled: true
-  secretStoreName: aws-secretsmanager
-  namespace: techx-corp
+  region: us-east-1
+  # prefix phải khớp với cluster name để đúng IAM policy (least-privilege)
+  secretPrefix: techx-tf2
+  # ESO sync lại mỗi 1 giờ; giảm xuống nếu cần rotation nhanh hơn
+  refreshInterval: 1h
+
+external-secrets:
+  enabled: true
+  serviceAccount:
+    annotations:
+      # Điền ARN từ: terraform output -raw eso_role_arn
+      # vd: arn:aws:iam::493499579600:role/techx-tf2-eso-role
+      eks.amazonaws.com/role-arn: ""
 
 default:
   storageClassName: gp2
@@ -229,8 +252,8 @@ components:
       - name: DB_CONNECTION_STRING
         valueFrom:
           secretKeyRef:
-            name: techx-corp-postgresql-app
-            key: accounting-db-connection-string
+            name: app-db-credentials
+            key: accounting-connection-string
       - name: OTEL_DOTNET_AUTO_TRACES_ENTITYFRAMEWORKCORE_INSTRUMENTATION_ENABLED
         value: "false"
     resources:
@@ -756,8 +779,8 @@ components:
       - name: DB_CONNECTION_STRING
         valueFrom:
           secretKeyRef:
-            name: techx-corp-postgresql-app
-            key: product-catalog-db-connection-string
+            name: app-db-credentials
+            key: product-catalog-connection-string
       - name: OTEL_SEMCONV_STABILITY_OPT_IN
         value: database
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -806,8 +829,8 @@ components:
       - name: DB_CONNECTION_STRING
         valueFrom:
           secretKeyRef:
-            name: techx-corp-postgresql-app
-            key: product-reviews-db-connection-string
+            name: app-db-credentials
+            key: product-reviews-connection-string
       - name: PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION
         value: python
       - name: OTEL_PYTHON_LOG_CORRELATION
@@ -981,8 +1004,8 @@ components:
           - name: SECRET_KEY_BASE
             valueFrom:
               secretKeyRef:
-                name: techx-corp-flagd-ui
-                key: SECRET_KEY_BASE
+                name: flagd-ui-secret
+                key: secret-key-base
           - name: PHX_HOST
             value: localhost
           - name: PHX_SERVER
@@ -1126,11 +1149,14 @@ components:
       resource.opentelemetry.io/service.namespace: techx-corp
       io.opentelemetry.discovery.metrics/enabled: 'true'
       io.opentelemetry.discovery.metrics/scraper: postgresql
-      # RESIDUAL (SEC-05): OTel scrape config cannot use secretKeyRef; keep in sync with
-      # postgresql-admin password after rotation, or disable metrics scrape. Tracked for follow-up.
+      # KNOWN LIMITATION: Kubernetes pod annotations không hỗ trợ secretKeyRef.
+      # Password ở đây dùng cho OTel Collector scraper (metrics-only, read-only user).
+      # Credential này tách biệt với app credentials (otelu/otelp).
+      # Rotation: cập nhật annotation này + đổi password trên PostgreSQL cùng lúc.
+      # Tracked: SEC-05 - future work có thể dùng OTel Collector env var substitution.
       io.opentelemetry.discovery.metrics/config: |
         username: root
-        password: otel
+        password: ${env:POSTGRES_SCRAPER_PASSWORD}
         metrics:
           postgresql.blks_hit:
             enabled: true
@@ -1154,13 +1180,13 @@ components:
       - name: POSTGRES_USER
         valueFrom:
           secretKeyRef:
-            name: techx-corp-postgresql-admin
-            key: POSTGRES_USER
+            name: postgres-credentials
+            key: postgres-user
       - name: POSTGRES_PASSWORD
         valueFrom:
           secretKeyRef:
-            name: techx-corp-postgresql-admin
-            key: POSTGRES_PASSWORD
+            name: postgres-credentials
+            key: postgres-password
       - name: POSTGRES_DB
         valueFrom:
           secretKeyRef:
@@ -1593,9 +1619,9 @@ grafana:
     server:
       root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana"
       serve_from_sub_path: true
-  # SEC-05: admin credentials from ESO Secret techx-corp-grafana-admin
+  # adminPassword đã được xóa - credential lấy từ K8s Secret do ESO tạo
   admin:
-    existingSecret: techx-corp-grafana-admin
+    existingSecret: grafana-admin
     userKey: admin-user
     passwordKey: admin-password
   plugins:
