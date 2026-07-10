@@ -9,7 +9,7 @@ datasources:
     uid: webstore-metrics
     type: prometheus
     url: http://prometheus:9090
-    editable: true
+    editable: false
     isDefault: true
     jsonData:
       # Align Prometheus data source time interval with the OTel SDKs' export interval (see OTEL_METRIC_EXPORT_INTERVAL)
