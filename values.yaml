@@ -50,10 +50,28 @@ default:
   replicas: 1
   # default revisionHistoryLimit for all components (number of old ReplicaSets to retain)
   revisionHistoryLimit: 10
-  # Default schedulingRules for all components
-  schedulingRules:
+  # Default scheduling: prefer Karpenter Spot / spot-tolerant workers (soft).
+  # Stateful data components override with nodeSelector workload-class=critical (MNG).
+  # See techx-corp-infra/docs/workload-placement.md
+  schedulingRules: &scheduling-spot-tolerant
     nodeSelector: {}
-    affinity: {}
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: karpenter.sh/capacity-type
+                  operator: In
+                  values:
+                    - spot
+          - weight: 50
+            preference:
+              matchExpressions:
+                - key: workload-class
+                  operator: In
+                  values:
+                    - spot-tolerant
     tolerations: []
   # Default podSecurityContext for all components
   podSecurityContext:
@@ -1055,6 +1073,12 @@ components:
   kafka:
     enabled: true
     stateful: true
+    # Critical data plane → managed node group floor
+    schedulingRules: &scheduling-critical
+      nodeSelector:
+        workload-class: critical
+      affinity: {}
+      tolerations: []
     podSecurityContext:
       fsGroup: 1000
     terminationGracePeriodSeconds: 60
@@ -1135,6 +1159,7 @@ components:
   postgresql:
     enabled: true
     stateful: true
+    schedulingRules: *scheduling-critical
     podSecurityContext:
       fsGroup: 999
     terminationGracePeriodSeconds: 60
@@ -1237,6 +1262,7 @@ components:
   valkey-cart:
     enabled: true
     stateful: true
+    schedulingRules: *scheduling-critical
     podSecurityContext:
       fsGroup: 1000
     terminationGracePeriodSeconds: 60
@@ -1312,6 +1338,7 @@ components:
   opensearch:
     enabled: true
     stateful: true
+    schedulingRules: *scheduling-critical
     podSecurityContext:
       fsGroup: 1000
       runAsUser: 1000
@@ -1781,6 +1808,9 @@ grafana:
 metrics-server:
   enabled: true
   fullnameOverride: metrics-server
+  # HPA dependency — pin to critical MNG floor
+  nodeSelector:
+    workload-class: critical
   # EKS / many managed node groups: kubelet serving certs are not trusted by default.
   args:
     - --kubelet-insecure-tls

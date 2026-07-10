@@ -23,3 +23,18 @@ components:
     publicAlb:
       # Dev often leaves sensitive paths open for debugging (infra tfvars).
       blockSensitivePaths: false
+    # Dev: inherit default spot-tolerant preference (stateless edge OK on Spot).
+    # Stateful data (postgresql/kafka/valkey/opensearch) stays critical via values.yaml.
+    # Production edge: keep on critical MNG (avoid Spot interrupt → user-facing blips)
+    schedulingRules:
+      nodeSelector:
+        workload-class: critical
+      affinity: {}
+      tolerations: []
+  flagd:
+    # Feature-flag control plane used by many services at startup
+    schedulingRules:
+      nodeSelector:
+        workload-class: critical
+      affinity: {}
+      tolerations: []

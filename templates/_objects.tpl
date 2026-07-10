@@ -53,18 +53,23 @@ spec:
         {{- ((.imageOverride).pullSecrets) | default .defaultValues.image.pullSecrets | toYaml | nindent 8}}
       {{- end }}
       serviceAccountName: {{ include "techx-corp.serviceAccountName" .}}
-      {{- $schedulingRules := .schedulingRules | default dict }}
-      {{- if or .defaultValues.schedulingRules.nodeSelector $schedulingRules.nodeSelector}}
+      {{- /* Component schedulingRules keys fully replace defaults when present (including empty maps/lists). */}}
+      {{- $schedDefaults := default dict .defaultValues.schedulingRules }}
+      {{- $schedOverrides := default dict .schedulingRules }}
+      {{- $nodeSelector := ternary $schedOverrides.nodeSelector $schedDefaults.nodeSelector (hasKey $schedOverrides "nodeSelector") | default dict }}
+      {{- $affinity := ternary $schedOverrides.affinity $schedDefaults.affinity (hasKey $schedOverrides "affinity") | default dict }}
+      {{- $tolerations := ternary $schedOverrides.tolerations $schedDefaults.tolerations (hasKey $schedOverrides "tolerations") | default list }}
+      {{- if and $nodeSelector (gt (len $nodeSelector) 0) }}
       nodeSelector:
-        {{- $schedulingRules.nodeSelector | default .defaultValues.schedulingRules.nodeSelector | toYaml | nindent 8 }}
+        {{- toYaml $nodeSelector | nindent 8 }}
       {{- end }}
-      {{- if or .defaultValues.schedulingRules.affinity $schedulingRules.affinity}}
+      {{- if and $affinity (gt (len $affinity) 0) }}
       affinity:
-        {{- $schedulingRules.affinity | default .defaultValues.schedulingRules.affinity | toYaml | nindent 8 }}
+        {{- toYaml $affinity | nindent 8 }}
       {{- end }}
-      {{- if or .defaultValues.schedulingRules.tolerations $schedulingRules.tolerations}}
+      {{- if and $tolerations (gt (len $tolerations) 0) }}
       tolerations:
-        {{- $schedulingRules.tolerations | default .defaultValues.schedulingRules.tolerations | toYaml | nindent 8 }}
+        {{- toYaml $tolerations | nindent 8 }}
       {{- end }}
       {{- $podSecurityContext := mergeOverwrite (dict) (default dict .defaultValues.podSecurityContext) (default dict .podSecurityContext) }}
       {{- if not (empty $podSecurityContext) }}
