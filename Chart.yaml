@@ -1,7 +1,6 @@
 apiVersion: v2
 type: application
 name: techx-corp
-# [W1][REL-02] Bổ sung readiness/liveness probe cho các service trọng yếu.
 version: 0.40.10
 description: TechX Corp platform helm chart
 maintainers:
@@ -28,3 +27,7 @@ dependencies:
     version: 3.6.0
     repository: https://opensearch-project.github.io/helm-charts/
     condition: opensearch.enabled
+  - name: metrics-server
+    version: 3.13.1
+    repository: https://kubernetes-sigs.github.io/metrics-server/
+    condition: metrics-server.enabled

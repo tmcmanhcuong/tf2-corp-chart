@@ -47,8 +47,29 @@
     "grafana": {
       "type": "object"
     },
+    "externalSecrets": {
+      "type": "object",
+      "description": "SEC-05 documentation block; ExternalSecrets live in secrets-chart release",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "When true, app chart expects ESO-synced Secrets (default production path)"
+        },
+        "secretStoreName": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        }
+      }
+    },
     "opensearch": {
       "type": "object"
+    },
+    "metrics-server": {
+      "type": "object",
+      "description": "Kubernetes Metrics Server (required for HPA CPU/memory metrics)"
     }
   },
   "required": [
@@ -207,6 +228,12 @@
         "readinessProbe": {
           "$ref": "#/definitions/ReadinessProbe"
         },
+        "startupProbe": {
+          "$ref": "#/definitions/StartupProbe"
+        },
+        "rollout": {
+          "$ref": "#/definitions/Rollout"
+        },
         "schedulingRules": {
           "$ref": "#/definitions/SchedulingRules"
         },
@@ -220,13 +247,47 @@
           "$ref": "#/definitions/ContainerResources"
         },
         "securityContext": {
-          "type": "object"
+          "$ref": "#/definitions/SecurityContext"
         },
         "podSecurityContext": {
-          "type": "object"
+          "$ref": "#/definitions/PodSecurityContext"
         },
         "ingress": {
           "$ref": "#/definitions/Ingress"
+        },
+        "publicAlb": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "ingressClassName": {
+              "type": "string"
+            },
+            "scheme": {
+              "type": "string"
+            },
+            "targetType": {
+              "type": "string"
+            },
+            "listenPorts": {
+              "type": "string"
+            },
+            "host": {
+              "type": "string"
+            },
+            "blockSensitivePaths": {
+              "type": "boolean",
+              "description": "When true, public ALB returns HTTP 403 for blockedPrefixes (storefront-only posture). When false, all paths forward to frontend-proxy."
+            },
+            "blockedPrefixes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         },
         "initContainers": {
           "type": "array"
@@ -236,6 +297,21 @@
         },
         "additionalVolumes": {
           "type": "array"
+        },
+        "stateful": {
+          "type": "boolean"
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer"
+        },
+        "volumeClaimTemplates": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "autoscaling": {
+          "$ref": "#/definitions/Autoscaling"
         }
       },
       "required": [
@@ -310,10 +386,19 @@
           "$ref": "#/definitions/SchedulingRules"
         },
         "securityContext": {
-          "type": "object"
+          "$ref": "#/definitions/SecurityContext"
         },
         "podSecurityContext": {
-          "type": "object"
+          "$ref": "#/definitions/PodSecurityContext"
+        },
+        "initContainerSecurityContext": {
+          "$ref": "#/definitions/SecurityContext"
+        },
+        "rollout": {
+          "$ref": "#/definitions/Rollout"
+        },
+        "storageClassName": {
+          "type": "string"
         }
       },
       "required": [
@@ -651,88 +736,103 @@
         "enabled"
       ]
     },
-    "ProbeHandlerHttpGet": {
+    "LivenessProbe": {
+      "$ref": "#/definitions/Probe"
+    },
+    "ReadinessProbe": {
+      "$ref": "#/definitions/Probe"
+    },
+    "StartupProbe": {
+      "$ref": "#/definitions/Probe"
+    },
+    "Probe": {
       "type": "object",
-      "required": [
-        "port"
-      ],
       "additionalProperties": false,
       "properties": {
-        "path": {
-          "type": "string"
+        "httpGet": {
+          "type": "object",
+          "required": [
+            "port"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "host": {
+              "type": "string"
+            },
+            "scheme": {
+              "type": "string"
+            },
+            "httpHeaders": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "value"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "port": {
+              "type": ["integer", "string"]
+            }
+          }
         },
-        "host": {
-          "type": "string"
+        "grpc": {
+          "type": "object",
+          "required": [
+            "port"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "port": {
+              "type": ["integer", "string"]
+            },
+            "service": {
+              "type": "string"
+            }
+          }
         },
-        "scheme": {
-          "type": "string"
+        "tcpSocket": {
+          "type": "object",
+          "required": [
+            "port"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "host": {
+              "type": "string"
+            },
+            "port": {
+              "type": ["integer", "string"]
+            }
+          }
         },
-        "httpHeaders": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "name",
-              "value"
-            ],
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "value": {
+        "exec": {
+          "type": "object",
+          "required": [
+            "command"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "type": "array",
+              "items": {
                 "type": "string"
               }
             }
           }
         },
-        "port": {
-          "type": "integer"
-        }
-      }
-    },
-    "ProbeHandlerGrpc": {
-      "type": "object",
-      "required": [
-        "port"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "port": {
-          "type": "integer"
-        },
-        "service": {
-          "type": "string"
-        }
-      }
-    },
-    "ProbeHandlerTcpSocket": {
-      "type": "object",
-      "required": [
-        "port"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "port": {
-          "type": "integer"
-        },
-        "host": {
-          "type": "string"
-        }
-      }
-    },
-    "LivenessProbe": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "httpGet": {
-          "$ref": "#/definitions/ProbeHandlerHttpGet"
-        },
-        "grpc": {
-          "$ref": "#/definitions/ProbeHandlerGrpc"
-        },
-        "tcpSocket": {
-          "$ref": "#/definitions/ProbeHandlerTcpSocket"
-        },
         "initialDelaySeconds": {
           "type": "integer"
         },
@@ -750,32 +850,36 @@
         }
       }
     },
-    "ReadinessProbe": {
+    "Rollout": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "httpGet": {
-          "$ref": "#/definitions/ProbeHandlerHttpGet"
+        "strategy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["RollingUpdate", "Recreate"]
+            },
+            "rollingUpdate": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "maxUnavailable": {
+                  "type": ["integer", "string"]
+                },
+                "maxSurge": {
+                  "type": ["integer", "string"]
+                }
+              }
+            }
+          }
         },
-        "grpc": {
-          "$ref": "#/definitions/ProbeHandlerGrpc"
-        },
-        "tcpSocket": {
-          "$ref": "#/definitions/ProbeHandlerTcpSocket"
-        },
-        "initialDelaySeconds": {
+        "minReadySeconds": {
           "type": "integer"
         },
-        "timeoutSeconds": {
-          "type": "integer"
-        },
-        "periodSeconds": {
-          "type": "integer"
-        },
-        "successThreshold": {
-          "type": "integer"
-        },
-        "failureThreshold": {
+        "progressDeadlineSeconds": {
           "type": "integer"
         }
       }
@@ -832,6 +936,119 @@
         "name",
         "mountPath"
       ]
+    },
+    "Autoscaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minReplicas": {
+          "type": "integer"
+        },
+        "maxReplicas": {
+          "type": "integer"
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer"
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "title": "Autoscaling"
+    },
+    "PodSecurityContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "runAsUser": {
+          "type": "integer"
+        },
+        "runAsGroup": {
+          "type": "integer"
+        },
+        "fsGroup": {
+          "type": "integer"
+        },
+        "runAsNonRoot": {
+          "type": "boolean"
+        },
+        "seccompProfile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["Localhost", "RuntimeDefault", "Unconfined"]
+            },
+            "localhostProfile": {
+              "type": "string"
+            }
+          },
+          "required": ["type"]
+        }
+      }
+    },
+    "SecurityContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "runAsUser": {
+          "type": "integer"
+        },
+        "runAsGroup": {
+          "type": "integer"
+        },
+        "runAsNonRoot": {
+          "type": "boolean"
+        },
+        "allowPrivilegeEscalation": {
+          "type": "boolean"
+        },
+        "readOnlyRootFilesystem": {
+          "type": "boolean"
+        },
+        "privileged": {
+          "type": "boolean"
+        },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "add": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "drop": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "seccompProfile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["Localhost", "RuntimeDefault", "Unconfined"]
+            },
+            "localhostProfile": {
+              "type": "string"
+            }
+          },
+          "required": ["type"]
+        }
+      }
     }
   }
 }
