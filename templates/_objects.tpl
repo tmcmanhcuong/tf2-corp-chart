@@ -38,9 +38,11 @@ spec:
         {{- if .podLabels }}
         {{- toYaml .podLabels | nindent 8 }}
         {{- end }}
-      {{- if .podAnnotations }}
+      {{- /* OTEL logical service.namespace follows Helm release NS (dev/prod); values may override. */}}
+      {{- $podAnnotations := mergeOverwrite (dict "resource.opentelemetry.io/service.namespace" .Release.Namespace) (default dict .podAnnotations) }}
+      {{- if $podAnnotations }}
       annotations:
-        {{- toYaml .podAnnotations | nindent 8 }}
+        {{- toYaml $podAnnotations | nindent 8 }}
       {{- end }}
     spec:
       {{- if .terminationGracePeriodSeconds }}

@@ -318,45 +318,166 @@ terraform -chdir=../techx-corp-infra/environments/development \
 ```
 
 Xoay password sau login đầu; secret `argocd-initial-admin-secret` có thể bị xóa sau khi đổi (query trên sẽ fail).
-### 4B. Helm break-glass (chỉ khẩn cấp)
+### 4B. Helm install / upgrade (break-glass + cold install)
 
-Tắt Argo auto-sync trước. Argo **không** chuyển Helm release state; dual-drive gây lệch.
+> **Paths:** mọi lệnh dưới đây giả định **cwd = chart root** (local `techx-corp-chart` / clone `tf2-corp-chart`).  
+> **Release name vs namespace:** phải khớp bảng hằng số (§2 / §4). Dev: release `techx-corp-dev` → NS `techx-corp-dev`. Prod: release `techx-corp` → NS `techx-corp`.  
+> **Sau cutover GitOps:** tắt Argo auto-sync trước khi `helm upgrade`. Argo **không** chuyển Helm release state; dual-drive gây lệch. Deploy thường xuyên qua Git (tag) + Argo sync (mục 4A).
 
-### Production (break-glass)
+#### B1. Install from nothing (cold install)
 
-```bash
-# Secrets release first (SEC-05). Paths assume cwd = chart root
-# (local folder techx-corp-chart / clone of tf2-corp-chart).
-helm upgrade --install techx-corp-secrets ./secrets-chart \
-  -n techx-corp --create-namespace \
-  -f ./secrets-chart/values.yaml \
-  -f ./secrets-chart/values-prod.yaml
-kubectl -n techx-corp wait --for=condition=Ready externalsecret --all --timeout=120s
+Thứ tự bắt buộc: ESO + `ClusterSecretStore` Ready → **secrets** release Ready → **app** chart.  
+Prereqs: Phase 1–2 (cluster, ALB controller, ASM bootstrap, ESO) + Phase 3 (images trên ECR với tag sẽ ghi trong overlay).
 
-helm upgrade --install techx-corp . \
-  -n techx-corp --create-namespace \
-  -f values.yaml \
-  -f values-public-alb.yaml \
-  -f values-prod.yaml \
-  --wait --atomic --timeout 10m --history-max 10
-```
-
-### Development (break-glass)
+**Development**
 
 ```bash
-# Paths assume cwd = chart root (local folder techx-corp-chart / clone of tf2-corp-chart)
+# 0) Context đúng cluster dev
+aws eks update-kubeconfig --region us-east-1 --name techx-dev
+
+# 1) Optional: pull chart dependencies (first time / after Chart.yaml change)
+helm dependency build .
+
+# 2) SEC-05: ExternalSecrets → K8s Secrets (wait Ready before app)
 helm upgrade --install techx-corp-secrets ./secrets-chart \
   -n techx-corp-dev --create-namespace \
-  -f ./secrets-chart/values.yaml \
-  -f ./secrets-chart/values-dev.yaml
+  -f secrets-chart/values.yaml \
+  -f secrets-chart/values-dev.yaml
 kubectl -n techx-corp-dev wait --for=condition=Ready externalsecret --all --timeout=120s
 
+# 3) App chart (from nothing = same command as upgrade --install)
+#    Set image tag in values-dev.yaml first:
+#      default.image.tag: "sha-xxxxxxxx"
+#      opensearch.image.tag: "sha-xxxxxxxx"   # must match default.image.tag
 helm upgrade --install techx-corp-dev . \
   -n techx-corp-dev --create-namespace \
   -f values.yaml \
   -f values-public-alb.yaml \
   -f values-dev.yaml \
-  --wait --atomic --timeout 10m --history-max 10
+  --wait --atomic --timeout 15m --history-max 10
+```
+
+**Production**
+
+```bash
+# 0) Context đúng cluster prod
+aws eks update-kubeconfig --region us-east-1 --name techx-tf2
+
+# 1) Optional
+helm dependency build .
+
+# 2) SEC-05 secrets
+helm upgrade --install techx-corp-secrets ./secrets-chart \
+  -n techx-corp --create-namespace \
+  -f secrets-chart/values.yaml \
+  -f secrets-chart/values-prod.yaml
+kubectl -n techx-corp wait --for=condition=Ready externalsecret --all --timeout=120s
+
+# 3) App chart
+#    Set image tag in values-prod.yaml first (default.image.tag + opensearch.image.tag).
+helm upgrade --install techx-corp . \
+  -n techx-corp --create-namespace \
+  -f values.yaml \
+  -f values-public-alb.yaml \
+  -f values-prod.yaml \
+  --wait --atomic --timeout 15m --history-max 10
+```
+
+Local demo **không** ESO (plaintext only): thêm `-f values-demo.yaml` ở bước app chart; **không** dùng production.
+
+**Sau cold install — kiểm tra nhanh**
+
+```bash
+# Dev examples (prod: -n techx-corp, release techx-corp)
+helm status techx-corp-dev -n techx-corp-dev
+kubectl -n techx-corp-dev get deploy,pods,ingress
+kubectl -n techx-corp-dev get deploy ad -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
+bash scripts/smoke-test.sh --namespace techx-corp-dev
+```
+
+#### B2. Update image tag only
+
+**Contract:** một **VERSION** global cho mọi nested service bake **và** OpenSearch:
+
+| File | Keys to set (same VERSION) |
+|---|---|
+| `values-dev.yaml` / `values-prod.yaml` | `default.image.tag` **and** `opensearch.image.tag` |
+
+Verify images exist on ECR **before** upgrade (mọi service bake, kể cả `opensearch`).
+
+**Preferred (GitOps)** — không cần Helm sau cutover:
+
+```bash
+# 1) Edit overlay in Git (example dev):
+#    default.image.tag: "sha-NEW"
+#    opensearch.image.tag: "sha-NEW"
+# 2) Commit + push (dev branch techx-dev-corp / prod main)
+# 3) Sync
+argocd app diff techx-corp-dev          # or techx-corp
+argocd app sync techx-corp-dev          # or techx-corp
+argocd app wait techx-corp-dev --sync --health --timeout 600
+```
+
+**Break-glass Helm** — tag đã ghi trong overlay file, rồi upgrade lại cùng layer values (giống install):
+
+```bash
+# --- Development ---
+# Edit values-dev.yaml: default.image.tag + opensearch.image.tag = sha-NEW
+helm upgrade --install techx-corp-dev . \
+  -n techx-corp-dev \
+  -f values.yaml \
+  -f values-public-alb.yaml \
+  -f values-dev.yaml \
+  --wait --atomic --timeout 15m --history-max 10
+
+# --- Production ---
+# Edit values-prod.yaml: default.image.tag + opensearch.image.tag = sha-NEW
+helm upgrade --install techx-corp . \
+  -n techx-corp \
+  -f values.yaml \
+  -f values-public-alb.yaml \
+  -f values-prod.yaml \
+  --wait --atomic --timeout 15m --history-max 10
+```
+
+**Break-glass Helm** — set tag trên CLI (không sửa file; **vẫn** phải set OpenSearch cùng VERSION):
+
+```bash
+# Development — replace sha-NEW
+helm upgrade techx-corp-dev . \
+  -n techx-corp-dev \
+  -f values.yaml \
+  -f values-public-alb.yaml \
+  -f values-dev.yaml \
+  --set default.image.tag=sha-NEW \
+  --set opensearch.image.tag=sha-NEW \
+  --wait --atomic --timeout 15m --history-max 10
+
+# Production — replace sha-NEW
+helm upgrade techx-corp . \
+  -n techx-corp \
+  -f values.yaml \
+  -f values-public-alb.yaml \
+  -f values-prod.yaml \
+  --set default.image.tag=sha-NEW \
+  --set opensearch.image.tag=sha-NEW \
+  --wait --atomic --timeout 15m --history-max 10
+```
+
+> **Không** dùng `--reuse-values` + chỉ `--set default.image.tag` khi base values trong Git đã đổi (ALB, resources, …): dễ lệch với overlay. Prefer full `-f` layer như trên.  
+> Sau break-glass CLI tag: **đồng bộ lại Git** (ghi tag vào `values-dev|prod.yaml`) để Argo không revert.
+
+**Xác minh tag mới**
+
+```bash
+# Dev
+kubectl -n techx-corp-dev get deploy ad frontend checkout \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[0].image}{"\n"}{end}'
+
+# Prod
+kubectl -n techx-corp get deploy ad frontend checkout \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[0].image}{"\n"}{end}'
+# Kỳ vọng: .../techx-dev-corp|techx-corp/<service>:sha-NEW
 ```
 
 ### Helm NOTES — Argo CD credential in ra sau install/upgrade

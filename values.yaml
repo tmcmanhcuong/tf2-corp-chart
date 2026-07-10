@@ -218,8 +218,6 @@ components:
     securityContext:
       runAsUser: 10001
       runAsGroup: 10001
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: KAFKA_ADDR
         value: kafka:9092
@@ -262,8 +260,6 @@ components:
         port: 8080
     service:
       port: 8080
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: AD_PORT
         value: "8080"
@@ -295,8 +291,6 @@ components:
         port: 8080
     service:
       port: 8080
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: CART_PORT
         value: "8080"
@@ -334,8 +328,6 @@ components:
         port: 8080
     service:
       port: 8080
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: CHECKOUT_PORT
         value: "8080"
@@ -388,8 +380,6 @@ components:
         port: 8080
     service:
       port: 8080
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: CURRENCY_PORT
         value: "8080"
@@ -416,8 +406,6 @@ components:
         port: 8080
     service:
       port: 8080
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: EMAIL_PORT
         value: "8080"
@@ -444,8 +432,6 @@ components:
     enabled: true
     useDefault:
       env: true
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: KAFKA_ADDR
         value: kafka:9092
@@ -484,8 +470,6 @@ components:
         port: 8080
     service:
       port: 8080
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: FRONTEND_PORT
         value: "8080"
@@ -576,7 +560,6 @@ components:
         - /flagservice
         - /otlp-http
     podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
       io.opentelemetry.discovery.metrics/enabled: 'true'
       io.opentelemetry.discovery.metrics/scraper: httpcheck
       io.opentelemetry.discovery.metrics/config: |
@@ -650,7 +633,6 @@ components:
     service:
       port: 8081
     podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
       io.opentelemetry.discovery.metrics/enabled: 'true'
       io.opentelemetry.discovery.metrics/scraper: nginx
       io.opentelemetry.discovery.metrics/config: |
@@ -690,8 +672,6 @@ components:
       env: true
     service:
       port: 8089
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: LOCUST_WEB_HOST
         value: "0.0.0.0"
@@ -745,8 +725,6 @@ components:
         port: 8080
     service:
       port: 8080
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: PAYMENT_PORT
         value: "8080"
@@ -782,8 +760,6 @@ components:
         port: 8080
     service:
       port: 8080
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: PRODUCT_CATALOG_PORT
         value: "8080"
@@ -823,8 +799,6 @@ components:
         port: 3551
     service:
       port: 3551
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: OPENAI_API_KEY
         valueFrom:
@@ -884,8 +858,6 @@ components:
         port: 8080
     service:
       port: 8080
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: QUOTE_PORT
         value: "8080"
@@ -923,8 +895,6 @@ components:
       env: true
     service:
       port: 8080
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: RECOMMENDATION_PORT
         value: "8080"
@@ -960,8 +930,6 @@ components:
         port: 8080
     service:
       port: 8080
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: SHIPPING_PORT
         value: "8080"
@@ -995,8 +963,6 @@ components:
         value: 8013
       - name: ofrep
         value: 8016
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: FLAGD_METRICS_EXPORTER
         value: otel
@@ -1110,8 +1076,6 @@ components:
         value: 9092
       - name: controller
         value: 9093
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: KAFKA_ADVERTISED_LISTENERS
         value: PLAINTEXT://kafka:9092
@@ -1162,8 +1126,6 @@ components:
       env: true
     service:
       port: 8000
-    podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: FLAGD_HOST
         value: flagd
@@ -1195,7 +1157,6 @@ components:
     service:
       port: 5432
     podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
       io.opentelemetry.discovery.metrics/enabled: 'true'
       io.opentelemetry.discovery.metrics/scraper: postgresql
       # RESIDUAL (SEC-05): OTel scrape config cannot use secretKeyRef; keep in sync with
@@ -1299,7 +1260,6 @@ components:
       - name: valkey-cart
         value: 6379
     podAnnotations:
-      resource.opentelemetry.io/service.namespace: techx-corp
       io.opentelemetry.discovery.metrics/enabled: 'true'
       io.opentelemetry.discovery.metrics/scraper: redis
       io.opentelemetry.discovery.metrics/config: |
