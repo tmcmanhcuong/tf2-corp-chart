@@ -7,7 +7,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: techx-corp
+  name: techx-corp-dev
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -16,16 +16,18 @@ spec:
 
   # Only this Git repo may be used as source.
   sourceRepos:
-    - https://github.com/tmcmanhcuong/techx-corp-chart.git
-    - https://github.com/tmcmanhcuong/techx-corp-chart.git/*
+    # Actual GitHub repo name is tf2-corp-chart (local folder may still be techx-corp-chart).
+    - https://github.com/tmcmanhcuong/tf2-corp-chart.git
+    - https://github.com/tmcmanhcuong/tf2-corp-chart.git/*
     # Allow SSH form if operators use deploy keys:
-    - git@github.com:tmcmanhcuong/techx-corp-chart.git
-    - git@github.com:tmcmanhcuong/techx-corp-chart.git/*
+    - git@github.com:tmcmanhcuong/tf2-corp-chart.git
+    - git@github.com:tmcmanhcuong/tf2-corp-chart.git/*
 
   destinations:
     # Application destination only. CreateNamespace syncOption creates NS via whitelist.
+    # Must match Application.spec.destination.namespace (techx-corp-dev).
     - server: https://kubernetes.default.svc
-      namespace: techx-corp
+      namespace: techx-corp-dev
 
   # Explicit cluster-scoped allow-list (from chart inventory). No wildcards.
   clusterResourceWhitelist:

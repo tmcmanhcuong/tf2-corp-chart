@@ -13,7 +13,7 @@ spec:
   project: techx-corp
 
   source:
-    repoURL: https://github.com/tmcmanhcuong/techx-corp-chart.git
+    repoURL: https://github.com/tmcmanhcuong/tf2-corp-chart.git
     targetRevision: main
     path: .
     helm:
