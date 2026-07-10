@@ -47,8 +47,29 @@
     "grafana": {
       "type": "object"
     },
+    "externalSecrets": {
+      "type": "object",
+      "description": "SEC-05 documentation block; ExternalSecrets live in secrets-chart release",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "When true, app chart expects ESO-synced Secrets (default production path)"
+        },
+        "secretStoreName": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        }
+      }
+    },
     "opensearch": {
       "type": "object"
+    },
+    "metrics-server": {
+      "type": "object",
+      "description": "Kubernetes Metrics Server (required for HPA CPU/memory metrics)"
     }
   },
   "required": [
@@ -256,6 +277,10 @@
             "host": {
               "type": "string"
             },
+            "blockSensitivePaths": {
+              "type": "boolean",
+              "description": "When true, public ALB returns HTTP 403 for blockedPrefixes (storefront-only posture). When false, all paths forward to frontend-proxy."
+            },
             "blockedPrefixes": {
               "type": "array",
               "items": {
@@ -272,6 +297,21 @@
         },
         "additionalVolumes": {
           "type": "array"
+        },
+        "stateful": {
+          "type": "boolean"
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer"
+        },
+        "volumeClaimTemplates": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "autoscaling": {
+          "$ref": "#/definitions/Autoscaling"
         }
       },
       "required": [
@@ -356,6 +396,9 @@
         },
         "rollout": {
           "$ref": "#/definitions/Rollout"
+        },
+        "storageClassName": {
+          "type": "string"
         }
       },
       "required": [
@@ -893,6 +936,31 @@
         "name",
         "mountPath"
       ]
+    },
+    "Autoscaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minReplicas": {
+          "type": "integer"
+        },
+        "maxReplicas": {
+          "type": "integer"
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer"
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "title": "Autoscaling"
     },
     "PodSecurityContext": {
       "type": "object",

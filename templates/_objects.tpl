@@ -10,18 +10,22 @@ metadata:
   labels:
     {{- include "techx-corp.labels" . | nindent 4 }}
 spec:
+  {{- if not (and .autoscaling .autoscaling.enabled) }}
   replicas: {{ .replicas | default .defaultValues.replicas }}
+  {{- end }}
   revisionHistoryLimit: {{ .revisionHistoryLimit | default .defaultValues.revisionHistoryLimit }}
   {{- $rollout := mergeOverwrite (dict) (deepCopy (default dict .defaultValues.rollout)) (deepCopy (default dict .rollout)) }}
+  {{- if not .stateful }}
   {{- if $rollout.strategy }}
   strategy:
     {{- $rollout.strategy | toYaml | nindent 4 }}
   {{- end }}
-  {{- if not (kindIs "invalid" $rollout.minReadySeconds) }}
-  minReadySeconds: {{ $rollout.minReadySeconds }}
-  {{- end }}
   {{- if not (kindIs "invalid" $rollout.progressDeadlineSeconds) }}
   progressDeadlineSeconds: {{ $rollout.progressDeadlineSeconds }}
+  {{- end }}
+  {{- end }}
+  {{- if not (kindIs "invalid" $rollout.minReadySeconds) }}
+  minReadySeconds: {{ $rollout.minReadySeconds }}
   {{- end }}
   selector:
     matchLabels:
@@ -67,7 +71,12 @@ spec:
       {{- end }}
       containers:
         - name: {{ .name }}
-          image: '{{ ((.imageOverride).repository) | default .defaultValues.image.repository }}:{{ ((.imageOverride).tag) | default (printf "%s-%s" (default .Chart.AppVersion .defaultValues.image.tag) .name) }}'
+          {{- /* Default: REGISTRY/PROJECT/SERVICE:VERSION  |  Override: repository:tag as given */ -}}
+          {{- if ((.imageOverride).repository) }}
+          image: '{{ .imageOverride.repository }}:{{ ((.imageOverride).tag) | default (default .Chart.AppVersion .defaultValues.image.tag) }}'
+          {{- else }}
+          image: '{{ .defaultValues.image.repository }}/{{ .name }}:{{ ((.imageOverride).tag) | default (default .Chart.AppVersion .defaultValues.image.tag) }}'
+          {{- end }}
           imagePullPolicy: {{ ((.imageOverride).pullPolicy) | default .defaultValues.image.pullPolicy }}
           {{- if .command }}
           command:
@@ -122,7 +131,11 @@ spec:
         {{- $sidecar := set . "Release" $.Release }}
         {{- $sidecar := set . "defaultValues" $.defaultValues }}
         - name: {{ .name   }}
-          image: '{{ ((.imageOverride).repository) | default .defaultValues.image.repository }}:{{ ((.imageOverride).tag) | default (printf "%s-%s" (default .Chart.AppVersion .defaultValues.image.tag) .name) }}'
+          {{- if ((.imageOverride).repository) }}
+          image: '{{ .imageOverride.repository }}:{{ ((.imageOverride).tag) | default (default .Chart.AppVersion .defaultValues.image.tag) }}'
+          {{- else }}
+          image: '{{ .defaultValues.image.repository }}/{{ .name }}:{{ ((.imageOverride).tag) | default (default .Chart.AppVersion .defaultValues.image.tag) }}'
+          {{- end }}
           imagePullPolicy: {{ ((.imageOverride).pullPolicy) | default .defaultValues.image.pullPolicy }}
           {{- if .command }}
           command:
@@ -346,3 +359,41 @@ spec:
 {{- end}}
 {{- end}}
 {{- end}}
+
+{{/*
+Demo component HPA template
+*/}}
+{{- define "techx-corp.hpa" }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "techx-corp.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .name }}
+  minReplicas: {{ .autoscaling.minReplicas | default 1 }}
+  maxReplicas: {{ .autoscaling.maxReplicas | default 5 }}
+  metrics:
+    {{- if .autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+{{- end }}
+

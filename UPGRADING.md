@@ -6,6 +6,26 @@
 > release and then install the new version.
 
 
+## To 0.40.10
+
+[W1][REL-02] Readiness/liveness probe được bổ sung cho các service trọng yếu
+(app + datastore/infra) để Kubernetes tự phát hiện pod chết (restart) và chỉ
+route traffic vào pod đã sẵn sàng (readiness gate).
+
+- Service gRPC (checkout, cart, product-catalog, currency, payment,
+  recommendation, ad, product-reviews) dùng probe kiểu `grpc` — các service này
+  đã đăng ký sẵn gRPC Health protocol (`grpc.health.v1.Health`). Yêu cầu
+  Kubernetes >= 1.24 (native gRPC probe).
+- Service HTTP (frontend, frontend-proxy) dùng `httpGet`; frontend-proxy
+  readiness trỏ vào `/ready` của Envoy admin (port 10000).
+- Service HTTP chỉ expose route nghiệp vụ (shipping, quote, email) và các
+  datastore/infra (postgresql, valkey-cart, kafka, flagd, llm, image-provider)
+  dùng `tcpSocket`.
+
+Các probe không đọc feature flag và không đụng đường dây flagd/OpenFeature
+(tuân thủ RULES.md §8). `values.schema.json` được mở rộng để hỗ trợ handler
+`grpc` và `tcpSocket` bên cạnh `httpGet`.
+
 ## To 0.40.4
 
 The `transform` processor now uses the `set_semconv_span_name()` function to

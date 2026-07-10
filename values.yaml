@@ -1,4 +1,4 @@
-﻿# yaml-language-server: $schema=./values.schema.json
+# yaml-language-server: $schema=./values.schema.json
 
 # ──────────────────────────────────────────────────────────────────
 # External Secrets Operator (ESO) configuration
@@ -34,6 +34,7 @@ external-secrets:
       eks.amazonaws.com/role-arn: ""
 
 default:
+  storageClassName: gp2
   rollout:
     strategy:
       type: RollingUpdate
@@ -58,11 +59,13 @@ default:
   #  - name: OTEL_K8S_NODE_NAME
   #    value: "someConstantValue"
   image:
-    # SEED registry (image mẫu BTC cấp). Mỗi TF ĐỔI sang ECR của account mình:
+    # Image format: REGISTRY/PROJECT/SERVICE:VERSION
+    #   e.g. 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp/ad:sha-a1b2c3d
+    # repository = REGISTRY/PROJECT (service name is appended by the chart template)
     #   helm ... --set default.image.repository=<ACCOUNT>.dkr.ecr.<REGION>.amazonaws.com/techx-corp
-    repository: 493499579600.dkr.ecr.ap-southeast-1.amazonaws.com/techx-corp
-    # Overrides the image tag whose default is the chart appVersion.
-    # The service's name will be applied to the end of this value.
+    #            --set default.image.tag=sha-a1b2c3d
+    repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp
+    # Tag/VERSION only (no service suffix). Service is part of the repository path.
     tag: "1.0"
     pullPolicy: IfNotPresent
     pullSecrets: []
@@ -235,6 +238,9 @@ components:
     enabled: true
     useDefault:
       env: true
+    securityContext:
+      runAsUser: 10001
+      runAsGroup: 10001
     podAnnotations:
       resource.opentelemetry.io/service.namespace: techx-corp
     env:
@@ -242,6 +248,7 @@ components:
         value: kafka:9092
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4318
+      # SEC-05: sourced from ESO-synced Secret (see secrets-chart / docs/operations/external-secrets.md)
       - name: DB_CONNECTION_STRING
         valueFrom:
           secretKeyRef:
@@ -251,7 +258,7 @@ components:
         value: "false"
     resources:
       limits:
-        memory: 120Mi
+        memory: 240Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -261,6 +268,9 @@ components:
       - name: wait-for-kafka
         image: busybox:latest
         command: ["sh", "-c", "until nc -z -v -w30 kafka 9092; do echo waiting for kafka; sleep 2; done;"]
+      - name: wait-for-postgresql
+        image: busybox:latest
+        command: ["sh", "-c", "until nc -z -v -w30 postgresql 5432; do echo waiting for postgresql; sleep 2; done;"]
 
   ad:
     enabled: true
@@ -363,8 +373,18 @@ components:
       - name: GOMEMLIMIT
         value: 16MiB
     resources:
-      limits:
+      requests:
+        cpu: 50m
         memory: 20Mi
+      limits:
+        cpu: 100m
+        memory: 50Mi
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: 80
     initContainers:
       - name: wait-for-kafka
         image: busybox:latest
@@ -501,10 +521,20 @@ components:
       - name: WEB_OTEL_SERVICE_NAME
         value: frontend-web
       - name: PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-        value: http://localhost:8080/otlp-http/v1/traces             # This expects users to use `kubectl port-forward ...`
+        value: /otlp-http/v1/traces             # This allows local development and production/ALB relative routing
     resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
       limits:
+        cpu: 200m
         memory: 250Mi
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: 80
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -530,6 +560,13 @@ components:
       targetType: ip
       listenPorts: '[{"HTTP":80}]'
       host: ""
+      # Storefront-only security posture on public ALB:
+      #   ALLOWED (via catch-all /):  / , /api/* , /images/*
+      #   BLOCKED (HTTP 403 fixed-response when blockSensitivePaths=true):
+      #     /grafana, /jaeger, /loadgen, /feature, /flagservice, /otlp-http
+      # Toggle: --set components.frontend-proxy.publicAlb.blockSensitivePaths=false
+      # Or drive from Terraform output storefront_alb_helm_set_flags
+      blockSensitivePaths: true
       blockedPrefixes:
         - /grafana
         - /jaeger
@@ -673,6 +710,12 @@ components:
         value: "8016"
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
+      - name: HOME
+        value: /tmp
+      - name: XDG_CACHE_HOME
+        value: /tmp/.cache
+      - name: XDG_CONFIG_HOME
+        value: /tmp/.config
     resources:
       limits:
         memory: 1500Mi
@@ -745,6 +788,10 @@ components:
     resources:
       limits:
         memory: 20Mi
+    initContainers:
+      - name: wait-for-postgresql
+        image: busybox:latest
+        command: ["sh", "-c", "until nc -z -v -w30 postgresql 5432; do echo waiting for postgresql; sleep 2; done;"]
 
   product-reviews:
     enabled: true
@@ -759,7 +806,10 @@ components:
       resource.opentelemetry.io/service.namespace: techx-corp
     env:
       - name: OPENAI_API_KEY
-        value: dummy
+        valueFrom:
+          secretKeyRef:
+            name: techx-corp-product-reviews
+            key: OPENAI_API_KEY
       - name: LLM_MODEL
         value: techx-llm
       - name: LLM_HOST
@@ -795,6 +845,10 @@ components:
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
+    initContainers:
+      - name: wait-for-postgresql
+        image: busybox:latest
+        command: ["sh", "-c", "until nc -z -v -w30 postgresql 5432; do echo waiting for postgresql; sleep 2; done;"]
 
   quote:
     enabled: true
@@ -937,6 +991,9 @@ components:
           env: true
         service:
           port: 4000
+        command:
+          - /app/bin/flagd_ui
+          - start
         env:
           - name: FLAGD_METRICS_EXPORTER
             value: otel
@@ -951,6 +1008,8 @@ components:
                 key: secret-key-base
           - name: PHX_HOST
             value: localhost
+          - name: PHX_SERVER
+            value: "true"
         resources:
           limits:
             memory: 250Mi
@@ -985,6 +1044,8 @@ components:
   kafka:
     enabled: true
     stateful: true
+    podSecurityContext:
+      fsGroup: 1000
     terminationGracePeriodSeconds: 60
     useDefault:
       env: true
@@ -1018,7 +1079,9 @@ components:
       - name: KAFKA_CONTROLLER_LISTENER_NAMES
         value: CONTROLLER
       - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-        value: 1@kafka:9093
+        value: 1@127.0.0.1:9093
+      - name: KAFKA_LOG_DIRS
+        value: /opt/kafka/data/kafka
     resources:
       limits:
         memory: 700Mi
@@ -1026,11 +1089,17 @@ components:
       runAsUser: 1000  # appuser
       runAsGroup: 1000
       runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false
+      capabilities:
+        drop:
+          - ALL
     volumeClaimTemplates:
       - metadata:
           name: kafka-data
         spec:
           accessModes: [ "ReadWriteOnce" ]
+          storageClassName: '{{ .defaultValues.storageClassName }}'
           resources:
             requests:
               storage: 5Gi
@@ -1055,6 +1124,8 @@ components:
   postgresql:
     enabled: true
     stateful: true
+    podSecurityContext:
+      fsGroup: 999
     terminationGracePeriodSeconds: 60
     useDefault:
       env: false
@@ -1117,7 +1188,12 @@ components:
             name: postgres-credentials
             key: postgres-password
       - name: POSTGRES_DB
-        value: otel
+        valueFrom:
+          secretKeyRef:
+            name: techx-corp-postgresql-admin
+            key: POSTGRES_DB
+      - name: PGDATA
+        value: /var/lib/postgresql/data/pgdata
     mountedConfigMaps:
       - name: postgresql-init
         mountPath: /docker-entrypoint-initdb.d
@@ -1125,11 +1201,21 @@ components:
     resources:
       limits:
         memory: 100Mi
+    securityContext:
+      runAsUser: 999
+      runAsGroup: 999
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false
+      capabilities:
+        drop:
+          - ALL
     volumeClaimTemplates:
       - metadata:
           name: postgresql-data
         spec:
           accessModes: [ "ReadWriteOnce" ]
+          storageClassName: '{{ .defaultValues.storageClassName }}'
           resources:
             requests:
               storage: 5Gi
@@ -1140,6 +1226,8 @@ components:
   valkey-cart:
     enabled: true
     stateful: true
+    podSecurityContext:
+      fsGroup: 1000
     terminationGracePeriodSeconds: 60
     useDefault:
       env: false
@@ -1174,6 +1262,11 @@ components:
       runAsUser: 999  # valkey
       runAsGroup: 1000
       runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false
+      capabilities:
+        drop:
+          - ALL
     mountedConfigMaps:
       - name: valkey-cart-config
         mountPath: /etc/valkey
@@ -1192,6 +1285,7 @@ components:
           name: valkey-cart-data
         spec:
           accessModes: [ "ReadWriteOnce" ]
+          storageClassName: '{{ .defaultValues.storageClassName }}'
           resources:
             requests:
               storage: 2Gi
@@ -1510,6 +1604,9 @@ prometheus:
 grafana:
   enabled: true
   fullnameOverride: grafana
+  extraEmptyDirMounts:
+    - name: grafana-tmp
+      mountPath: /tmp
   testFramework:
     enabled: false
   grafana.ini:
@@ -1542,7 +1639,7 @@ grafana:
         memory: 256Mi
   resources:
     limits:
-      memory: 300Mi
+      memory: 512Mi
   securityContext:
     runAsNonRoot: true
     runAsUser: 472
@@ -1577,4 +1674,19 @@ opensearch:
   resources:
     limits:
       memory: 1100Mi
+
+# Metrics Server — required for HPA (autoscaling/v2 CPU & memory metrics).
+# Set enabled: false if the cluster already runs metrics-server (e.g. kube-system).
+metrics-server:
+  enabled: true
+  fullnameOverride: metrics-server
+  # EKS / many managed node groups: kubelet serving certs are not trusted by default.
+  args:
+    - --kubelet-insecure-tls
+  resources:
+    requests:
+      cpu: 100m
+      memory: 200Mi
+    limits:
+      memory: 200Mi
 
