@@ -273,9 +273,19 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Tier C (JVM): see docs/operations/probe-thresholds.md
     readinessProbe:
       grpc:
         port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+    livenessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 20
+      timeoutSeconds: 5
+      failureThreshold: 5
     service:
       port: 8080
     env:
@@ -304,9 +314,19 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Tier B; liveness is tcp so failedReadinessProbe chaos does not restart pods
     readinessProbe:
       grpc:
         port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: 8080
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 5
     service:
       port: 8080
     env:
@@ -341,9 +361,19 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Tier B (Go gRPC): see docs/operations/probe-thresholds.md
     readinessProbe:
       grpc:
         port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    livenessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 5
     service:
       port: 8080
     env:
@@ -393,9 +423,19 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Tier A (native C++ gRPC, low CPU): see docs/operations/probe-thresholds.md
     readinessProbe:
       grpc:
         port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 3
     service:
       port: 8080
     env:
@@ -419,9 +459,19 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Tier B (no HTTP health route): tcp only
     readinessProbe:
       tcpSocket:
         port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: 8080
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 5
     service:
       port: 8080
     env:
@@ -484,10 +534,21 @@ components:
       env: true
     # Stateless app → Karpenter (inherits default hard spot-tolerant contract)
     schedulingRules: *scheduling-spot-tolerant
+    # Tier B† (Next.js GET / is heavier): timeout 5s; see probe-thresholds.md
     readinessProbe:
       httpGet:
         path: /
         port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /
+        port: 8080
+      periodSeconds: 20
+      timeoutSeconds: 5
+      failureThreshold: 4
     service:
       port: 8080
     env:
@@ -559,10 +620,21 @@ components:
         workload-class: critical
       affinity: {}
       tolerations: []
+    # Tier A: Envoy admin /ready (not data-plane / on 8080)
     readinessProbe:
       httpGet:
-        path: /
-        port: 8080
+        path: /ready
+        port: 10000
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /ready
+        port: 10000
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 3
     service:
       port: 8080
     publicAlb:
@@ -657,6 +729,21 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Tier A: nginx stub_status /status
+    readinessProbe:
+      httpGet:
+        path: /status
+        port: 8081
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /status
+        port: 8081
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 3
     service:
       port: 8081
     podAnnotations:
@@ -749,9 +836,19 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Tier B (Node gRPC health)
     readinessProbe:
       grpc:
         port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    livenessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 5
     service:
       port: 8080
     env:
@@ -786,9 +883,19 @@ components:
       env: true
     # Stateless → Karpenter hard placement
     schedulingRules: *scheduling-spot-tolerant
+    # Tier B (Go gRPC); initContainer waits for postgresql
     readinessProbe:
       grpc:
         port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    livenessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 5
     service:
       port: 8080
     env:
@@ -825,9 +932,19 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Tier B (Python gRPC on 3551)
     readinessProbe:
       grpc:
         port: 3551
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    livenessProbe:
+      grpc:
+        port: 3551
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 5
     service:
       port: 3551
     env:
@@ -884,9 +1001,19 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Tier B (PHP; no health route → tcp)
     readinessProbe:
       tcpSocket:
         port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: 8080
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 5
     service:
       port: 8080
     env:
@@ -926,6 +1053,19 @@ components:
       env: true
     # Stateless → Karpenter hard placement
     schedulingRules: *scheduling-spot-tolerant
+    # Tier B (Python gRPC health; was missing from chart)
+    readinessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    livenessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 5
     service:
       port: 8080
     env:
@@ -958,9 +1098,19 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Tier A (Rust; business routes only → tcp)
     readinessProbe:
       tcpSocket:
         port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: 8080
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 3
     service:
       port: 8080
     env:
@@ -989,9 +1139,19 @@ components:
       env: true
     # Feature-flag control plane → Critical MNG
     schedulingRules: *scheduling-critical
+    # Tier A (Go flagd RPC port)
     readinessProbe:
       tcpSocket:
         port: 8013
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: 8013
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 3
     replicas: 1
     ports:
       - name: rpc
@@ -1104,9 +1264,19 @@ components:
         rollingUpdate:
           maxUnavailable: 1
           maxSurge: 0
+    # Tier C (JVM broker, Guaranteed 200m CPU): longer readiness budget
     readinessProbe:
       tcpSocket:
         port: 9092
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 9
+    livenessProbe:
+      tcpSocket:
+        port: 9092
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 5
     replicas: 1
     ports:
       - name: plaintext
@@ -1161,6 +1331,19 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Tier B (Flask; no health route → tcp)
+    readinessProbe:
+      tcpSocket:
+        port: 8000
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: 8000
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 5
     service:
       port: 8000
     env:
@@ -1185,9 +1368,19 @@ components:
         rollingUpdate:
           maxUnavailable: 1
           maxSurge: 0
+    # Tier C (Guaranteed 100m CPU; compose uses timeout 5 / multi-retry)
     readinessProbe:
       tcpSocket:
         port: 5432
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+    livenessProbe:
+      tcpSocket:
+        port: 5432
+      periodSeconds: 20
+      timeoutSeconds: 5
+      failureThreshold: 5
     imageOverride:
       repository: "postgres"
       tag: "17.6"
@@ -1288,9 +1481,19 @@ components:
         rollingUpdate:
           maxUnavailable: 1
           maxSurge: 0
+    # Tier A (fast cache bind)
     readinessProbe:
       tcpSocket:
         port: 6379
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: 6379
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 3
     imageOverride:
       repository: "valkey/valkey"
       tag: "9.0.1-alpine3.23"
