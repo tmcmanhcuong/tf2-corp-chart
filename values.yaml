@@ -1264,13 +1264,22 @@ components:
         rollingUpdate:
           maxUnavailable: 1
           maxSurge: 0
-    # Tier C (JVM broker, Guaranteed 200m CPU): longer readiness budget
+    # Tier C (JVM + OTEL agent, Guaranteed 200m CPU). Without startupProbe, liveness
+    # counts connection-refused during KRaft bootstrap and restarts mid-boot.
+    # Unhealthy "connection refused" Events until the first successful TCP probe are expected.
+    startupProbe:
+      tcpSocket:
+        port: 9092
+      initialDelaySeconds: 20
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 36 # ~6.2 minutes after start (20s + 36*10s)
     readinessProbe:
       tcpSocket:
         port: 9092
       periodSeconds: 10
       timeoutSeconds: 5
-      failureThreshold: 9
+      failureThreshold: 3
     livenessProbe:
       tcpSocket:
         port: 9092

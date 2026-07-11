@@ -47,7 +47,7 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 2. **cart + `failedReadinessProbe`:** the gRPC health check honors an OpenFeature flag meant to fail **readiness** for demos. Liveness uses **`tcpSocket`** so enabling the flag drains traffic without CrashLoop.
 3. **Handler preference:** `grpc` health when registered → lightweight HTTP health (`/ready`, `/status`) → `tcpSocket` when no health route exists.
 4. **Explicit timings** on every probe block (no reliance on `timeoutSeconds: 1`).
-5. **startupProbe** only where cold start is multi-minute or repeatedly races liveness (OpenSearch today). Prefer initContainers for hard deps (already used for kafka/postgres/valkey waits).
+5. **startupProbe** where cold start repeatedly races liveness (OpenSearch, Kafka). Prefer initContainers for hard deps of *other* services (already used for kafka/postgres/valkey waits).
 6. **Workers without stable listeners** (`accounting`, `fraud-detection`) are intentionally unprobed until app-level consumer health exists (REL-02 follow-ups).
 
 ---
@@ -86,7 +86,7 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 | shipping | tcp :8080 | tcp :8080 | 10 / 20 | 2 / 3 | 3 / 3 | 30s / 60s |
 | flagd | tcp :8013 | tcp :8013 | 10 / 20 | 2 / 3 | 3 / 3 | 30s / 60s |
 | llm | tcp :8000 | tcp :8000 | 10 / 15 | 3 / 5 | 3 / 5 | 30s / 75s |
-| kafka | tcp :9092 | tcp :9092 | 10 / 30 | 5 / 5 | 9 / 5 | 90s / 150s |
+| kafka | tcp :9092 (+ **startup**) | tcp :9092 | 10 / 30 (+ startup 10) | 5 / 5 | 3 / 5 (+ startup fail 36) | startup ~6.2m; then R 30s / L 150s |
 | postgresql | tcp :5432 | tcp :5432 | 10 / 20 | 5 / 5 | 6 / 5 | 60s / 100s |
 | valkey-cart | tcp :6379 | tcp :6379 | 10 / 20 | 2 / 3 | 3 / 3 | 30s / 60s |
 | opensearch | tcp :9200 (+ startup) | tcp :9200 | see §6 | 5 / 5 | see §6 | startup ~6.5m |
@@ -195,13 +195,17 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 * **Thresholds:** Tier B.
 * **Note:** chart currently omits resource requests/limits for llm; tune separately if throttle appears.
 
-### kafka (Tier C – JVM broker)
+### kafka (Tier C – JVM broker + startupProbe)
 
-* **Resources:** Guaranteed **200m** CPU, **700Mi**, heap `-Xmx400M`.
-* **Compose:** `nc -z` start_period 10s, interval 5s, retries 10 → roughly minute-scale unhealthy budget.
+* **Resources:** Guaranteed **200m** CPU, **700Mi**, heap `-Xmx400M`; image also loads OTEL Java agent (`KAFKA_OPTS`).
+* **Compose:** `nc -z` start_period 10s, interval 5s, retries 10 — optimistic vs K8s cold start under Guaranteed CPU.
 * **Handler:** **tcpSocket** :9092 (plaintext listener).
-* **Thresholds:** readiness fail **9** (~90s); liveness period 30 / fail 5 (~150s) after ready.
-* **Rejected:** exec with kafka scripts (image/path fragility); aggressive 30s readiness.
+* **Problem observed:** readiness + liveness both saw `connection refused` while KRaft/JVM was still binding; without `startupProbe`, liveness counted those failures and restarted mid-boot (same class of bug as early OpenSearch).
+* **Thresholds:**
+  * **startupProbe:** initialDelay 20s, period 10, timeout 5, failureThreshold **36** (~6.2 minutes: 20s + 36×10s) — gates liveness until :9092 accepts.
+  * **readiness:** period 10, timeout 5, fail 3 (after startup succeeds).
+  * **liveness:** period 30, timeout 5, fail 5 (only after first successful startup probe).
+* **Rejected:** readiness-only longer failureThreshold without startup (liveness still kills); exec with kafka scripts (image/path fragility).
 
 ### postgresql (Tier C – Guaranteed)
 
@@ -233,7 +237,7 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 
 | Compose service | Compose signal | Chart choice |
 |---|---|---|
-| kafka | `nc -z` + long retries | tcp :9092 + Tier C readiness fail 9 |
+| kafka | `nc -z` + long retries | tcp :9092 + **startupProbe** (K8s cold start longer than compose) |
 | postgresql | `pg_isready` | tcp :5432 + timeout 5 / fail 6 |
 | valkey-cart | `PING` | tcp :6379 Tier A |
 | opensearch | HTTP cluster health | TCP + long startup (chart history) |
@@ -251,6 +255,7 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 | cart NotReady only when flag on | Expected chaos | Do not “fix” with liveness grpc |
 | frontend-proxy NotReady, frontend OK | Admin :10000 /ready issue | Check Envoy admin bind and probe port |
 | OpenSearch Unhealthy connection refused for minutes | Expected until :9200 binds | Do not panic; confirm startupProbe budget |
+| Kafka Unhealthy connection refused then restarts | Liveness racing JVM/KRaft boot | Ensure `startupProbe` present; do not only raise liveness period |
 
 ---
 
