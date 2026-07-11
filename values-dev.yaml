@@ -16,7 +16,7 @@ default:
   image:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-dev-corp
     # Replace with currently running tag before cutover (e.g. sha-a1b2c3d).
-    tag: "sha-0a1ac72"
+    tag: "sha-f679cec"
 
 components:
   frontend-proxy:
@@ -24,4 +24,4 @@ components:
       # Dev often leaves sensitive paths open for debugging (infra tfvars).
       blockSensitivePaths: false
     # Critical ingress/gateway (not stateless frontend). Base values.yaml pins critical.
-  # flagd / frontend-proxy critical pins live in values.yaml hard-placement contract.
+    # flagd / frontend-proxy critical pins live in values.yaml hard-placement contract.
