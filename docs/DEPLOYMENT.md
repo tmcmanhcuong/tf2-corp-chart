@@ -540,10 +540,11 @@ HPA desired replicas = **max** across metrics. A low memory target would dominat
 | `checkout` | 2 | 6 | CPU 70% / Mem 90% | Karpenter (spot-tolerant) |
 | `cart` | 2 | 6 | CPU 70% / Mem 90% | Karpenter (default) |
 | `product-catalog` | 2 | 6 | CPU 70% / Mem 90% | Karpenter (spot-tolerant) |
-| `load-generator` | 1 | 6 | CPU 70% / Mem 90% | Karpenter (spot-tolerant) |
 | `frontend-proxy` | 2 | 3 | CPU 70% / Mem 90% | **Critical MNG** (cap max at 3) |
 
-Dev overlay (`values-dev.yaml`) sets `minReplicas: 1` for `cart`, `product-catalog`, and `frontend-proxy` (cost); frontend/checkout keep min 2. `load-generator` already uses min 1 in base (each replica with `LOCUST_AUTOSTART` independently runs `LOCUST_USERS` — not Locust distributed master/worker).
+`load-generator` has **no HPA** (fixed `replicas` from chart default, typically 1). Ramp synthetic traffic via `LOCUST_USERS` / Locust UI — extra replicas with `LOCUST_AUTOSTART` would each run an independent swarm.
+
+Dev overlay (`values-dev.yaml`) sets `minReplicas: 1` for `cart`, `product-catalog`, and `frontend-proxy` (cost); frontend/checkout keep min 2.
 
 **Critical capacity note:** `frontend-proxy` HA consumes Critical MNG (small floor). If the second proxy pod is `Pending`, free Critical capacity or adjust MNG size in infra — do not raise chart `maxReplicas` without capacity review.
 
@@ -643,10 +644,10 @@ kubectl top pods -n techx-corp
 
 # HPA + PDB for multi-replica autoscaled services
 kubectl -n techx-corp get hpa,pdb
-kubectl -n techx-corp describe hpa frontend checkout cart product-catalog load-generator frontend-proxy
+kubectl -n techx-corp describe hpa frontend checkout cart product-catalog frontend-proxy
 ```
 
-Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready; `kubectl top` trả về CPU/memory; five HPAs present on base/prod; PDBs for services with `minReplicas >= 2`.
+Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready; `kubectl top` trả về CPU/memory; five HPAs present on base/prod (`frontend`, `checkout`, `cart`, `product-catalog`, `frontend-proxy`); no `load-generator` HPA; PDBs for services with `minReplicas >= 2`.
 
 ### Smoke test
 
