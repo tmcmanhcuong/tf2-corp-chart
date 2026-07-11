@@ -16,7 +16,7 @@ default:
   image:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-dev-corp
     # Replace with currently running tag before cutover (e.g. sha-a1b2c3d).
-    tag: "sha-f679cec"
+    tag: "sha-547083b"
 
 components:
   # Dev cost: lower HPA floors for services expanded beyond original frontend/checkout HA.
