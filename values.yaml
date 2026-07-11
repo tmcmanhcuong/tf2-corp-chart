@@ -361,6 +361,33 @@ components:
       limits:
         cpu: 300m
         memory: 256Mi
+    # Hot-path under scaled frontend/checkout; Karpenter (default spot-tolerant).
+    # Valkey remains singleton; cart pods are stateless clients.
+    # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (HPA uses max of metrics).
+    # behavior anchor is shared by all HPA-enabled services (must be defined before first alias).
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 90
+      behavior: &hpa-behavior-default
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Pods
+              value: 2
+              periodSeconds: 15
+            - type: Percent
+              value: 100
+              periodSeconds: 15
+          selectPolicy: Max
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 50
+              periodSeconds: 60
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -412,20 +439,22 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
       - name: GOMEMLIMIT
-        value: 100MiB
+        value: 200MiB
     resources:
       requests:
-        cpu: 50m
-        memory: 64Mi
-      limits:
-        cpu: 200m
+        cpu: 100m
         memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (shared behavior from cart).
     autoscaling:
       enabled: true
       minReplicas: 2
       maxReplicas: 6
-      targetCPUUtilizationPercentage: 80
-      targetMemoryUtilizationPercentage: 80
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 90
+      behavior: *hpa-behavior-default
     initContainers:
       - name: wait-for-kafka
         image: busybox:latest
@@ -607,12 +636,14 @@ components:
       limits:
         cpu: 300m
         memory: 256Mi
+    # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (shared behavior from cart).
     autoscaling:
       enabled: true
       minReplicas: 2
       maxReplicas: 6
-      targetCPUUtilizationPercentage: 80
-      targetMemoryUtilizationPercentage: 80
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 90
+      behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -726,6 +757,17 @@ components:
       limits:
         cpu: 150m
         memory: 128Mi
+    # Edge / ALB target on Critical MNG (small floor). Cap maxReplicas to limit pressure.
+    # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (Envoy usually low RSS).
+    # If pods Pending: free Critical capacity or raise MNG max/desired in infra (separate change).
+    # Dev overlay may set minReplicas: 1 for cost.
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 90
+      behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -921,7 +963,7 @@ components:
       - name: FLAGD_PORT
         value: "8013"
       - name: GOMEMLIMIT
-        value: 100MiB
+        value: 200MiB
       - name: DB_CONNECTION_STRING
         valueFrom:
           secretKeyRef:
@@ -932,12 +974,22 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
+      # Right-sized for memory HPA safety valve (90% of 64Mi would thrash under normal Go RSS).
       requests:
-        cpu: 50m
-        memory: 64Mi
-      limits:
-        cpu: 200m
+        cpu: 100m
         memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+    # Hot read path under frontend/checkout; Karpenter spot-tolerant.
+    # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve.
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 90
+      behavior: *hpa-behavior-default
     initContainers:
       - name: wait-for-postgresql
         image: busybox:latest

@@ -959,6 +959,11 @@
         },
         "targetMemoryUtilizationPercentage": {
           "type": "integer"
+        },
+        "behavior": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Optional autoscaling/v2 HPA behavior (scaleUp/scaleDown policies). Passed through to the HPA spec."
         }
       },
       "required": [

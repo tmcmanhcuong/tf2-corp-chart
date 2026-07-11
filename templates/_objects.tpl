@@ -401,8 +401,13 @@ spec:
 
 {{/*
 Demo component HPA template
+Requires at least one of targetCPUUtilizationPercentage or targetMemoryUtilizationPercentage.
+Optional autoscaling.behavior is passed through as HPA v2 behavior (scaleUp/scaleDown).
 */}}
 {{- define "techx-corp.hpa" }}
+{{- if and (not .autoscaling.targetCPUUtilizationPercentage) (not .autoscaling.targetMemoryUtilizationPercentage) }}
+{{- fail (printf "components.%s.autoscaling.enabled requires targetCPUUtilizationPercentage and/or targetMemoryUtilizationPercentage" .name) }}
+{{- end }}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -434,5 +439,27 @@ spec:
           type: Utilization
           averageUtilization: {{ .autoscaling.targetMemoryUtilizationPercentage }}
     {{- end }}
+  {{- if .autoscaling.behavior }}
+  behavior:
+    {{- toYaml .autoscaling.behavior | nindent 4 }}
+  {{- end }}
+{{- end }}
+
+{{/*
+PodDisruptionBudget for multi-replica HPA Deployments (minAvailable: 1).
+*/}}
+{{- define "techx-corp.pdb" }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "techx-corp.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "techx-corp.selectorLabels" . | nindent 6 }}
 {{- end }}
 

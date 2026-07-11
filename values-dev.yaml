@@ -19,9 +19,20 @@ default:
     tag: "sha-f679cec"
 
 components:
+  # Dev cost: lower HPA floors for services expanded beyond original frontend/checkout HA.
+  # frontend + checkout keep minReplicas: 2 from base (demo HA).
+  cart:
+    autoscaling:
+      minReplicas: 1
+  product-catalog:
+    autoscaling:
+      minReplicas: 1
   frontend-proxy:
     publicAlb:
       # Dev often leaves sensitive paths open for debugging (infra tfvars).
       blockSensitivePaths: false
     # Critical ingress/gateway (not stateless frontend). Base values.yaml pins critical.
     # flagd / frontend-proxy critical pins live in values.yaml hard-placement contract.
+    # Cap Critical MNG pressure in dev; base keeps min 2 for prod-like HA.
+    autoscaling:
+      minReplicas: 1

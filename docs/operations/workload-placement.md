@@ -18,6 +18,15 @@ This chart implements **hard placement** between Critical MNG and Karpenter, plu
 * Isolation is **one-way**: classified critical pods cannot land on Karpenter; classified stateless pods cannot land on MNG; **unclassified** pods without the Karpenter toleration can still schedule on MNG.
 * Topology spread is **additive soft balancing** only. It never replaces `nodeSelector` / tolerations and uses `whenUnsatisfiable: ScheduleAnyway` so capacity in a single AZ cannot leave pods Pending.
 
+### Multi-replica HPA vs placement
+
+| Service | HPA (base) | Contract | Note |
+|---------|------------|----------|------|
+| `frontend`, `checkout`, `cart`, `product-catalog` | min 2 / max 6 (CPU 70% + Mem 90%) | spot-tolerant | Karpenter can add nodes under scale-out; memory is safety valve only |
+| `frontend-proxy` | min 2 / max **3** (CPU 70% + Mem 90%) | critical | Extra replicas **do not** land on Karpenter; Critical MNG is small (`desired`/`max` in infra). Pending proxy pods → capacity on Critical floor, not chart max increase |
+
+PDBs (`minAvailable: 1`) are rendered for HPA services with `minReplicas >= 2`. Soft topology spreads apply only on the spot-tolerant pool (critical opts out).
+
 ## Pod distribution (topology spread)
 
 Default (spot-tolerant) contract includes:
@@ -32,7 +41,7 @@ Default (spot-tolerant) contract includes:
 * Critical workloads **opt out** with `topologySpreadConstraints: []` to protect the small Critical MNG floor (`desired=1` per AZ).
 * Soft spreads on single-replica Deployments are effectively a no-op.
 
-Hard `DoNotSchedule` zone constraints, PDB, PriorityClass, and MNG taints remain separate follow-ups.
+Hard `DoNotSchedule` zone constraints, PriorityClass, and MNG taints remain separate follow-ups. First-party **PDB** for multi-replica HPA Deployments is implemented (`templates/pdb.yaml`).
 
 ## Template behavior
 
@@ -115,6 +124,6 @@ Topology spreads must not change A/B/C outcomes.
 ## Out of scope (follow-up)
 
 * Hard zone `DoNotSchedule` once multi-AZ headroom is routine.
-* MNG taints / PriorityClass / PDB / admission policy.
+* MNG taints / PriorityClass / admission policy.
 * Cluster Autoscaler for Critical MNG (scale-out is a reviewed Terraform `desired_size` change only).
 * Descheduler for rebalancing already-running pods after new nodes appear.

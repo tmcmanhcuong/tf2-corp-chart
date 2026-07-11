@@ -521,7 +521,30 @@ Chart dependency: **metrics-server 3.13.1** (`https://kubernetes-sigs.github.io/
 | `metrics-server.args` | `--kubelet-insecure-tls` | Thường cần trên EKS (kubelet serving cert) |
 | `metrics-server.resources` | requests 100m/200Mi, limit memory 200Mi | |
 
-HPA templates (`templates/hpa.yaml`) dùng `autoscaling/v2` + CPU/memory utilization — **cần** Metrics Server (API `metrics.k8s.io`). Components bật HPA mặc định: `frontend`, `checkout` (`components.*.autoscaling.enabled`).
+HPA templates (`templates/hpa.yaml`) dùng `autoscaling/v2` — **cần** Metrics Server (API `metrics.k8s.io`). Optional `autoscaling.behavior` (scale-up/down policies) is rendered when set. Multi-replica HPA services also get a first-party **PodDisruptionBudget** (`minAvailable: 1`) when `minReplicas >= 2`.
+
+**Metric policy (Option B — dual metrics):**
+
+| Metric | Target | Role |
+|---|---:|---|
+| CPU | **70%** | Primary capacity signal under traffic |
+| Memory | **90%** | Safety valve only (near request / OOM-adjacent pressure) |
+
+HPA desired replicas = **max** across metrics. A low memory target would dominate scale-out; 90% is intentional so idle heaps do not pin high replica counts. If idle memory utilization stays near request, **raise `requests.memory`** — do not lower the memory target to “fix” thrash. Hard OOM protection remains `limits` + runtime caps (e.g. `GOMEMLIMIT`).
+
+**Default HPA inventory** (`components.*.autoscaling`):
+
+| Service | min | max | Metrics | Placement |
+|---|---:|---:|---|---|
+| `frontend` | 2 | 6 | CPU 70% / Mem 90% | Karpenter (spot-tolerant) |
+| `checkout` | 2 | 6 | CPU 70% / Mem 90% | Karpenter (spot-tolerant) |
+| `cart` | 2 | 6 | CPU 70% / Mem 90% | Karpenter (default) |
+| `product-catalog` | 2 | 6 | CPU 70% / Mem 90% | Karpenter (spot-tolerant) |
+| `frontend-proxy` | 2 | 3 | CPU 70% / Mem 90% | **Critical MNG** (cap max at 3) |
+
+Dev overlay (`values-dev.yaml`) sets `minReplicas: 1` for `cart`, `product-catalog`, and `frontend-proxy` (cost); frontend/checkout keep min 2.
+
+**Critical capacity note:** `frontend-proxy` HA consumes Critical MNG (small floor). If the second proxy pod is `Pending`, free Critical capacity or adjust MNG size in infra — do not raise chart `maxReplicas` without capacity review.
 
 ### Kiểm tra image trong Pod
 
@@ -617,12 +640,12 @@ kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes | head -c 200; echo
 kubectl top nodes
 kubectl top pods -n techx-corp
 
-# HPA objects for services with autoscaling
-kubectl -n techx-corp get hpa
-kubectl -n techx-corp describe hpa frontend checkout
+# HPA + PDB for multi-replica autoscaled services
+kubectl -n techx-corp get hpa,pdb
+kubectl -n techx-corp describe hpa frontend checkout cart product-catalog frontend-proxy
 ```
 
-Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready; `kubectl top` trả về CPU/memory.
+Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready; `kubectl top` trả về CPU/memory; five HPAs present on base/prod; PDBs for services with `minReplicas >= 2`.
 
 ### Smoke test
 
