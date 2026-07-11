@@ -6,8 +6,8 @@ This chart implements **hard placement** between Critical MNG and Karpenter, plu
 
 | Contract | Mechanism | Workloads |
 |----------|-----------|-----------|
-| **Critical** | `nodeSelector.workload-class=critical`; **no** Karpenter toleration; **no** topology spreads (`topologySpreadConstraints: []`) | `frontend-proxy`, `flagd`, `load-generator`, `postgresql`, `kafka`, `valkey-cart`, `opensearch`, `prometheus.server`, `grafana`, `jaeger.jaeger`, `metrics-server` |
-| **Stateless (default)** | `nodeSelector.workload-class=spot-tolerant` + toleration `workload-class=spot-tolerant:NoSchedule` + preferred Spot affinity + **soft** zone/hostname topology spreads | All first-party Deployments that inherit `default.schedulingRules` (explicit: `frontend`, `product-catalog`, `recommendation`, and other classified demo apps) |
+| **Critical** | `nodeSelector.workload-class=critical`; **no** Karpenter toleration; **no** topology spreads (`topologySpreadConstraints: []`) | `frontend-proxy`, `flagd`, `postgresql`, `kafka`, `valkey-cart`, `opensearch`, `prometheus.server`, `grafana`, `jaeger.jaeger`, `metrics-server` |
+| **Stateless (default)** | `nodeSelector.workload-class=spot-tolerant` + toleration `workload-class=spot-tolerant:NoSchedule` + preferred Spot affinity + **soft** zone/hostname topology spreads | All first-party Deployments that inherit `default.schedulingRules` (explicit: `frontend`, `product-catalog`, `recommendation`, `load-generator`, and other classified demo apps) |
 | **Universal DaemonSet** | No workload-class selector; Karpenter taint toleration | `opentelemetry-collector` (agent DaemonSet) |
 
 ### Important distinctions
@@ -70,7 +70,7 @@ Expected matrix (selected):
 |------|----------|----------|----------|----------------------|-----------------|
 | Deployment | frontend | stateless | `spot-tolerant` | Yes | Soft zone + hostname |
 | Deployment | checkout | stateless | `spot-tolerant` | Yes | Soft zone + hostname |
-| Deployment | load-generator | critical | `critical` | No | None (opt-out) |
+| Deployment | load-generator | stateless | `spot-tolerant` | Yes | Soft zone + hostname |
 | Deployment | frontend-proxy | critical | `critical` | No | None (opt-out) |
 | StatefulSet | postgresql / kafka / … | critical | `critical` | No | None (opt-out) |
 | DaemonSet | otel-collector-agent | universal | none | Yes | N/A |

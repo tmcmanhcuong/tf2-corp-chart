@@ -798,8 +798,9 @@ components:
     enabled: true
     useDefault:
       env: true
-    # Pin to Critical MNG (system-*) — keep loadgen off Spot/Karpenter during placement rollout
-    schedulingRules: *scheduling-critical
+    # Synthetic traffic generator — interruptible; runs on Karpenter (spot-tolerant).
+    # Keep off Critical MNG so OpenSearch/Kafka/observability retain the small On-Demand floor.
+    schedulingRules: *scheduling-spot-tolerant
     service:
       port: 8089
     env:
