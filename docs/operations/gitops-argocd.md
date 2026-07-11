@@ -126,6 +126,40 @@ Không bật `ServerSideApply` trong baseline v1.
 Argo **không** có Helm `--atomic`. Failed sync có thể để lại trạng thái một phần.  
 Hành động: `argocd app wait` / health; sửa Git; sync lại; hoặc Git revert.
 
+## Orphan cleanup: OpenSearch subchart leftovers
+
+OpenSearch was migrated from the official Helm subchart (`opensearch-3.6.0`) to a
+first-party `components.opensearch` StatefulSet. With **`prune: false`**, Argo CD
+will **not** delete the old subchart objects. They remain labeled
+`argocd.argoproj.io/instance=<app>` and show as **OutOfSync / Orphaned**.
+
+Identify leftovers (labels `helm.sh/chart: opensearch-3.6.0`):
+
+| Kind | Name | Why orphaned |
+|---|---|---|
+| ConfigMap | `opensearch-config` | Subchart `opensearch.yml`; first-party uses env vars only |
+| Service | `opensearch-headless` | Subchart discovery Service; first-party has ClusterIP `opensearch` only |
+| PodDisruptionBudget | `opensearch-pdb` | Subchart PDB; first-party does not render a PDB |
+
+One-time cleanup (dev example — adjust namespace for prod):
+
+```bash
+# Confirm chart label before delete
+kubectl -n techx-corp-dev get cm,svc,pdb -l 'helm.sh/chart=opensearch-3.6.0'
+
+kubectl -n techx-corp-dev delete configmap opensearch-config
+kubectl -n techx-corp-dev delete service opensearch-headless
+kubectl -n techx-corp-dev delete pdb opensearch-pdb
+
+# Do not delete Service/StatefulSet named "opensearch" — that is the first-party workload.
+argocd app get techx-corp-dev
+# Expected: no longer OutOfSync for the three objects above
+```
+
+Also remove any other `helm.sh/chart=opensearch-3.6.0` objects (old StatefulSet,
+NetworkPolicy, etc.) if present — only after confirming they are not the live
+first-party resources (`helm.sh/chart: techx-corp-*`).
+
 ## Liên quan
 
 - Workspace plan: `docs/gitops-argocd.md`

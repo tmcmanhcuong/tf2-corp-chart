@@ -52,7 +52,14 @@ helm template test . -f values.yaml -f values-public-alb.yaml -f values-dev.yaml
 ## Migration or Deployment Notes
 
 1. Ensure ECR has `PROJECT/opensearch:<tag>` for the active `default.image.tag`.
-2. After first sync with this chart: if old subchart StatefulSet/Service remains with different ownership labels, delete orphaned resources once, then re-sync.
+2. After first sync with this chart: delete **orphaned subchart** resources once
+   (Argo `prune: false` will not remove them). Typical leftovers labeled
+   `helm.sh/chart: opensearch-3.6.0`:
+   * ConfigMap `opensearch-config`
+   * Service `opensearch-headless`
+   * PodDisruptionBudget `opensearch-pdb`
+   Keep the first-party Service/StatefulSet named `opensearch`. See
+   `docs/operations/gitops-argocd.md` § Orphan cleanup.
 3. Promote tags by editing **only** `default.image.tag` in the env overlay.
 
 ## Risks and Rollback
