@@ -23,7 +23,8 @@ Infrastructure now taints Karpenter nodes with `workload-class=spot-tolerant:NoS
 
 * **Default (stateless):** hard `nodeSelector.workload-class=spot-tolerant`, Spot capacity-type preferred affinity (secondary), toleration for `workload-class=spot-tolerant:NoSchedule`.
 * **Critical:** frontend-proxy, flagd, postgresql, kafka, valkey-cart, opensearch; metrics-server; prometheus.server; grafana; jaeger.jaeger — `nodeSelector.workload-class=critical`, no Karpenter toleration.
-* **Explicit stateless examples:** frontend, product-catalog, recommendation, load-generator (also covered by default for other first-party apps).
+* **Explicit stateless examples:** frontend, product-catalog, recommendation (also covered by default for other first-party apps).
+* **load-generator** pinned critical (Critical MNG / system-*), not Karpenter.
 * **Universal:** opentelemetry-collector DaemonSet tolerates Karpenter taint; no workload-class selector.
 * Ops doc rewritten for hard-placement matrix, inventory validation, and canaries.
 

@@ -6,8 +6,8 @@ This chart implements **hard placement** between Critical MNG and Karpenter. Inf
 
 | Contract | Mechanism | Workloads |
 |----------|-----------|-----------|
-| **Critical** | `nodeSelector.workload-class=critical`; **no** Karpenter toleration | `frontend-proxy`, `flagd`, `postgresql`, `kafka`, `valkey-cart`, `opensearch`, `prometheus.server`, `grafana`, `jaeger.jaeger`, `metrics-server` |
-| **Stateless (default)** | `nodeSelector.workload-class=spot-tolerant` + toleration `workload-class=spot-tolerant:NoSchedule` + preferred Spot affinity | All first-party Deployments that inherit `default.schedulingRules` (explicit: `frontend`, `product-catalog`, `recommendation`, `load-generator`, and other classified demo apps) |
+| **Critical** | `nodeSelector.workload-class=critical`; **no** Karpenter toleration | `frontend-proxy`, `flagd`, `load-generator`, `postgresql`, `kafka`, `valkey-cart`, `opensearch`, `prometheus.server`, `grafana`, `jaeger.jaeger`, `metrics-server` |
+| **Stateless (default)** | `nodeSelector.workload-class=spot-tolerant` + toleration `workload-class=spot-tolerant:NoSchedule` + preferred Spot affinity | All first-party Deployments that inherit `default.schedulingRules` (explicit: `frontend`, `product-catalog`, `recommendation`, and other classified demo apps) |
 | **Universal DaemonSet** | No workload-class selector; Karpenter taint toleration | `opentelemetry-collector` (agent DaemonSet) |
 
 ### Important distinctions
@@ -51,6 +51,7 @@ Expected matrix (selected):
 | Kind | Workload | Contract | Selector | Karpenter toleration |
 |------|----------|----------|----------|----------------------|
 | Deployment | frontend | stateless | `spot-tolerant` | Yes |
+| Deployment | load-generator | critical | `critical` | No |
 | Deployment | frontend-proxy | critical | `critical` | No |
 | StatefulSet | postgresql / kafka / … | critical | `critical` | No |
 | DaemonSet | otel-collector-agent | universal | none | Yes |

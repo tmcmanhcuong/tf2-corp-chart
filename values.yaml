@@ -697,8 +697,8 @@ components:
     enabled: true
     useDefault:
       env: true
-    # Stateless → Karpenter hard placement
-    schedulingRules: *scheduling-spot-tolerant
+    # Pin to Critical MNG (system-*) — keep loadgen off Spot/Karpenter during placement rollout
+    schedulingRules: *scheduling-critical
     service:
       port: 8089
     env:
