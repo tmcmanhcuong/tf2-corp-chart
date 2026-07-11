@@ -367,7 +367,7 @@ components:
     # behavior anchor is shared by all HPA-enabled services (must be defined before first alias).
     autoscaling:
       enabled: true
-      minReplicas: 2
+      minReplicas: 1
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
@@ -450,7 +450,7 @@ components:
     # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (shared behavior from cart).
     autoscaling:
       enabled: true
-      minReplicas: 2
+      minReplicas: 1
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
@@ -639,7 +639,7 @@ components:
     # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (shared behavior from cart).
     autoscaling:
       enabled: true
-      minReplicas: 2
+      minReplicas: 1
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
@@ -760,10 +760,9 @@ components:
     # Edge / ALB target on Critical MNG (small floor). Cap maxReplicas to limit pressure.
     # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (Envoy usually low RSS).
     # If pods Pending: free Critical capacity or raise MNG max/desired in infra (separate change).
-    # Dev overlay may set minReplicas: 1 for cost.
     autoscaling:
       enabled: true
-      minReplicas: 2
+      minReplicas: 1
       maxReplicas: 3
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
@@ -988,7 +987,7 @@ components:
     # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve.
     autoscaling:
       enabled: true
-      minReplicas: 2
+      minReplicas: 1
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
