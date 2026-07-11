@@ -65,18 +65,26 @@ Nếu không cập nhật Git, Argo sẽ coi trạng thái rollback là **OutOfS
 Contract chart: **một** `default.image.tag` cho **mọi** service nested (including `opensearch` as a first-party component).
 
 ```text
+# Development (automated from platform CI)
 Build ALL services with same tag (21-image release set, includes opensearch)
   → Push ECR
   → Verify every required repo has the tag (including PROJECT/opensearch)
-  → Smoke/security checks
-  → Open PR (values-dev.yaml or values-prod.yaml):
-      default.image.tag only
+  → release-ready
+  → Platform job update-chart-dev direct-pushes values-dev.yaml
+      (default.image.tag only) on branch techx-dev-corp
+  → Argo CD Application techx-corp-dev auto-syncs
+
+# Production (manual)
+Build ALL services → verify ECR → release-ready
+  → Open PR values-prod.yaml: default.image.tag only
   → Review / merge
   → Argo sync (+ wait 600s)
 ```
 
-**Không** mở PR values song song khi push image chưa xong.  
+**Không** promote values song song khi push image chưa xong.  
 Partial bake + global tag mới → `ImagePullBackOff`.
+
+Dev automation lives in `techx-corp-platform` workflow `build-and-push.yml` (secret `CHART_REPO_TOKEN` on the platform repo).
 
 ### Gợi ý verify ECR (prod project)
 
