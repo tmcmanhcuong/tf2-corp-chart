@@ -19,6 +19,7 @@ Promote section documents:
 * **Development:** platform job `update-chart-dev` direct-pushes `default.image.tag` on branch `techx-dev-corp` → Argo Application `techx-corp-dev` auto-syncs.
 * **Production:** still manual PR on `values-prod.yaml`.
 * Pointer to platform workflow + `CHART_REPO_TOKEN` setup.
+* **Operator setup summary** table: fine-grained PAT → platform secret `CHART_REPO_TOKEN` → optional vars → chart branch push rules → verify; auth model (PAT authorizes push; commit may show as `github-actions[bot]`); link to full platform `docs/CICD.md` §4.
 
 No chart templates, values defaults, or gitops Application YAML were changed in this documentation-only update.
 
@@ -29,14 +30,15 @@ No chart templates, values defaults, or gitops Application YAML were changed in 
 
 ## Implementation Details
 
-1. Edited `docs/operations/gitops-argocd.md` promote section.
-2. Added this change record.
+1. Edited `docs/operations/gitops-argocd.md` promote section (dev auto vs prod manual).
+2. Added operator setup summary table + auth model + link to platform CICD §4.
+3. Added / updated this change record.
 
 ## Files Changed
 
 **Documentation:**
 
-* `docs/operations/gitops-argocd.md` — Split dev automated vs prod manual promote flows.
+* `docs/operations/gitops-argocd.md` — Split promote flows; operator setup summary for PAT/secret/branch rules.
 * `docs/changes/2026-07-11-document-dev-auto-image-tag-promote.md` — This change record.
 
 ## Dependencies and Cross-Repository Impact

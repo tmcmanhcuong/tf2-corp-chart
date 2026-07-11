@@ -84,7 +84,30 @@ Build ALL services → verify ECR → release-ready
 **Không** promote values song song khi push image chưa xong.  
 Partial bake + global tag mới → `ImagePullBackOff`.
 
-Dev automation lives in `techx-corp-platform` workflow `build-and-push.yml` (secret `CHART_REPO_TOKEN` on the platform repo).
+Dev automation lives in `techx-corp-platform` workflow `build-and-push.yml`.  
+Full operator guide (PAT, secrets, branch rules): platform  
+[`docs/CICD.md` § Operator setup — chart promote token](../../../techx-corp-platform/docs/CICD.md#4-operator-setup--chart-promote-token-dev-automation).
+
+### Operator setup — automated dev tag promote (summary)
+
+Platform CI cannot push to this chart repo with its default `GITHUB_TOKEN`. A PAT stored on the **platform** repo is required.
+
+| Step | Where | Action |
+|---|---|---|
+| 1 | GitHub (user/machine) | Create **fine-grained PAT**: repository = this chart repo only; **Contents: Read and write**; finite expiry |
+| 2 | **Platform** repo → Settings → Secrets → Actions | Secret name **`CHART_REPO_TOKEN`** = PAT value |
+| 3 | Platform repo → Variables (optional) | `CHART_REPO` (default `tmcmanhcuong/tf2-corp-chart`), `CHART_BRANCH` (default `techx-dev-corp`) |
+| 4 | **Chart** repo → branch/rulesets | Allow the PAT identity to **direct-push** `techx-dev-corp` (bypass “require PR” if it blocks the bot) |
+| 5 | Platform Actions | Run **Build and push images** → `development` (or `src/**` push); confirm job **Update chart values-dev tag** green |
+| 6 | Chart `values-dev.yaml` | Confirm `default.image.tag` equals the built `sha-<7char>` |
+
+**Auth model (short):**
+
+* Push authorization = **PAT owner / fine-grained grants** (not platform `GITHUB_TOKEN`).
+* Commit author label in Git = `github-actions[bot]` (cosmetic).
+* **Prod** is not automated; still open a manual PR for `values-prod.yaml`.
+
+**If automation is not configured:** operators can still set `default.image.tag` manually on `techx-dev-corp` after platform `release-ready` is green.
 
 ### Gợi ý verify ECR (prod project)
 
