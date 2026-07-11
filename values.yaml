@@ -885,6 +885,17 @@ components:
       limits:
         cpu: 300m
         memory: 1000Mi
+    # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (shared behavior from cart).
+    # minReplicas 1: each pod with LOCUST_AUTOSTART independently runs LOCUST_USERS (not Locust
+    # distributed master/worker). min 2 would always double baseline synthetic traffic.
+    # Scale-out helps when UI ramps users / browser traffic pressure; max matches other Karpenter HPAs.
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 90
+      behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp

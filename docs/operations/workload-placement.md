@@ -23,6 +23,7 @@ This chart implements **hard placement** between Critical MNG and Karpenter, plu
 | Service | HPA (base) | Contract | Note |
 |---------|------------|----------|------|
 | `frontend`, `checkout`, `cart`, `product-catalog` | min 2 / max 6 (CPU 70% + Mem 90%) | spot-tolerant | Karpenter can add nodes under scale-out; memory is safety valve only |
+| `load-generator` | min 1 / max 6 (CPU 70% + Mem 90%) | spot-tolerant | Scale-out under Locust CPU/mem pressure; each replica with `LOCUST_AUTOSTART` independently runs `LOCUST_USERS` (not Locust distributed mode) |
 | `frontend-proxy` | min 2 / max **3** (CPU 70% + Mem 90%) | critical | Extra replicas **do not** land on Karpenter; Critical MNG is small (`desired`/`max` in infra). Pending proxy pods → capacity on Critical floor, not chart max increase |
 
 PDBs (`minAvailable: 1`) are rendered for HPA services with `minReplicas >= 2`. Soft topology spreads apply only on the spot-tolerant pool (critical opts out).
