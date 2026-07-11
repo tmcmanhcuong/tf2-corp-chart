@@ -2002,7 +2002,7 @@ prometheus:
     prometheus:
       enabled: false
   kube-state-metrics:
-    enabled: false
+    enabled: true
   prometheus-node-exporter:
     enabled: false
   prometheus-pushgateway:
