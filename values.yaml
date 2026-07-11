@@ -840,8 +840,8 @@ components:
         cpu: 200m
         memory: 500Mi
       limits:
-        cpu: 500m
-        memory: 1500Mi
+        cpu: 300m
+        memory: 1000Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -1684,8 +1684,11 @@ opentelemetry-collector:
   fullnameOverride: otel-collector
   mode: daemonset
   presets:
+    # Disabled: hostmetrics + root_path /hostfs blocked otelcol in D-state (disk sleep) on
+    # packed Critical MNG nodes, so :13133 never opened and probes saw connection refused.
+    # Re-enable only with narrowed scrapers after Critical MNG capacity is healthy.
     hostMetrics:
-      enabled: true
+      enabled: false
     kubernetesAttributes:
       enabled: true
     kubeletMetrics:
@@ -1695,13 +1698,40 @@ opentelemetry-collector:
     annotationDiscovery:
       metrics:
         enabled: true
+  # Packed Critical MNG nodes (t4g.medium ~96% mem) could not finish startup under 200Mi:
+  # health :13133 stayed closed or hung → readiness/liveness connection refused → restart storm.
+  # Healthy agents already sit ~110–150Mi; leave headroom + raise GOMEMLIMIT (80% of limit).
   resources:
     requests:
       cpu: 50m
-      memory: 100Mi
+      memory: 128Mi
     limits:
-      cpu: 200m
-      memory: 200Mi
+      cpu: 400m
+      memory: 384Mi
+  # Block liveness until health extension is serving (slow start under node memory pressure).
+  startupProbe:
+    httpGet:
+      path: /
+      port: 13133
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 36
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 13133
+    initialDelaySeconds: 0
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 13133
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
   service:
     enabled: true
   ports:
@@ -1799,7 +1829,8 @@ opentelemetry-collector:
           exporters: [opensearch, debug]
       telemetry:
         metrics:
-          level: detailed
+          # detailed self-metrics + OTLP export amplified load on small Critical MNG agents.
+          level: basic
           readers:
             - periodic:
                 interval: 10000
