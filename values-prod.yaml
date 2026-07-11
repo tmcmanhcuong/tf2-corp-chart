@@ -23,16 +23,5 @@ components:
   frontend-proxy:
     publicAlb:
       blockSensitivePaths: true
-    # Production edge: keep on critical MNG (avoid Spot interrupt → user-facing blips)
-    schedulingRules:
-      nodeSelector:
-        workload-class: critical
-      affinity: {}
-      tolerations: []
-  flagd:
-    # Feature-flag control plane used by many services at startup
-    schedulingRules:
-      nodeSelector:
-        workload-class: critical
-      affinity: {}
-      tolerations: []
+    # Critical ingress/gateway pin lives in values.yaml hard-placement contract.
+  # flagd critical pin lives in values.yaml.

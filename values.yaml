@@ -50,11 +50,14 @@ default:
   replicas: 1
   # default revisionHistoryLimit for all components (number of old ReplicaSets to retain)
   revisionHistoryLimit: 10
-  # Default scheduling: prefer Karpenter Spot / spot-tolerant workers (soft).
-  # Stateful data components override with nodeSelector workload-class=critical (MNG).
-  # See techx-corp-infra/docs/workload-placement.md
+  # Default scheduling: hard placement on Karpenter spot-tolerant nodes.
+  # nodeSelector is the hard requirement; Spot capacity-type affinity is preference only.
+  # NodePool weight (infra) decides Spot vs On-Demand fallback — do not treat affinity as primary/fallback.
+  # Critical components override with nodeSelector workload-class=critical (no Karpenter toleration).
+  # See techx-corp-infra/docs/workload-placement.md and docs/operations/workload-placement.md
   schedulingRules: &scheduling-spot-tolerant
-    nodeSelector: {}
+    nodeSelector:
+      workload-class: spot-tolerant
     affinity:
       nodeAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
@@ -65,14 +68,11 @@ default:
                   operator: In
                   values:
                     - spot
-          - weight: 50
-            preference:
-              matchExpressions:
-                - key: workload-class
-                  operator: In
-                  values:
-                    - spot-tolerant
-    tolerations: []
+    tolerations:
+      - key: workload-class
+        operator: Equal
+        value: spot-tolerant
+        effect: NoSchedule
   # Default podSecurityContext for all components
   podSecurityContext:
     seccompProfile:
@@ -482,6 +482,8 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Stateless app → Karpenter (inherits default hard spot-tolerant contract)
+    schedulingRules: *scheduling-spot-tolerant
     readinessProbe:
       httpGet:
         path: /
@@ -550,6 +552,13 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Critical ingress/gateway → Critical MNG (not the same as stateless frontend).
+    # Anchor source for other critical components (no Karpenter toleration).
+    schedulingRules: &scheduling-critical
+      nodeSelector:
+        workload-class: critical
+      affinity: {}
+      tolerations: []
     readinessProbe:
       httpGet:
         path: /
@@ -688,6 +697,8 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Stateless → Karpenter hard placement
+    schedulingRules: *scheduling-spot-tolerant
     service:
       port: 8089
     env:
@@ -773,6 +784,8 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Stateless → Karpenter hard placement
+    schedulingRules: *scheduling-spot-tolerant
     readinessProbe:
       grpc:
         port: 8080
@@ -911,6 +924,8 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Stateless → Karpenter hard placement
+    schedulingRules: *scheduling-spot-tolerant
     service:
       port: 8080
     env:
@@ -972,6 +987,8 @@ components:
       tag: "v0.12.9"
     useDefault:
       env: true
+    # Feature-flag control plane → Critical MNG
+    schedulingRules: *scheduling-critical
     readinessProbe:
       tcpSocket:
         port: 8013
@@ -1073,12 +1090,8 @@ components:
   kafka:
     enabled: true
     stateful: true
-    # Critical data plane → managed node group floor
-    schedulingRules: &scheduling-critical
-      nodeSelector:
-        workload-class: critical
-      affinity: {}
-      tolerations: []
+    # Critical data plane → Critical MNG (system-*); no Karpenter toleration
+    schedulingRules: *scheduling-critical
     podSecurityContext:
       fsGroup: 1000
     terminationGracePeriodSeconds: 60
@@ -1424,6 +1437,12 @@ components:
 
 opentelemetry-collector:
   enabled: true
+  # Universal DaemonSet: run on Critical MNG and Karpenter (no workload-class selector).
+  tolerations:
+    - key: workload-class
+      operator: Equal
+      value: spot-tolerant
+      effect: NoSchedule
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -1569,6 +1588,9 @@ jaeger:
   enabled: true
   fullnameOverride: jaeger
   jaeger:
+    # Observability control plane → Critical MNG
+    nodeSelector:
+      workload-class: critical
     podSecurityContext:
       seccompProfile:
         type: RuntimeDefault
@@ -1675,6 +1697,9 @@ prometheus:
     enabled: false
   server:
     fullnameOverride: prometheus
+    # Observability control plane → Critical MNG
+    nodeSelector:
+      workload-class: critical
     extraFlags:
       - "enable-feature=exemplar-storage"
       - "web.enable-otlp-receiver"
@@ -1745,6 +1770,9 @@ prometheus:
 grafana:
   enabled: true
   fullnameOverride: grafana
+  # Observability control plane → Critical MNG
+  nodeSelector:
+    workload-class: critical
   extraEmptyDirMounts:
     - name: grafana-tmp
       mountPath: /tmp
