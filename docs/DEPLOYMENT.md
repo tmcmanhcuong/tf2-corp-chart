@@ -36,7 +36,8 @@
 - Images đã có trên ECR theo format nested (xem Phase 3 / platform repo).
 - **Helm** v3+, **kubectl**, **bash** (smoke test); **argocd** CLI optional (có thể dùng UI / `kubectl`).
 - **GitOps:** Argo CD installed (`argocd` namespace); repo credential trong `argocd` nếu repo private (GitHub App / deploy key / PAT).
-- **Metrics Server:** chart cài kèm subchart `metrics-server` (default `enabled: true`) để HPA (`frontend`, `checkout`) đọc CPU/memory. **Không** cần cài sẵn trong `kube-system`. Nếu cluster **đã** có Metrics Server (một APIService `v1beta1.metrics.k8s.io` duy nhất), tắt trong overlay: `metrics-server.enabled: false`.
+- **Metrics Server:** chart cài kèm subchart `metrics-server` (default `enabled: true`) để HPA đọc CPU/memory. **Không** cần cài sẵn trong `kube-system`. Nếu cluster **đã** có Metrics Server (một APIService `v1beta1.metrics.k8s.io` duy nhất), tắt trong overlay: `metrics-server.enabled: false`.
+- **Prometheus Adapter:** chart cài kèm subchart `prometheus-adapter` (default `enabled: true`) để HPA đọc RPS External metrics từ Prometheus. Tắt: `prometheus-adapter.enabled: false` (chỉ còn CPU/memory HPA).
 
 ## 4. Hằng số & quy ước image
 
@@ -521,32 +522,39 @@ Chart dependency: **metrics-server 3.13.1** (`https://kubernetes-sigs.github.io/
 | `metrics-server.args` | `--kubelet-insecure-tls` | Thường cần trên EKS (kubelet serving cert) |
 | `metrics-server.resources` | requests 100m/200Mi, limit memory 200Mi | |
 
-HPA templates (`templates/hpa.yaml`) dùng `autoscaling/v2` — **cần** Metrics Server (API `metrics.k8s.io`). Optional `autoscaling.behavior` (scale-up/down policies) is rendered when set. Multi-replica HPA services also get a first-party **PodDisruptionBudget** (`minAvailable: 1`) when `minReplicas >= 2`.
+HPA templates (`templates/hpa.yaml`) dùng `autoscaling/v2` — **cần** Metrics Server (API `metrics.k8s.io`) cho CPU/memory. Request-rate (RPS) HPA **cần** Prometheus Adapter (API `external.metrics.k8s.io`), subchart `prometheus-adapter` (default `enabled: true`). Optional `autoscaling.behavior` (scale-up/down policies) is rendered when set. Multi-replica HPA services also get a first-party **PodDisruptionBudget** (`minAvailable: 1`) when `minReplicas >= 2`.
 
-**Metric policy (Option B — dual metrics):**
+**Metric policy (Option B+ — triple metrics):**
 
 | Metric | Target | Role |
 |---|---:|---|
-| CPU | **70%** | Primary capacity signal under traffic |
+| **RPS** (External) | per-service `targetRequestsPerSecond` | Primary under traffic (I/O-bound / high-RPS low-CPU paths) |
+| CPU | **70%** | Safety when load is compute-bound |
 | Memory | **90%** | Safety valve only (near request / OOM-adjacent pressure) |
 
 HPA desired replicas = **max** across metrics. A low memory target would dominate scale-out; 90% is intentional so idle heaps do not pin high replica counts. If idle memory utilization stays near request, **raise `requests.memory`** — do not lower the memory target to “fix” thrash. Hard OOM protection remains `limits` + runtime caps (e.g. `GOMEMLIMIT`).
+
+RPS uses External metric `http_requests_per_second` with label `service_name` (OTel). Ops detail: `docs/operations/request-metric-hpa.md`.
 
 **Default HPA inventory** (`components.*.autoscaling`):
 
 | Service | min | max | Metrics | Placement |
 |---|---:|---:|---|---|
-| `frontend` | 1 | 6 | CPU 70% / Mem 90% | Karpenter (spot-tolerant) |
-| `checkout` | 1 | 6 | CPU 70% / Mem 90% | Karpenter (spot-tolerant) |
-| `cart` | 1 | 6 | CPU 70% / Mem 90% | Karpenter (default) |
-| `product-catalog` | 1 | 6 | CPU 70% / Mem 90% | Karpenter (spot-tolerant) |
-| `frontend-proxy` | 1 | 3 | CPU 70% / Mem 90% | **Critical MNG** (cap max at 3) |
+| `frontend` | 1 | 6 | CPU 70% / Mem 90% / RPS **15** | Karpenter (spot-tolerant) |
+| `checkout` | 1 | 6 | CPU 70% / Mem 90% / RPS **5** | Karpenter (spot-tolerant) |
+| `cart` | 1 | 6 | CPU 70% / Mem 90% / RPS **20** | Karpenter (default) |
+| `product-catalog` | 1 | 6 | CPU 70% / Mem 90% / RPS **30** | Karpenter (spot-tolerant) |
+| `currency` | 1 | 6 | CPU 70% / Mem 90% / RPS **50** | Karpenter (spot-tolerant) |
+| `recommendation` | 1 | 6 | CPU 70% / Mem 90% / RPS **15** | Karpenter (spot-tolerant) |
+| `frontend-proxy` | 1 | 3 | CPU 70% / Mem 90% / RPS **40** | **Critical MNG** (cap max at 3) |
 
 `load-generator` has **no HPA** (fixed `replicas` from chart default, typically 1). Ramp synthetic traffic via `LOCUST_USERS` / Locust UI — extra replicas with `LOCUST_AUTOSTART` would each run an independent swarm.
 
 All HPA services use **`minReplicas: 1`** in base `values.yaml` (cost floor; scale-out still goes to max under load). First-party PDBs are only rendered when `minReplicas >= 2`, so none of these HPAs emit a PDB at the current floor.
 
 **Critical capacity note:** `frontend-proxy` scale-out still lands only on Critical MNG (small floor). If extra proxy pods are `Pending`, free Critical capacity or adjust MNG size in infra — do not raise chart `maxReplicas` without capacity review.
+
+**Prometheus Adapter:** pin Critical MNG; talks to in-cluster `http://prometheus:9090`. Disable with `prometheus-adapter.enabled: false` if you only want CPU/memory HPA.
 
 ### Kiểm tra image trong Pod
 
@@ -642,12 +650,17 @@ kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes | head -c 200; echo
 kubectl top nodes
 kubectl top pods -n techx-corp
 
+# Prometheus Adapter (request-rate External metrics)
+kubectl -n techx-corp get deploy,pods -l app.kubernetes.io/name=prometheus-adapter
+kubectl get apiservice | grep -E 'custom.metrics|external.metrics'
+kubectl get --raw /apis/external.metrics.k8s.io/v1beta1 | head -c 200; echo
+
 # HPA + PDB for multi-replica autoscaled services
 kubectl -n techx-corp get hpa,pdb
-kubectl -n techx-corp describe hpa frontend checkout cart product-catalog frontend-proxy
+kubectl -n techx-corp describe hpa frontend checkout cart product-catalog currency recommendation frontend-proxy
 ```
 
-Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready; `kubectl top` trả về CPU/memory; five HPAs present on base/prod (`frontend`, `checkout`, `cart`, `product-catalog`, `frontend-proxy`) all with `MINPODS=1`; no `load-generator` HPA; first-party PDBs only if some HPA later raises `minReplicas >= 2`.
+Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready (CPU/mem); External RPS targets populate after traffic + Adapter Ready; `kubectl top` trả về CPU/memory; seven HPAs on base (`frontend`, `checkout`, `cart`, `product-catalog`, `currency`, `recommendation`, `frontend-proxy`) all with `MINPODS=1`; no `load-generator` HPA; first-party PDBs only if some HPA later raises `minReplicas >= 2`. See `docs/operations/request-metric-hpa.md`.
 
 ### Smoke test
 

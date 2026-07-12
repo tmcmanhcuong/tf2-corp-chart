@@ -401,13 +401,20 @@ spec:
 
 {{/*
 Demo component HPA template
-Requires at least one of targetCPUUtilizationPercentage or targetMemoryUtilizationPercentage.
+Requires at least one of:
+  - targetCPUUtilizationPercentage
+  - targetMemoryUtilizationPercentage
+  - targetRequestsPerSecond (External metric via Prometheus Adapter)
 Optional autoscaling.behavior is passed through as HPA v2 behavior (scaleUp/scaleDown).
+Request metric name defaults to http_requests_per_second (must match prometheus-adapter rules).
+HPA uses max across all metrics (Option B: CPU/mem safety valves + RPS primary for hot paths).
 */}}
 {{- define "techx-corp.hpa" }}
-{{- if and (not .autoscaling.targetCPUUtilizationPercentage) (not .autoscaling.targetMemoryUtilizationPercentage) }}
-{{- fail (printf "components.%s.autoscaling.enabled requires targetCPUUtilizationPercentage and/or targetMemoryUtilizationPercentage" .name) }}
+{{- if and (not .autoscaling.targetCPUUtilizationPercentage) (not .autoscaling.targetMemoryUtilizationPercentage) (not .autoscaling.targetRequestsPerSecond) }}
+{{- fail (printf "components.%s.autoscaling.enabled requires targetCPUUtilizationPercentage, targetMemoryUtilizationPercentage, and/or targetRequestsPerSecond" .name) }}
 {{- end }}
+{{- $customMetricName := .autoscaling.customMetricName | default "http_requests_per_second" }}
+{{- $serviceName := .autoscaling.serviceName | default .name }}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -438,6 +445,20 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+    {{- if .autoscaling.targetRequestsPerSecond }}
+    # External RPS from Prometheus Adapter (service_name label = OTel service.name).
+    # AverageValue → HPA divides total service RPS by current replica count.
+    - type: External
+      external:
+        metric:
+          name: {{ $customMetricName }}
+          selector:
+            matchLabels:
+              service_name: {{ $serviceName | quote }}
+        target:
+          type: AverageValue
+          averageValue: {{ .autoscaling.targetRequestsPerSecond | quote }}
     {{- end }}
   {{- if .autoscaling.behavior }}
   behavior:
