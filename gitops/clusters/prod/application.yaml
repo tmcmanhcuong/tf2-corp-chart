@@ -15,7 +15,7 @@ spec:
   project: techx-corp
 
   source:
-    repoURL: https://github.com/tmcmanhcuong/tf2-corp-chart.git
+    repoURL: https://github.com/tf2-team/tf2-corp-chart.git
     targetRevision: main
     path: .
     helm:
@@ -27,7 +27,7 @@ spec:
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: techx-corp
+    namespace: techx-corp-prod
 
   syncPolicy:
     automated:

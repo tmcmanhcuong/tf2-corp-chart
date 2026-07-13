@@ -12,7 +12,7 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0;0m' # No Color
 
-NAMESPACE="techx-corp"
+NAMESPACE="techx-corp-prod"
 ALB_HOST=""
 HOST=""
 PORT_FORWARD_PID=""
@@ -21,7 +21,7 @@ FREE_PORT=""
 function print_usage() {
   echo "Usage: $0 [options]"
   echo "Options:"
-  echo "  -n, --namespace <ns>    Kubernetes namespace (default: techx-corp)"
+  echo "  -n, --namespace <ns>    Kubernetes namespace (default: techx-corp-prod)"
   echo "  -h, --host <url>        Direct target host (skips port-forward, e.g. http://localhost:8080)"
   echo "  -a, --alb-host <url>    Public ALB host to run route-blocking checks on"
   echo "  --help                  Show this help message"

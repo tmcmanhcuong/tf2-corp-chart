@@ -167,19 +167,31 @@ If a prior revision was `deployed` and only an upgrade is pending, try `helm rol
 
 ```bash
 cd techx-corp-chart
-kubectl create namespace techx-corp --dry-run=client -o yaml | kubectl apply -f -
 
-# Dev
+# --- Development ---
+kubectl create namespace techx-corp-dev --dry-run=client -o yaml | kubectl apply -f -
 helm upgrade --install techx-corp-secrets ./secrets-chart \
-  -n techx-corp \
+  -n techx-corp-dev \
   -f secrets-chart/values.yaml \
   -f secrets-chart/values-dev.yaml \
   --wait --timeout 5m
+kubectl -n techx-corp-dev wait --for=condition=Ready externalsecret --all --timeout=120s
+kubectl -n techx-corp-dev get secret \
+  techx-corp-postgresql-admin \
+  techx-corp-postgresql-app \
+  techx-corp-flagd-ui \
+  techx-corp-product-reviews \
+  techx-corp-grafana-admin
 
-# Prod: use values-prod.yaml instead of values-dev.yaml
-
-kubectl -n techx-corp wait --for=condition=Ready externalsecret --all --timeout=120s
-kubectl -n techx-corp get secret \
+# --- Production ---
+kubectl create namespace techx-corp-prod --dry-run=client -o yaml | kubectl apply -f -
+helm upgrade --install techx-corp-secrets ./secrets-chart \
+  -n techx-corp-prod \
+  -f secrets-chart/values.yaml \
+  -f secrets-chart/values-prod.yaml \
+  --wait --timeout 5m
+kubectl -n techx-corp-prod wait --for=condition=Ready externalsecret --all --timeout=120s
+kubectl -n techx-corp-prod get secret \
   techx-corp-postgresql-admin \
   techx-corp-postgresql-app \
   techx-corp-flagd-ui \
@@ -195,14 +207,23 @@ kubectl -n techx-corp get secret \
 ## Phase 3 — App chart (source cutover only)
 
 ```bash
-helm upgrade --install techx-corp ./ \
-  -n techx-corp \
+# Development
+helm upgrade --install techx-corp-dev ./ \
+  -n techx-corp-dev \
   -f values.yaml \
   -f values-public-alb.yaml \
-  -f values-dev.yaml \   # or values-prod.yaml
+  -f values-dev.yaml \
   --wait --atomic --timeout 15m
+./scripts/smoke-test.sh --namespace techx-corp-dev
 
-./scripts/smoke-test.sh --namespace techx-corp
+# Production
+helm upgrade --install techx-corp ./ \
+  -n techx-corp-prod \
+  -f values.yaml \
+  -f values-public-alb.yaml \
+  -f values-prod.yaml \
+  --wait --atomic --timeout 15m
+./scripts/smoke-test.sh --namespace techx-corp-prod
 ```
 
 Expect no `CreateContainerConfigError`. Logs for accounting / product-catalog / product-reviews healthy.
@@ -211,7 +232,7 @@ Expect no `CreateContainerConfigError`. Logs for accounting / product-catalog / 
 
 ```bash
 helm upgrade --install techx-corp ./ \
-  -n techx-corp \
+  -n techx-corp-prod \
   -f values.yaml \
   -f values-demo.yaml
 ```
@@ -227,7 +248,7 @@ Example app user:
 NEW_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)
 
 # 2) Apply inside Postgres first
-kubectl -n techx-corp exec -it statefulset/postgresql -- \
+kubectl -n techx-corp-prod exec -it statefulset/postgresql -- \
   psql -U root -d otel -c "ALTER ROLE otelu WITH PASSWORD '${NEW_PASS}';"
 
 # 3) Update ASM
@@ -236,16 +257,16 @@ aws secretsmanager put-secret-value --region us-east-1 \
   --secret-string "{\"username\":\"otelu\",\"password\":\"${NEW_PASS}\",\"database\":\"otel\"}"
 
 # 4) Wait ESO
-kubectl -n techx-corp wait --for=condition=Ready externalsecret/techx-corp-postgresql-app --timeout=120s
+kubectl -n techx-corp-prod wait --for=condition=Ready externalsecret/techx-corp-postgresql-app --timeout=120s
 
 # 5) Restart consumers (ESO does not refresh running pod env)
-kubectl -n techx-corp rollout restart deployment/accounting
-kubectl -n techx-corp rollout restart deployment/product-catalog
-kubectl -n techx-corp rollout restart deployment/product-reviews
-kubectl -n techx-corp rollout status deployment/accounting --timeout=300s
+kubectl -n techx-corp-prod rollout restart deployment/accounting
+kubectl -n techx-corp-prod rollout restart deployment/product-catalog
+kubectl -n techx-corp-prod rollout restart deployment/product-reviews
+kubectl -n techx-corp-prod rollout status deployment/accounting --timeout=300s
 
 # 6) Smoke
-./scripts/smoke-test.sh --namespace techx-corp
+./scripts/smoke-test.sh --namespace techx-corp-prod
 ```
 
 Repeat pattern for admin / Grafana / flagd-ui as needed. After admin rotation, update residual OTel scrape annotation password or disable scrape.

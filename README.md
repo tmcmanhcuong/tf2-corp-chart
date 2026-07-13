@@ -12,7 +12,7 @@ Env overlays: `values-dev.yaml`, `values-prod.yaml` (plus `values-public-alb.yam
 **Break-glass Helm** (disable Argo auto-sync first after cutover):
 
 ```sh
-helm upgrade --install techx-corp ./ -n techx-corp --create-namespace \
+helm upgrade --install techx-corp ./ -n techx-corp-prod --create-namespace \
   -f values-public-alb.yaml -f values-prod.yaml
 ```
 

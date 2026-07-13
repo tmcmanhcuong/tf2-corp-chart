@@ -11,6 +11,7 @@
 
 externalSecrets:
   enabled: true
+  namespace: techx-corp-dev
 
 default:
   image:

@@ -12,6 +12,7 @@
 
 externalSecrets:
   enabled: true
+  namespace: techx-corp-prod
 
 default:
   image:

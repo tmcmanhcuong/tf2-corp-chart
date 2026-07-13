@@ -1,6 +1,7 @@
-# Separate release: helm upgrade --install techx-corp-secrets ./secrets-chart -n techx-corp
+# Separate release: helm upgrade --install techx-corp-secrets ./secrets-chart -n techx-corp-prod
 # Deploy AFTER ClusterSecretStore is Ready and AFTER ASM values are bootstrapped.
 # Deploy BEFORE (or wait Ready before) the main techx-corp app chart.
+# Dev: -n techx-corp-dev -f values-dev.yaml (overrides namespace).
 
 namespace: techx-corp-prod
 

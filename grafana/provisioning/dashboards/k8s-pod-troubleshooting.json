@@ -421,7 +421,7 @@
             "uid": "${prometheus_datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(k8s_pod_cpu_time_seconds_total{}[$__rate_interval])) by (k8s_pod_name) * on(k8s_pod_name) group_left() (max(target_info{service_name=\"$service\", service_namespace=\"techx-corp\"}) by (k8s_pod_name))",
+          "expr": "sum(rate(k8s_pod_cpu_time_seconds_total{}[$__rate_interval])) by (k8s_pod_name) * on(k8s_pod_name) group_left() (max(target_info{service_name=\"$service\", service_namespace=\"techx-corp-prod\"}) by (k8s_pod_name))",
           "legendFormat": "{{k8s_pod_name}} CPU Usage",
           "range": true,
           "refId": "A"
@@ -509,7 +509,7 @@
             "uid": "${prometheus_datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(k8s_pod_memory_working_set_bytes{}) by (k8s_pod_name) * on(k8s_pod_name) group_left() (max(target_info{service_name=\"$service\", service_namespace=\"techx-corp\"}) by (k8s_pod_name))",
+          "expr": "sum(k8s_pod_memory_working_set_bytes{}) by (k8s_pod_name) * on(k8s_pod_name) group_left() (max(target_info{service_name=\"$service\", service_namespace=\"techx-corp-prod\"}) by (k8s_pod_name))",
           "legendFormat": "{{k8s_pod_name}} Memory Usage",
           "range": true,
           "refId": "A"

@@ -2,7 +2,8 @@
 
 ## Mục tiêu
 
-Git (`techx-corp-chart`) là nguồn sự thật; Argo CD đồng bộ namespace `techx-corp`.  
+Git (`techx-corp-chart` / GitHub `tf2-corp-chart`) là nguồn sự thật; Argo CD đồng bộ  
+namespace **`techx-corp-dev`** (dev) và **`techx-corp-prod`** (prod).  
 Sau cutover: **không** dùng `helm upgrade` thường xuyên.
 
 ## Truy cập UI (v1 — không public Ingress)
@@ -29,7 +30,7 @@ kubectl apply -f gitops/clusters/dev/   # hoặc prod/
 
 ```bash
 # Dev: techx-corp-dev / namespace techx-corp-dev
-# Prod: techx-corp / namespace techx-corp
+# Prod: techx-corp / namespace techx-corp-prod
 argocd app diff techx-corp-dev
 argocd app sync techx-corp-dev --dry-run   # optional review
 argocd app wait techx-corp-dev --sync --health --timeout 600

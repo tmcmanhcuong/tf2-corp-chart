@@ -19,7 +19,7 @@ spec:
 
   destinations:
     - server: https://kubernetes.default.svc
-      namespace: techx-corp
+      namespace: techx-corp-prod
     # metrics-server subchart installs RoleBinding metrics-server-auth-reader here.
     - server: https://kubernetes.default.svc
       namespace: kube-system
