@@ -363,7 +363,7 @@ components:
         memory: 256Mi
     # Hot-path under scaled frontend/checkout; Karpenter (default spot-tolerant).
     # Valkey remains singleton; cart pods are stateless clients.
-    # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (HPA uses max of metrics).
+    # Triple metrics (Option B+): RPS primary; CPU 70% + memory 90% safety valves (HPA uses max).
     # behavior anchor is shared by all HPA-enabled services (must be defined before first alias).
     autoscaling:
       enabled: true
@@ -371,6 +371,8 @@ components:
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
+      # Starting RPS/pod targets — tune after Locust + APM baseline (see docs/operations/request-metric-hpa.md).
+      targetRequestsPerSecond: 20
       behavior: &hpa-behavior-default
         scaleUp:
           stabilizationWindowSeconds: 0
@@ -447,13 +449,14 @@ components:
       limits:
         cpu: 300m
         memory: 256Mi
-    # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (shared behavior from cart).
+    # Triple metrics: expensive orchestration → lower RPS target; CPU/mem safety valves.
     autoscaling:
       enabled: true
       minReplicas: 1
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
+      targetRequestsPerSecond: 5
       behavior: *hpa-behavior-default
     initContainers:
       - name: wait-for-kafka
@@ -495,6 +498,15 @@ components:
       limits:
         cpu: 100m
         memory: 64Mi
+    # High-RPS / low-CPU gRPC (native C++): RPS is the primary capacity signal; CPU often never hits 70%.
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 90
+      targetRequestsPerSecond: 50
+      behavior: *hpa-behavior-default
 
   email:
     enabled: true
@@ -636,13 +648,14 @@ components:
       limits:
         cpu: 300m
         memory: 256Mi
-    # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (shared behavior from cart).
+    # BFF/SSR: RPS primary (often I/O-wait on backends); CPU/mem safety valves.
     autoscaling:
       enabled: true
       minReplicas: 1
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
+      targetRequestsPerSecond: 15
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
@@ -758,14 +771,15 @@ components:
         cpu: 150m
         memory: 128Mi
     # Edge / ALB target on Critical MNG (small floor). Cap maxReplicas to limit pressure.
-    # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve (Envoy usually low RSS).
-    # If pods Pending: free Critical capacity or raise MNG max/desired in infra (separate change).
+    # RPS primary; CPU/mem safety valves. If pods Pending: free Critical capacity in infra.
+    # OTel service.name may differ for Envoy — set autoscaling.serviceName after metric inventory.
     autoscaling:
       enabled: true
       minReplicas: 1
       maxReplicas: 3
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
+      targetRequestsPerSecond: 40
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
@@ -984,13 +998,14 @@ components:
         cpu: 300m
         memory: 256Mi
     # Hot read path under frontend/checkout; Karpenter spot-tolerant.
-    # Dual metrics (Option B): CPU 70% primary; memory 90% safety valve.
+    # Highest backend RPS under Locust browse; RPS primary + CPU/mem safety valves.
     autoscaling:
       enabled: true
       minReplicas: 1
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
+      targetRequestsPerSecond: 30
       behavior: *hpa-behavior-default
     initContainers:
       - name: wait-for-postgresql
@@ -1159,6 +1174,15 @@ components:
       limits:
         cpu: 300m
         memory: 500Mi            # This is high to enable supporting the recommendationCache feature flag use case
+    # Product-page traffic (P1); RPS primary; keep high mem limit for recommendationCache flag scenarios.
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 90
+      targetRequestsPerSecond: 15
+      behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -2179,4 +2203,65 @@ metrics-server:
       memory: 200Mi
     limits:
       memory: 200Mi
+
+# Prometheus Adapter — custom/external metrics API for request-rate (RPS) HPA.
+# Reads OTel request counters already scraped into in-cluster Prometheus.
+# Set enabled: false to fall back to CPU/memory-only HPA (targets stay in values but External metrics fail closed).
+# Ops: docs/operations/request-metric-hpa.md
+prometheus-adapter:
+  enabled: true
+  fullnameOverride: prometheus-adapter
+  # Same Critical floor as metrics-server / Prometheus (APIService reliability).
+  nodeSelector:
+    workload-class: critical
+  prometheus:
+    # In-release Prometheus (server.fullnameOverride: prometheus).
+    url: http://prometheus
+    port: 9090
+  # Resource metrics remain Metrics Server; disable adapter default resource rules.
+  rules:
+    default: false
+    # External metrics: total RPS by service_name (OTel / spanmetrics).
+    # HPA External + AverageValue divides by current replica count → per-pod target.
+    external:
+      # gRPC backends (product-catalog, cart, currency, checkout, recommendation, …)
+      - seriesQuery: 'rpc_server_duration_milliseconds_count{service_name!=""}'
+        resources:
+          namespaced: false
+        name:
+          matches: ".*"
+          as: "http_requests_per_second"
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name)'
+      # HTTP server metrics (frontend Next.js and other HTTP services)
+      - seriesQuery: 'http_server_duration_milliseconds_count{service_name!=""}'
+        resources:
+          namespaced: false
+        name:
+          matches: ".*"
+          as: "http_requests_per_second"
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name)'
+      # Alternate HTTP duration naming (seconds unit)
+      - seriesQuery: 'http_server_request_duration_seconds_count{service_name!=""}'
+        resources:
+          namespaced: false
+        name:
+          matches: ".*"
+          as: "http_requests_per_second"
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name)'
+      # Spanmetrics fallback (covers services without rpc/http server histograms)
+      - seriesQuery: 'traces_span_metrics_calls_total{service_name!=""}'
+        resources:
+          namespaced: false
+        name:
+          matches: ".*"
+          as: "http_requests_per_second"
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name)'
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  replicas: 1
 

@@ -67,6 +67,10 @@
     "metrics-server": {
       "type": "object",
       "description": "Kubernetes Metrics Server (required for HPA CPU/memory metrics)"
+    },
+    "prometheus-adapter": {
+      "type": "object",
+      "description": "Prometheus Adapter (external metrics for request-rate HPA)"
     }
   },
   "required": [
@@ -959,6 +963,21 @@
         },
         "targetMemoryUtilizationPercentage": {
           "type": "integer"
+        },
+        "targetRequestsPerSecond": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "string" }
+          ],
+          "description": "Target average requests/second per pod (HPA External metric AverageValue). Requires prometheus-adapter."
+        },
+        "customMetricName": {
+          "type": "string",
+          "description": "Custom/external metric name exposed by prometheus-adapter (default http_requests_per_second)."
+        },
+        "serviceName": {
+          "type": "string",
+          "description": "OTel service_name label for the External metric selector (defaults to component name)."
         },
         "behavior": {
           "type": "object",
