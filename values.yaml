@@ -929,7 +929,7 @@ components:
       - name: FLAGD_OFREP_PORT
         value: "8016"
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
-        value: http://$(OTEL_COLLECTOR_NAME):4317
+        value: http://$(OTEL_COLLECTOR_NAME):4318
       - name: HOME
         value: /tmp
       - name: XDG_CACHE_HOME
@@ -1007,7 +1007,7 @@ components:
       - name: FLAGD_OFREP_PORT
         value: "8016"
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
-        value: http://$(OTEL_COLLECTOR_NAME):4317
+        value: http://$(OTEL_COLLECTOR_NAME):4318
       - name: HOME
         value: /tmp
       - name: XDG_CACHE_HOME
