@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=./values.schema.json
+﻿# yaml-language-server: $schema=./values.schema.json
 #
 # SEC-05: Sensitive credentials use secretKeyRef → ESO-synced Secrets.
 # Deploy order: ESO + ClusterSecretStore → techx-corp-secrets → wait Ready → techx-corp.
@@ -1712,8 +1712,15 @@ components:
         value: "false"
       - name: DISABLE_INSTALL_DEMO_CONFIG
         value: "true"
-      - name: DISABLE_SECURITY_PLUGIN
-        value: "true"
+      # SEC-06: Security plugin enabled — DISABLE_SECURITY_PLUGIN removed.
+      # Admin password is injected via OPENSEARCH_INITIAL_ADMIN_PASSWORD from K8s Secret
+      # techx-corp-opensearch (ESO-synced from ASM techx-corp/*/opensearch).
+      # This env bootstraps the built-in admin user on first node start; PVC persists it.
+      - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: techx-corp-opensearch
+            key: OPENSEARCH_INITIAL_ADMIN_PASSWORD
       - name: cluster.name
         value: demo-cluster
       - name: network.host
@@ -1828,6 +1835,19 @@ opentelemetry-collector:
   ports:
     metrics:
       enabled: true
+  # SEC-06: OpenSearch basic auth credentials injected from ESO-synced Secret.
+  # Used by the basicauth/opensearch extension in the collector config below.
+  extraEnvs:
+    - name: OPENSEARCH_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: techx-corp-opensearch
+          key: username
+    - name: OPENSEARCH_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: techx-corp-opensearch
+          key: password
   config:
     receivers:
       otlp:
@@ -1881,6 +1901,10 @@ opentelemetry-collector:
           endpoint: http://opensearch:9200
           tls:
             insecure: true
+          # SEC-06: basic auth credentials from ESO-synced Secret techx-corp-opensearch.
+          # The otel-collector DaemonSet mounts these via secretKeyRef (see below).
+          auth:
+            authenticator: basicauth/opensearch
         retry_on_failure:
           enabled: true
           initial_interval: 1s
@@ -1933,7 +1957,16 @@ opentelemetry-collector:
     connectors:
       spanmetrics: {}
 
+    extensions:
+      # SEC-06: BasicAuth extension for OpenSearch exporter.
+      # Credentials are injected via env vars from K8s Secret techx-corp-opensearch.
+      basicauth/opensearch:
+        client_auth:
+          username: ${env:OPENSEARCH_USERNAME}
+          password: ${env:OPENSEARCH_PASSWORD}
+
     service:
+      extensions: [basicauth/opensearch]
       pipelines:
         traces:
           processors: [memory_limiter, resourcedetection, resource, transform, batch]
@@ -2191,6 +2224,17 @@ grafana:
     existingSecret: techx-corp-grafana-admin
     userKey: admin-user
     passwordKey: admin-password
+  # SEC-06: OpenSearch basic auth credentials injected into Grafana container env.
+  # Used by the provisioned opensearch.yaml datasource (${OPENSEARCH_USERNAME} / ${OPENSEARCH_PASSWORD}).
+  envValueFrom:
+    OPENSEARCH_USERNAME:
+      secretKeyRef:
+        name: techx-corp-opensearch
+        key: username
+    OPENSEARCH_PASSWORD:
+      secretKeyRef:
+        name: techx-corp-opensearch
+        key: password
   plugins:
     - grafana-opensearch-datasource
   sidecar:
