@@ -9,7 +9,8 @@ datasources:
     uid: webstore-traces
     type: jaeger
     url: http://jaeger:16686/jaeger/ui
-    editable: true
+    # SEC-02: provisioned datasource is non-editable to prevent accidental edits
+    editable: false
     isDefault: false
     jsonData:
       tracesToLogsV2:
