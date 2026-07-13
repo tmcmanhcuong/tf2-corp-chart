@@ -1,0 +1,8 @@
+apiVersion: v2
+type: application
+name: techx-corp-secrets
+version: 0.1.0
+description: ExternalSecrets for TechX Corp (SEC-05) — deploy before the app chart
+maintainers:
+  - name: TechX Corp Platform Team
+appVersion: "1.0"

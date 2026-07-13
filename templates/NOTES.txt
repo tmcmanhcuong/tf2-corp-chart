@@ -19,3 +19,47 @@
   Grafana              http://localhost:8080/grafana/
   Load Generator UI    http://localhost:8080/loadgen/
   Feature Flags UI     http://localhost:8080/feature/
+
+{{- $frontendProxy := index .Values.components "frontend-proxy" }}
+{{- if and $frontendProxy $frontendProxy.enabled $frontendProxy.publicAlb $frontendProxy.publicAlb.enabled }}
+
+=======================================================================================
+PUBLIC ALB INGRESS ACTIVE
+=======================================================================================
+
+The storefront is exposed publicly via an AWS ALB.
+To inspect the Ingress resource and retrieve the ALB hostname, run:
+  kubectl --namespace {{ .Release.Namespace }} get ingress frontend-proxy-public
+
+Security Posture (Storefront Only):
+  - ALLOWED:  / , /api/* , /images/*
+  - BLOCKED:  {{ join ", " (default (list) $frontendProxy.publicAlb.blockedPrefixes) }}
+              (returns 403 Access Denied)
+{{- end }}
+
+=======================================================================================
+ARGO CD DEFAULT ADMIN CREDENTIAL (initial admin)
+=======================================================================================
+
+UI (no public Ingress — port-forward):
+  kubectl -n argocd port-forward svc/argocd-server 8080:443
+  # then open https://localhost:8080
+
+Username: admin
+{{- $argoSecret := lookup "v1" "Secret" "argocd" "argocd-initial-admin-secret" }}
+{{- if and $argoSecret $argoSecret.data $argoSecret.data.password }}
+Password: {{ index $argoSecret.data "password" | b64dec }}
+{{- else }}
+Password: (not resolved from cluster — run the query command below)
+{{- end }}
+
+Query first/initial admin password (argocd-initial-admin-secret):
+  kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo
+
+  # PowerShell:
+  # [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(
+  #   (kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}")
+  # ))
+
+Rotate the password after first login. The secret is deleted after you change it
+via the UI/CLI; re-query only works while argocd-initial-admin-secret still exists.
