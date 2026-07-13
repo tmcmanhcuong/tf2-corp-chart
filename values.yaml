@@ -931,11 +931,11 @@ components:
         value: /tmp/.config
     resources:
       requests:
-        cpu: 200m
-        memory: 500Mi
+        cpu: 500m
+        memory: 1Gi
       limits:
-        cpu: 300m
-        memory: 1000Mi
+        cpu: "2"
+        memory: 6Gi
     # Fixed single replica (no HPA). Each pod with LOCUST_AUTOSTART independently runs
     # LOCUST_USERS; autoscaling would multiply synthetic traffic, not share one Locust swarm.
     # Ramp load via LOCUST_USERS / Locust UI, not replica count.
