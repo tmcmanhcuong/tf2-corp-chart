@@ -12,10 +12,10 @@ spec:
 
   sourceRepos:
     # Actual GitHub repo name is tf2-corp-chart (local folder may still be techx-corp-chart).
-    - https://github.com/tmcmanhcuong/tf2-corp-chart.git
-    - https://github.com/tmcmanhcuong/tf2-corp-chart.git/*
-    - git@github.com:tmcmanhcuong/tf2-corp-chart.git
-    - git@github.com:tmcmanhcuong/tf2-corp-chart.git/*
+    - https://github.com/tf2-team/tf2-corp-chart.git
+    - https://github.com/tf2-team/tf2-corp-chart.git/*
+    - git@github.com:tf2-team/tf2-corp-chart.git
+    - git@github.com:tf2-team/tf2-corp-chart.git/*
 
   destinations:
     - server: https://kubernetes.default.svc
