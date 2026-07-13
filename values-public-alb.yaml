@@ -1,4 +1,28 @@
+# Enable internal storefront ALB for frontend-proxy (CloudFront VPC origin target).
+#
+# Why an internal ALB is still required (not a second public edge):
+#   techx-corp-infra/docs/adr/storefront-edge-internal-alb.md
+#
+# The ALB is NOT internet-facing. Public clients reach the storefront only via
+# CloudFront (techx-corp-infra modules/cloudfront-alb). Path blocking for admin/
+# telemetry prefixes lives on CloudFront, not on this Ingress.
+#
+# ALB posture:
+#   scheme: internal
+#   blockSensitivePaths: false  (no ALB fixed-response 403 rules)
+#   catch-all / → frontend-proxy
+#
+# CloudFront path blocking (edge): see techx-corp-infra docs/cloudfront.md
+#   BLOCKED at CF when enabled: /grafana, /jaeger, /loadgen, /feature, /flagservice, /otlp-http
+#
+# Operator admin access (private): AWS Client VPN → THIS ALB hostname (full path
+# surface). Do not add a second admin Ingress. See techx-corp-infra docs/client-vpn.md
+#
+# Layer order: values.yaml → values-public-alb.yaml → values-dev|prod.yaml
+
 components:
   frontend-proxy:
     publicAlb:
       enabled: true
+      scheme: internal
+      blockSensitivePaths: false

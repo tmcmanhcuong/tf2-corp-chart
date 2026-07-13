@@ -47,8 +47,30 @@
     "grafana": {
       "type": "object"
     },
-    "opensearch": {
-      "type": "object"
+    "externalSecrets": {
+      "type": "object",
+      "description": "SEC-05 documentation block; ExternalSecrets live in secrets-chart release",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "When true, app chart expects ESO-synced Secrets (default production path)"
+        },
+        "secretStoreName": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        }
+      }
+    },
+    "metrics-server": {
+      "type": "object",
+      "description": "Kubernetes Metrics Server (required for HPA CPU/memory metrics)"
+    },
+    "prometheus-adapter": {
+      "type": "object",
+      "description": "Prometheus Adapter (external metrics for request-rate HPA)"
     }
   },
   "required": [
@@ -125,6 +147,9 @@
         },
         "valkey-cart": {
           "$ref": "#/definitions/Component"
+        },
+        "opensearch": {
+          "$ref": "#/definitions/Component"
         }
       },
       "title": "Components"
@@ -153,6 +178,12 @@
           "$ref": "#/definitions/Image"
         },
         "replicas": {
+          "type": "integer"
+        },
+        "stateful": {
+          "type": "boolean"
+        },
+        "terminationGracePeriodSeconds": {
           "type": "integer"
         },
         "revisionHistoryLimit": {
@@ -207,6 +238,12 @@
         "readinessProbe": {
           "$ref": "#/definitions/ReadinessProbe"
         },
+        "startupProbe": {
+          "$ref": "#/definitions/StartupProbe"
+        },
+        "rollout": {
+          "$ref": "#/definitions/Rollout"
+        },
         "schedulingRules": {
           "$ref": "#/definitions/SchedulingRules"
         },
@@ -239,7 +276,8 @@
               "type": "string"
             },
             "scheme": {
-              "type": "string"
+              "type": "string",
+              "description": "ALB scheme: internal (default; CloudFront VPC origin target) or internet-facing (legacy/break-glass)."
             },
             "targetType": {
               "type": "string"
@@ -249,6 +287,10 @@
             },
             "host": {
               "type": "string"
+            },
+            "blockSensitivePaths": {
+              "type": "boolean",
+              "description": "Emergency only: when true, ALB returns HTTP 403 for blockedPrefixes. Prefer CloudFront Function path blocking; default false with internal ALB."
             },
             "blockedPrefixes": {
               "type": "array",
@@ -264,8 +306,29 @@
         "sidecarContainers": {
           "type": "array"
         },
+        "volumeClaimTemplates": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
         "additionalVolumes": {
           "type": "array"
+        },
+        "stateful": {
+          "type": "boolean"
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer"
+        },
+        "volumeClaimTemplates": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "autoscaling": {
+          "$ref": "#/definitions/Autoscaling"
         }
       },
       "required": [
@@ -347,6 +410,12 @@
         },
         "initContainerSecurityContext": {
           "$ref": "#/definitions/SecurityContext"
+        },
+        "rollout": {
+          "$ref": "#/definitions/Rollout"
+        },
+        "storageClassName": {
+          "type": "string"
         }
       },
       "required": [
@@ -520,6 +589,10 @@
         "tolerations": {
           "type": "array",
           "items": {}
+        },
+        "topologySpreadConstraints": {
+          "type": "array",
+          "items": {}
         }
       }
     },
@@ -685,11 +758,17 @@
       ]
     },
     "LivenessProbe": {
+      "$ref": "#/definitions/Probe"
+    },
+    "ReadinessProbe": {
+      "$ref": "#/definitions/Probe"
+    },
+    "StartupProbe": {
+      "$ref": "#/definitions/Probe"
+    },
+    "Probe": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "httpGet"
-      ],
       "properties": {
         "httpGet": {
           "type": "object",
@@ -726,7 +805,52 @@
               }
             },
             "port": {
-              "type": "integer"
+              "type": ["integer", "string"]
+            }
+          }
+        },
+        "grpc": {
+          "type": "object",
+          "required": [
+            "port"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "port": {
+              "type": ["integer", "string"]
+            },
+            "service": {
+              "type": "string"
+            }
+          }
+        },
+        "tcpSocket": {
+          "type": "object",
+          "required": [
+            "port"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "host": {
+              "type": "string"
+            },
+            "port": {
+              "type": ["integer", "string"]
+            }
+          }
+        },
+        "exec": {
+          "type": "object",
+          "required": [
+            "command"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         },
@@ -747,65 +871,36 @@
         }
       }
     },
-    "ReadinessProbe": {
+    "Rollout": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "httpGet"
-      ],
       "properties": {
-        "httpGet": {
+        "strategy": {
           "type": "object",
-          "required": [
-            "port"
-          ],
           "additionalProperties": false,
           "properties": {
-            "path": {
-              "type": "string"
+            "type": {
+              "type": "string",
+              "enum": ["RollingUpdate", "Recreate"]
             },
-            "host": {
-              "type": "string"
-            },
-            "scheme": {
-              "type": "string"
-            },
-            "httpHeaders": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": [
-                  "name",
-                  "value"
-                ],
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "value": {
-                    "type": "string"
-                  }
+            "rollingUpdate": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "maxUnavailable": {
+                  "type": ["integer", "string"]
+                },
+                "maxSurge": {
+                  "type": ["integer", "string"]
                 }
               }
-            },
-            "port": {
-              "type": "integer"
             }
           }
         },
-        "initialDelaySeconds": {
+        "minReadySeconds": {
           "type": "integer"
         },
-        "timeoutSeconds": {
-          "type": "integer"
-        },
-        "periodSeconds": {
-          "type": "integer"
-        },
-        "successThreshold": {
-          "type": "integer"
-        },
-        "failureThreshold": {
+        "progressDeadlineSeconds": {
           "type": "integer"
         }
       }
@@ -862,6 +957,51 @@
         "name",
         "mountPath"
       ]
+    },
+    "Autoscaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minReplicas": {
+          "type": "integer"
+        },
+        "maxReplicas": {
+          "type": "integer"
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer"
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer"
+        },
+        "targetRequestsPerSecond": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "string" }
+          ],
+          "description": "Target average requests/second per pod (HPA External metric AverageValue). Requires prometheus-adapter."
+        },
+        "customMetricName": {
+          "type": "string",
+          "description": "Custom/external metric name exposed by prometheus-adapter (default http_requests_per_second)."
+        },
+        "serviceName": {
+          "type": "string",
+          "description": "OTel service_name label for the External metric selector (defaults to component name)."
+        },
+        "behavior": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Optional autoscaling/v2 HPA behavior (scaleUp/scaleDown policies). Passed through to the HPA spec."
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "title": "Autoscaling"
     },
     "PodSecurityContext": {
       "type": "object",

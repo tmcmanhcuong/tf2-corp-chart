@@ -1,0 +1,30 @@
+# Production overlay for Argo CD / Helm GitOps (REL-09).
+# Layer order: values.yaml → values-public-alb.yaml → values-prod.yaml
+#
+# Image contract: default.image.repository + default.image.tag is GLOBAL for all
+# nested services including opensearch (…/techx-corp/<service>:<tag>).
+# Promotion: full bake all services → verify every ECR tag → open PR → merge → Argo sync.
+# Do not open a values-prod PR while image push is still in progress.
+#
+# Secrets (SEC-05): values.yaml uses secretKeyRef. Bootstrap ASM + deploy secrets-chart first.
+# Do not commit real production credentials into this file.
+# See docs/operations/external-secrets.md
+
+externalSecrets:
+  enabled: true
+  namespace: techx-corp-prod
+
+default:
+  image:
+    repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp
+    # Replace with currently running tag before cutover (e.g. sha-a1b2c3d or v1.2.3).
+    tag: "sha-488e0f3"
+
+components:
+  frontend-proxy:
+    publicAlb:
+      # Internal ALB; path blocking is on CloudFront (infra cloudfront_block_sensitive_paths).
+      scheme: internal
+      blockSensitivePaths: false
+    # Critical ingress/gateway pin lives in values.yaml hard-placement contract.
+  # flagd critical pin lives in values.yaml.
