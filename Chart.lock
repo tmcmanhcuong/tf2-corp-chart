@@ -11,8 +11,11 @@ dependencies:
 - name: grafana
   repository: https://grafana-community.github.io/helm-charts
   version: 12.3.0
-- name: opensearch
-  repository: https://opensearch-project.github.io/helm-charts/
-  version: 3.6.0
-digest: sha256:5b050b6fe28057b5452bb7175b474f831b9e835a67cd8ab66c191d429175a29e
-generated: "2026-07-07T13:10:16.661896+07:00"
+- name: metrics-server
+  repository: https://kubernetes-sigs.github.io/metrics-server/
+  version: 3.13.1
+- name: prometheus-adapter
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 5.3.0
+digest: sha256:bdeb04f77a25dd9313bd925ab5889f0bb7d1a339e31d55cf7e4ea93d6a480880
+generated: "2026-07-12T07:26:56.0829795+07:00"

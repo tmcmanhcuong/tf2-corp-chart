@@ -47,8 +47,30 @@
     "grafana": {
       "type": "object"
     },
-    "opensearch": {
-      "type": "object"
+    "externalSecrets": {
+      "type": "object",
+      "description": "SEC-05 documentation block; ExternalSecrets live in secrets-chart release",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "When true, app chart expects ESO-synced Secrets (default production path)"
+        },
+        "secretStoreName": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        }
+      }
+    },
+    "metrics-server": {
+      "type": "object",
+      "description": "Kubernetes Metrics Server (required for HPA CPU/memory metrics)"
+    },
+    "prometheus-adapter": {
+      "type": "object",
+      "description": "Prometheus Adapter (external metrics for request-rate HPA)"
     }
   },
   "required": [
@@ -124,6 +146,9 @@
           "$ref": "#/definitions/Component"
         },
         "valkey-cart": {
+          "$ref": "#/definitions/Component"
+        },
+        "opensearch": {
           "$ref": "#/definitions/Component"
         }
       },
@@ -262,6 +287,10 @@
             "host": {
               "type": "string"
             },
+            "blockSensitivePaths": {
+              "type": "boolean",
+              "description": "When true, public ALB returns HTTP 403 for blockedPrefixes (storefront-only posture). When false, all paths forward to frontend-proxy."
+            },
             "blockedPrefixes": {
               "type": "array",
               "items": {
@@ -284,6 +313,21 @@
         },
         "additionalVolumes": {
           "type": "array"
+        },
+        "stateful": {
+          "type": "boolean"
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer"
+        },
+        "volumeClaimTemplates": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "autoscaling": {
+          "$ref": "#/definitions/Autoscaling"
         }
       },
       "required": [
@@ -368,6 +412,9 @@
         },
         "rollout": {
           "$ref": "#/definitions/Rollout"
+        },
+        "storageClassName": {
+          "type": "string"
         }
       },
       "required": [
@@ -539,6 +586,10 @@
           "type": "object"
         },
         "tolerations": {
+          "type": "array",
+          "items": {}
+        },
+        "topologySpreadConstraints": {
           "type": "array",
           "items": {}
         }
@@ -905,6 +956,51 @@
         "name",
         "mountPath"
       ]
+    },
+    "Autoscaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minReplicas": {
+          "type": "integer"
+        },
+        "maxReplicas": {
+          "type": "integer"
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer"
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer"
+        },
+        "targetRequestsPerSecond": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "string" }
+          ],
+          "description": "Target average requests/second per pod (HPA External metric AverageValue). Requires prometheus-adapter."
+        },
+        "customMetricName": {
+          "type": "string",
+          "description": "Custom/external metric name exposed by prometheus-adapter (default http_requests_per_second)."
+        },
+        "serviceName": {
+          "type": "string",
+          "description": "OTel service_name label for the External metric selector (defaults to component name)."
+        },
+        "behavior": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Optional autoscaling/v2 HPA behavior (scaleUp/scaleDown policies). Passed through to the HPA spec."
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "title": "Autoscaling"
     },
     "PodSecurityContext": {
       "type": "object",
