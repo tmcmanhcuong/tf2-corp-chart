@@ -3,6 +3,10 @@
 # Smoke test script for techx-corp release
 # Checks homepage, product list, add-to-cart, checkout, and optional edge path blocking
 # (CloudFront; pass -a with the public HTTPS hostname, not the internal ALB).
+#
+# Admin paths are 403 on CloudFront. To open /grafana etc., connect AWS Client VPN
+# and curl the internal ALB hostname (see techx-corp-infra docs/client-vpn.md).
+# This script does not assert admin 200s on the internal ALB (requires VPN).
 
 set -euo pipefail
 
@@ -25,6 +29,7 @@ function print_usage() {
   echo "  -n, --namespace <ns>    Kubernetes namespace (default: techx-corp-prod)"
   echo "  -h, --host <url>        Direct target host (skips port-forward, e.g. http://localhost:8080)"
   echo "  -a, --alb-host <url>    Public edge host for route-blocking checks (CloudFront alias or https://dxxx.cloudfront.net)"
+  echo "                          Do not pass the internal ALB here for 403 checks; admin paths are open on that ALB."
   echo "  --help                  Show this help message"
 }
 

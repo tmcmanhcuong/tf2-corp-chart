@@ -569,13 +569,16 @@ Ingress `frontend-proxy-public` creates an **internal** ALB (`scheme: internal`)
 
 | Layer | Behavior |
 |---|---|
-| **Internal ALB** | Catch-all `/` → frontend-proxy; not internet-facing |
+| **Internal ALB** | Catch-all `/` → frontend-proxy; not internet-facing; full path surface |
 | **CloudFront** (when enabled) | HTTPS edge; optional 403 on `/grafana`, `/jaeger`, `/loadgen`, `/feature`, `/flagservice`, `/otlp-http` |
+| **Client VPN** (optional) | Private operator access to the **same** internal ALB for admin UIs — `techx-corp-infra/docs/client-vpn.md` |
 
 Chart flags:
 
 * `components.frontend-proxy.publicAlb.scheme` → **`internal`**
 * `components.frontend-proxy.publicAlb.blockSensitivePaths` → **`false`** (default)
+
+Do **not** add a second admin Ingress for Grafana/Jaeger. VPN clients use this ALB’s hostname after connecting to Client VPN.
 
 Emergency ALB-side blocks only (prefer CloudFront in prod):
 
@@ -602,6 +605,13 @@ REM Expect HTTP 403 when cloudfront_block_sensitive_paths=true
 
 ```cmd
 bash scripts/smoke-test.sh -n techx-corp-prod -h https://shop.example.com -a https://shop.example.com
+```
+
+**Verify private admin access** (after Client VPN connect — not part of default smoke):
+
+```cmd
+curl -i http://<INTERNAL_ALB_DNS>/grafana/
+REM Expect 200 or app login, not CloudFront 403
 ```
 
 ---

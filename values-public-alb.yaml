@@ -15,6 +15,9 @@
 # CloudFront path blocking (edge): see techx-corp-infra docs/cloudfront.md
 #   BLOCKED at CF when enabled: /grafana, /jaeger, /loadgen, /feature, /flagservice, /otlp-http
 #
+# Operator admin access (private): AWS Client VPN → THIS ALB hostname (full path
+# surface). Do not add a second admin Ingress. See techx-corp-infra docs/client-vpn.md
+#
 # Layer order: values.yaml → values-public-alb.yaml → values-dev|prod.yaml
 
 components:
