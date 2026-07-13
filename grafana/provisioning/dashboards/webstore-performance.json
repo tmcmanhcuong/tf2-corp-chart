@@ -534,9 +534,9 @@
           },
           "editorMode": "code",
           "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[2m])) by (container)",
+          "format": "table",
           "instant": true,
-          "legendFormat": "Current CPU",
-          "range": false,
+          "legendFormat": "",
           "refId": "A"
         },
         {
@@ -546,9 +546,9 @@
           },
           "editorMode": "code",
           "expr": "quantile_over_time(0.95, sum(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[2m])) by (container)[$__range:1m])",
+          "format": "table",
           "instant": true,
-          "legendFormat": "P95 CPU",
-          "range": false,
+          "legendFormat": "",
           "refId": "B"
         },
         {
@@ -558,9 +558,9 @@
           },
           "editorMode": "code",
           "expr": "quantile_over_time(0.99, sum(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[2m])) by (container)[$__range:1m])",
+          "format": "table",
           "instant": true,
-          "legendFormat": "P99 CPU",
-          "range": false,
+          "legendFormat": "",
           "refId": "C"
         },
         {
@@ -570,9 +570,9 @@
           },
           "editorMode": "code",
           "expr": "sum(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"}) by (container)",
+          "format": "table",
           "instant": true,
-          "legendFormat": "Current Memory",
-          "range": false,
+          "legendFormat": "",
           "refId": "D"
         },
         {
@@ -582,9 +582,9 @@
           },
           "editorMode": "code",
           "expr": "quantile_over_time(0.95, sum(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"}) by (container)[$__range:1m])",
+          "format": "table",
           "instant": true,
-          "legendFormat": "P95 Memory",
-          "range": false,
+          "legendFormat": "",
           "refId": "E"
         },
         {
@@ -594,9 +594,9 @@
           },
           "editorMode": "code",
           "expr": "quantile_over_time(0.99, sum(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"}) by (container)[$__range:1m])",
+          "format": "table",
           "instant": true,
-          "legendFormat": "P99 Memory",
-          "range": false,
+          "legendFormat": "",
           "refId": "F"
         }
       ],
@@ -607,6 +607,37 @@
           "options": {
             "byField": "container",
             "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true
+            },
+            "indexByName": {
+              "container": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3,
+              "Value #D": 4,
+              "Value #E": 5,
+              "Value #F": 6
+            },
+            "renameByName": {
+              "container": "Container",
+              "Value #A": "Current CPU",
+              "Value #B": "P95 CPU",
+              "Value #C": "P99 CPU",
+              "Value #D": "Current Memory",
+              "Value #E": "P95 Memory",
+              "Value #F": "P99 Memory"
+            }
           }
         }
       ],
