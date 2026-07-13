@@ -1736,9 +1736,19 @@ components:
       capabilities:
         drop:
           - ALL
-    mountedEmptyDirs:
+    volumeClaimTemplates:
+      - metadata:
+          name: opensearch-data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          storageClassName: '{{ .defaultValues.storageClassName }}'
+          resources:
+            requests:
+              storage: 10Gi
+    additionalVolumeMounts:
       - name: opensearch-data
         mountPath: /usr/share/opensearch/data
+    mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
 
@@ -1842,14 +1852,28 @@ opentelemetry-collector:
         endpoint: jaeger:4317
         tls:
           insecure: true
+        retry_on_failure:
+          enabled: true
+          initial_interval: 1s
+          max_interval: 30s
+          max_elapsed_time: 300s
         sending_queue:
-          batch: {}
+          enabled: true
+          num_consumers: 4
+          queue_size: 2048
       otlphttp/prometheus:
         endpoint: http://prometheus:9090/api/v1/otlp
         tls:
           insecure: true
+        retry_on_failure:
+          enabled: true
+          initial_interval: 1s
+          max_interval: 30s
+          max_elapsed_time: 300s
         sending_queue:
-          batch: {}
+          enabled: true
+          num_consumers: 4
+          queue_size: 2048
       opensearch:
         logs_index: otel-logs
         logs_index_time_format: "yyyy-MM-dd"
@@ -1857,12 +1881,25 @@ opentelemetry-collector:
           endpoint: http://opensearch:9200
           tls:
             insecure: true
+        retry_on_failure:
+          enabled: true
+          initial_interval: 1s
+          max_interval: 30s
+          max_elapsed_time: 300s
+        sending_queue:
+          enabled: true
+          num_consumers: 4
+          queue_size: 2048
 
     processors:
       memory_limiter:
         check_interval: 5s
         limit_percentage: 80
         spike_limit_percentage: 25
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+        send_batch_max_size: 2048
       resourcedetection:
         detectors: [env, system]
       transform:
@@ -2014,7 +2051,10 @@ jaeger:
             endpoint: ${env:JAEGER_HOST}:${env:JAEGER_GRPC_PORT}
 
     processors:
-      batch: {}
+      batch:
+        timeout: 5s
+        send_batch_size: 1024
+        send_batch_max_size: 2048
 
     exporters:
       jaeger_storage_exporter:
@@ -2081,7 +2121,8 @@ prometheus:
         - postgresql.table.name
         - postgresql.index.name
     persistentVolume:
-      enabled: false
+      enabled: true
+      size: 8Gi
     service:
       servicePort: 9090
     # Working set was ~398Mi against a 400Mi limit (probe timeouts + liveness kill loop).
@@ -2172,6 +2213,9 @@ grafana:
     limits:
       cpu: 200m
       memory: 512Mi
+  persistence:
+    enabled: true
+    size: 1Gi
   securityContext:
     runAsNonRoot: true
     runAsUser: 472
@@ -2265,4 +2309,3 @@ prometheus-adapter:
       cpu: 200m
       memory: 256Mi
   replicas: 1
-
