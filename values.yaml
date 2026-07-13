@@ -1,4 +1,16 @@
 # yaml-language-server: $schema=./values.schema.json
+
+# SEC-05: NetworkPolicy — east-west traffic restriction.
+# Requires a CNI that enforces NetworkPolicy (e.g. AWS VPC CNI with Network Policy support,
+# Calico, Cilium). Verify CNI support before enabling in production.
+# Docs: docs/operations/network-policy.md
+#
+# Roll-out approach (recommended):
+#   Phase 1 — audit: deploy with enabled: false, preview blocked flows with CNI audit tool.
+#   Phase 2 — enforce: set enabled: true in dev; soak 24h, check OTel traces for errors.
+#   Phase 3 — promote: apply to prod after dev soak is clean.
+networkPolicy:
+  enabled: false   # flip to true after CNI audit (see docs above)
 #
 # SEC-05: Sensitive credentials use secretKeyRef → ESO-synced Secrets.
 # Deploy order: ESO + ClusterSecretStore → techx-corp-secrets → wait Ready → techx-corp.
