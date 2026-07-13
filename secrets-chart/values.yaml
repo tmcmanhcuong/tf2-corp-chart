@@ -2,7 +2,7 @@
 # Deploy AFTER ClusterSecretStore is Ready and AFTER ASM values are bootstrapped.
 # Deploy BEFORE (or wait Ready before) the main techx-corp app chart.
 
-namespace: techx-corp
+namespace: techx-corp-prod
 
 secretStore:
   name: aws-secretsmanager
