@@ -199,6 +199,12 @@
         "replicas": {
           "type": "integer"
         },
+        "stateful": {
+          "type": "boolean"
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer"
+        },
         "revisionHistoryLimit": {
           "type": "integer"
         },
@@ -289,7 +295,8 @@
               "type": "string"
             },
             "scheme": {
-              "type": "string"
+              "type": "string",
+              "description": "ALB scheme: internal (default; CloudFront VPC origin target) or internet-facing (legacy/break-glass)."
             },
             "targetType": {
               "type": "string"
@@ -302,7 +309,7 @@
             },
             "blockSensitivePaths": {
               "type": "boolean",
-              "description": "When true, public ALB returns HTTP 403 for blockedPrefixes (storefront-only posture). When false, all paths forward to frontend-proxy."
+              "description": "Emergency only: when true, ALB returns HTTP 403 for blockedPrefixes. Prefer CloudFront Function path blocking; default false with internal ALB."
             },
             "blockedPrefixes": {
               "type": "array",
@@ -317,6 +324,12 @@
         },
         "sidecarContainers": {
           "type": "array"
+        },
+        "volumeClaimTemplates": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
         },
         "additionalVolumes": {
           "type": "array"
