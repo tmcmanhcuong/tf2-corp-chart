@@ -1735,9 +1735,19 @@ components:
       capabilities:
         drop:
           - ALL
-    mountedEmptyDirs:
+    volumeClaimTemplates:
+      - metadata:
+          name: opensearch-data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          storageClassName: '{{ .defaultValues.storageClassName }}'
+          resources:
+            requests:
+              storage: 10Gi
+    additionalVolumeMounts:
       - name: opensearch-data
         mountPath: /usr/share/opensearch/data
+    mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
 

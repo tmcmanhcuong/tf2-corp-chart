@@ -12,7 +12,7 @@ Cấu hình trước đó còn một số điểm yếu ở mức Helm chart:
 
 - `prometheus.server.persistentVolume.enabled` đang tắt, metrics có thể mất khi pod bị recreate.
 - `grafana.persistence.enabled` chưa bật, dữ liệu runtime của Grafana không bền qua restart.
-- `opensearch.persistence.enabled` đang tắt, log storage không bền.
+- Component OpenSearch nội bộ đang mount data bằng `emptyDir`, log storage không bền.
 - `opentelemetry-collector` có resource limit nhưng thiếu resource request, dễ bị schedule vào node không đủ tài nguyên.
 - Exporter của collector chưa có retry/queue rõ ràng cho các backend `jaeger`, `prometheus` và `opensearch`.
 - Batch processor chưa được định nghĩa rõ threshold, làm pipeline kém ổn định khi telemetry tăng đột biến.
@@ -22,7 +22,7 @@ Cấu hình trước đó còn một số điểm yếu ở mức Helm chart:
 1. Bật persistent volume cho các thành phần lưu trữ chính:
    - `prometheus.server.persistentVolume.enabled: true`
    - `grafana.persistence.enabled: true`
-   - `opensearch.persistence.enabled: true`
+   - `components.opensearch.volumeClaimTemplates` tạo PVC cho data path.
 2. Thêm kích thước PVC mặc định để môi trường triển khai có baseline rõ ràng:
    - Prometheus: `8Gi`
    - Grafana: `1Gi`
@@ -59,14 +59,14 @@ Cấu hình trước đó còn một số điểm yếu ở mức Helm chart:
    ```
 4. Xác minh persistence và collector durability config:
    ```sh
-   grep -n "PersistentVolumeClaim\\|retry_on_failure\\|sending_queue\\|send_batch_size" rendered.yaml
+   grep -n "PersistentVolumeClaim\\|volumeClaimTemplates\\|opensearch-data\\|retry_on_failure\\|sending_queue\\|send_batch_size" rendered.yaml
    ```
 
 ## Rủi ro & rollback
 
 - **Rủi ro**: Bật PVC cho observability stack yêu cầu cluster có default StorageClass hoặc cấu hình storage class phù hợp. Nếu không có, pod có thể bị kẹt ở trạng thái `Pending`.
 - **Rủi ro**: Queue/retry giúp giảm mất telemetry khi backend chậm, nhưng nếu backend lỗi kéo dài, collector vẫn có thể drop dữ liệu khi queue đầy.
-- **Rollback**: Tắt lại các khóa persistence (`prometheus.server.persistentVolume.enabled`, `grafana.persistence.enabled`, `opensearch.persistence.enabled`) và giảm cấu hình queue/retry của collector về mặc định trước đó.
+- **Rollback**: Tắt lại persistence của Prometheus/Grafana, chuyển `components.opensearch` từ `volumeClaimTemplates` về `mountedEmptyDirs`, và giảm cấu hình queue/retry của collector về mặc định trước đó.
 
 ---
 
