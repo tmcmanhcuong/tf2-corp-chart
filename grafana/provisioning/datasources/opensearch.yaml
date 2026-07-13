@@ -9,7 +9,8 @@ datasources:
     type: grafana-opensearch-datasource
     url: http://opensearch:9200/
     access: proxy
-    editable: true
+    # SEC-02: provisioned datasource is non-editable to prevent accidental edits
+    editable: false
     isDefault: false
     jsonData:
       database: otel-logs-*
