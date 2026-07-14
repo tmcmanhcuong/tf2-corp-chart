@@ -220,6 +220,11 @@
         "terminationGracePeriodSeconds": {
           "type": "integer"
         },
+        "preStopSleepSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Native Kubernetes preStop sleep used to drain endpoints before SIGTERM without requiring a shell in the image."
+        },
         "revisionHistoryLimit": {
           "type": "integer"
         },
@@ -433,6 +438,15 @@
         },
         "revisionHistoryLimit": {
           "type": "integer"
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "preStopSleepSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Default native Kubernetes preStop sleep for component containers."
         },
         "image": {
           "$ref": "#/definitions/Image"

@@ -38,14 +38,26 @@ This is a release gate, not a reason to hide the residual risk.
   stateless Deployment (fixed replicas and HPA-backed replicas).
 - Readiness probes keep an unready replacement out of Service endpoints.
 - Rolling deployments keep `maxUnavailable: 0` and `maxSurge: 1`.
-- Soft zone and host spreading prefers different failure domains while still
-  permitting scheduling when one zone has no spare capacity.
+- Production uses hard zone and hostname spreading (`DoNotSchedule`,
+  `minDomains: 2`) so two money-flow replicas cannot share one node/AZ.
+- A native 10-second preStop sleep plus a 30-second termination grace period
+  gives EndpointSlice and ALB target deregistration time before SIGTERM. The
+  native hook does not require a shell in the application image.
 - Grafana dashboard **Directive #3 - Maintenance SLO** displays the four SLOs,
   Ready pods, Ready endpoints and pod-to-node placement.
 - `scripts/maintenance-load-test.js` drives the public storefront and enforces
   the same thresholds in k6.
 
 Flag definitions and the incident mechanism remain unchanged.
+
+Before opening the PR, run the production manifest policy check. It fails when
+a critical service loses its two-replica floor, PDB, safe rollout, readiness,
+drain hook, hard spread, or when the Directive #1 internal-ALB boundary changes:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/verify-directive-03.ps1
+```
 
 ## Change window roles
 
@@ -86,6 +98,9 @@ Proceed only if all of the following are true:
 - Every rendered PDB shows `ALLOWED DISRUPTIONS >= 1` before the drain.
 - No critical pod is Pending, CrashLooping or NotReady.
 - The cluster has schedulable headroom for replacement pods.
+- Every critical two-replica Deployment is placed on two distinct nodes and
+  across both configured zones; a Pending pod is a failed pre-flight, not a
+  reason to weaken the spread constraint during the window.
 - The chosen node does not host Kafka, `valkey-cart`, PostgreSQL or OpenSearch.
 - Storefront and operational-access requirements from Directive #1 are still met.
 
@@ -205,6 +220,9 @@ The k6 process must exit with status `0`; otherwise at least one SLO threshold
 failed and the exercise is not accepted.
 
 ## Audit evidence to attach
+
+Copy [`directive-03-evidence-template.md`](directive-03-evidence-template.md)
+into the change ticket/PR evidence pack and complete every applicable field.
 
 - Approved maintenance window and mentor name.
 - PR URL, merge commit, Argo revision and `Synced/Healthy` output.

@@ -50,8 +50,9 @@ spec:
         {{- toYaml $podAnnotations | nindent 8 }}
       {{- end }}
     spec:
-      {{- if .terminationGracePeriodSeconds }}
-      terminationGracePeriodSeconds: {{ .terminationGracePeriodSeconds }}
+      {{- $terminationGracePeriodSeconds := .terminationGracePeriodSeconds | default .defaultValues.terminationGracePeriodSeconds }}
+      {{- if $terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ $terminationGracePeriodSeconds }}
       {{- end }}
       {{- if or .defaultValues.image.pullSecrets ((.imageOverride).pullSecrets) }}
       imagePullSecrets:
@@ -150,6 +151,15 @@ spec:
           {{- if .readinessProbe }}
           readinessProbe:
             {{- .readinessProbe | toYaml | nindent 12 }}
+          {{- end }}
+          {{- $preStopSleepSeconds := .preStopSleepSeconds | default .defaultValues.preStopSleepSeconds }}
+          {{- if $preStopSleepSeconds }}
+          # Native Kubernetes sleep hook: no shell/binary is required in the image.
+          # It gives EndpointSlice/ALB target deregistration time before SIGTERM.
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ $preStopSleepSeconds }}
           {{- end }}
           volumeMounts:
             {{- if .additionalVolumeMounts }}
@@ -489,5 +499,4 @@ spec:
     matchLabels:
       {{- include "techx-corp.selectorLabels" . | nindent 6 }}
 {{- end }}
-
 {{/* Change trail: @hungxqt - 2026-07-14 - Honor component replicas 0 for Locust master idle scale. */}}
