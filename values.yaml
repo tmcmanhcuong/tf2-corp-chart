@@ -2294,15 +2294,16 @@ prometheus:
       size: 8Gi
     service:
       servicePort: 9090
-    # Working set was ~398Mi against a 400Mi limit (probe timeouts + liveness kill loop).
-    # kubectl top: 25m CPU, 650Mi mem. P99 mem: 657Mi. Raise request to cover actual usage.
+    # Prometheus now replays a larger WAL with exemplar storage enabled. The former
+    # 900Mi limit caused OOMKilled (exit 137) before readiness; retain enough
+    # headroom for WAL replay while keeping steady-state scheduling bounded.
     resources:
       requests:
         cpu: 30m
-        memory: 700Mi
+        memory: 1Gi
       limits:
         cpu: 750m
-        memory: 900Mi
+        memory: 2Gi
     # WAL/config load observed ~25–30s; block liveness until ready to avoid restart storms.
     startupProbe:
       enabled: true
