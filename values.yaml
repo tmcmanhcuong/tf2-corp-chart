@@ -299,12 +299,13 @@ components:
       - name: OTEL_DOTNET_AUTO_TRACES_ENTITYFRAMEWORKCORE_INSTRUMENTATION_ENABLED
         value: "false"
     resources:
+      # kubectl top: 7m CPU, 155Mi mem. P99 mem: 155Mi. 20m CPU floor (Kafka consumer burst).
       requests:
-        cpu: 100m
-        memory: 128Mi
+        cpu: 20m
+        memory: 200Mi
       limits:
-        cpu: 300m
-        memory: 256Mi
+        cpu: 150m
+        memory: 300Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -349,12 +350,13 @@ components:
       - name: OTEL_LOGS_EXPORTER
         value: otlp
     resources:
+      # kubectl top: 4m CPU, 228Mi mem (JVM). P99 mem: 229Mi. Keep generous CPU for JVM GC.
       requests:
-        cpu: 100m
-        memory: 128Mi
+        cpu: 15m
+        memory: 288Mi
       limits:
-        cpu: 300m
-        memory: 300Mi
+        cpu: 200m
+        memory: 400Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -392,11 +394,12 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
+      # P99 CPU ~16m. Raise CPU request to 50m to avoid HPA scale-up.
       requests:
-        cpu: 100m
+        cpu: 50m
         memory: 128Mi
       limits:
-        cpu: 300m
+        cpu: 200m
         memory: 256Mi
     # Hot-path under scaled frontend/checkout; Karpenter (default spot-tolerant).
     # Valkey remains singleton; cart pods are stateless clients.
@@ -408,8 +411,8 @@ components:
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
-      # Starting RPS/pod targets — tune after Locust + APM baseline (see docs/operations/request-metric-hpa.md).
-      targetRequestsPerSecond: 20
+      # .NET service can easily handle 100 RPS per pod.
+      targetRequestsPerSecond: 100
       behavior: &hpa-behavior-default
         scaleUp:
           stabilizationWindowSeconds: 0
@@ -480,12 +483,13 @@ components:
       - name: GOMEMLIMIT
         value: 200MiB
     resources:
+      # Go gRPC. CPU actual ~2m. Increase CPU request to 30m and limits for concurrency.
       requests:
-        cpu: 100m
-        memory: 128Mi
+        cpu: 30m
+        memory: 24Mi
       limits:
-        cpu: 300m
-        memory: 256Mi
+        cpu: 200m
+        memory: 128Mi
     # Triple metrics: expensive orchestration → lower RPS target; CPU/mem safety valves.
     autoscaling:
       enabled: true
@@ -493,7 +497,8 @@ components:
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
-      targetRequestsPerSecond: 5
+      # Go service can handle 30 RPS orchestration easily.
+      targetRequestsPerSecond: 30
       behavior: *hpa-behavior-default
     initContainers:
       - name: wait-for-kafka
@@ -529,12 +534,14 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
+      # kubectl top: 5m CPU, 9Mi mem peak (native C++). Request 16Mi gives ~56% idle headroom.
+      # Was 8Mi → pod used 9Mi → 112% of request → HPA falsely triggered memory scale-up.
       requests:
-        cpu: 20m
-        memory: 32Mi
+        cpu: 10m
+        memory: 16Mi
       limits:
         cpu: 100m
-        memory: 64Mi
+        memory: 32Mi
     # High-RPS / low-CPU gRPC (native C++): RPS is the primary capacity signal; CPU often never hits 70%.
     autoscaling:
       enabled: true
@@ -542,7 +549,8 @@ components:
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
-      targetRequestsPerSecond: 50
+      # Native C++ gRPC easily handles 150 RPS.
+      targetRequestsPerSecond: 150
       behavior: *hpa-behavior-default
 
   email:
@@ -576,12 +584,13 @@ components:
       - name: FLAGD_PORT
         value: "8013"
     resources:
+      # kubectl top: 2m CPU, 51Mi mem. P99 mem: 52Mi. Low-traffic async service.
       requests:
-        cpu: 50m
-        memory: 100Mi
+        cpu: 10m
+        memory: 64Mi
       limits:
-        cpu: 200m
-        memory: 200Mi
+        cpu: 100m
+        memory: 128Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -604,12 +613,13 @@ components:
       - name: OTEL_INSTRUMENTATION_MESSAGING_EXPERIMENTAL_RECEIVE_TELEMETRY_ENABLED
         value: "true"
     resources:
+      # kubectl top: 4m CPU, 235Mi mem (Python Kafka consumer). P99 mem: 235Mi.
       requests:
-        cpu: 100m
-        memory: 150Mi
-      limits:
-        cpu: 300m
+        cpu: 15m
         memory: 300Mi
+      limits:
+        cpu: 200m
+        memory: 400Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -679,20 +689,21 @@ components:
       - name: PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
         value: /otlp-http/v1/traces             # This allows local development and production/ALB relative routing
     resources:
+      # Next.js SSR requires more CPU request under active user load to prevent scaling.
       requests:
-        cpu: 100m
+        cpu: 150m
         memory: 128Mi
       limits:
-        cpu: 300m
+        cpu: 500m
         memory: 256Mi
     # BFF/SSR: RPS primary (often I/O-wait on backends); CPU/mem safety valves.
     autoscaling:
       enabled: true
       minReplicas: 1
       maxReplicas: 6
-      targetCPUUtilizationPercentage: 70
+      targetCPUUtilizationPercentage: 80
       targetMemoryUtilizationPercentage: 90
-      targetRequestsPerSecond: 15
+      targetRequestsPerSecond: 50
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
@@ -802,11 +813,14 @@ components:
       - name: OTEL_COLLECTOR_PORT_HTTP
         value: "4318"
     resources:
+      # kubectl top: 24-29m CPU per pod (3 pods), 20-23Mi mem per pod.
+      # Envoy proxy gateway needs higher memory request (64Mi) to keep utilization well below 90% target,
+      # and 100m CPU request to avoid CPU utilization scale trigger.
       requests:
-        cpu: 50m
+        cpu: 100m
         memory: 64Mi
       limits:
-        cpu: 150m
+        cpu: 300m
         memory: 128Mi
     # Edge / ALB target on Critical MNG (small floor). Cap maxReplicas to limit pressure.
     # RPS primary; CPU/mem safety valves. If pods Pending: free Critical capacity in infra.
@@ -815,9 +829,10 @@ components:
       enabled: true
       minReplicas: 1
       maxReplicas: 3
-      targetCPUUtilizationPercentage: 70
+      targetCPUUtilizationPercentage: 80
       targetMemoryUtilizationPercentage: 90
-      targetRequestsPerSecond: 40
+      # Envoy handles massive connections, set target to 200 RPS.
+      targetRequestsPerSecond: 200
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
@@ -868,12 +883,13 @@ components:
       - name: OTEL_COLLECTOR_HOST
         value: $(OTEL_COLLECTOR_NAME)
     resources:
+      # P99 CPU ~2m; P99 mem ~3Mi. Nginx static: minimal resources needed.
       requests:
-        cpu: 20m
-        memory: 32Mi
+        cpu: 5m
+        memory: 8Mi
       limits:
-        cpu: 100m
-        memory: 64Mi
+        cpu: 50m
+        memory: 32Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -889,13 +905,20 @@ components:
 
   load-generator:
     enabled: true
+    replicas: 0
     useDefault:
       env: true
-    # Synthetic traffic generator — interruptible; runs on Karpenter (spot-tolerant).
-    # Keep off Critical MNG so OpenSearch/Kafka/observability retain the small On-Demand floor.
+    # Run Locust Master on Spot instances (always online, lightweight, automatically managed by Karpenter).
     schedulingRules: *scheduling-spot-tolerant
+    command:
+      - locust
+      - --master
+      - --skip-log-setup
     service:
       port: 8089
+    ports:
+      - name: master-bind
+        value: 5557
     env:
       - name: LOCUST_WEB_HOST
         value: "0.0.0.0"
@@ -922,7 +945,7 @@ components:
       - name: FLAGD_OFREP_PORT
         value: "8016"
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
-        value: http://$(OTEL_COLLECTOR_NAME):4317
+        value: http://$(OTEL_COLLECTOR_NAME):4318
       - name: HOME
         value: /tmp
       - name: XDG_CACHE_HOME
@@ -931,17 +954,105 @@ components:
         value: /tmp/.config
     resources:
       requests:
-        cpu: 500m
-        memory: 1Gi
+        cpu: 50m
+        memory: 128Mi
       limits:
-        cpu: "2"
-        memory: 6Gi
-    # Fixed single replica (no HPA). Each pod with LOCUST_AUTOSTART independently runs
-    # LOCUST_USERS; autoscaling would multiply synthetic traffic, not share one Locust swarm.
-    # Ramp load via LOCUST_USERS / Locust UI, not replica count.
+        cpu: 200m
+        memory: 256Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
+
+  load-generator-worker:
+    enabled: true
+    replicas: 0
+    useDefault:
+      env: true
+    imageOverride:
+      repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp/load-generator
+    # Workers generate heavy traffic (runs on dynamic Karpenter Spot nodes).
+    # Configured with podAntiAffinity to prevent running on the same node as other storefront microservices.
+    schedulingRules:
+      nodeSelector:
+        workload-class: spot-tolerant
+      tolerations:
+        - key: workload-class
+          operator: Equal
+          value: spot-tolerant
+          effect: NoSchedule
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values:
+                      - frontend
+                      - checkout
+                      - cart
+                      - recommendation
+                      - product-catalog
+                      - payment
+                      - shipping
+                      - ad
+                      - email
+                      - currency
+                      - fraud-detection
+                      - accounting
+                      - image-provider
+                      - quote
+                      - product-reviews
+              topologyKey: "kubernetes.io/hostname"
+    command:
+      - locust
+      - --worker
+      - --master-host=load-generator
+      - --skip-log-setup
+    env:
+      - name: LOCUST_HOST
+        value: http://frontend-proxy:8080
+      - name: LOCUST_BROWSER_TRAFFIC_ENABLED
+        value: "true"
+      - name: PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION
+        value: python
+      - name: FLAGD_HOST
+        value: flagd
+      - name: FLAGD_PORT
+        value: "8013"
+      - name: FLAGD_OFREP_PORT
+        value: "8016"
+      - name: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: http://$(OTEL_COLLECTOR_NAME):4318
+      - name: HOME
+        value: /tmp
+      - name: XDG_CACHE_HOME
+        value: /tmp/.cache
+      - name: XDG_CONFIG_HOME
+        value: /tmp/.config
+    resources:
+      requests:
+        cpu: 600m
+        memory: 3Gi
+      limits:
+        cpu: "1.5"
+        memory: 4Gi
+    mountedEmptyDirs:
+      - name: tmp-dir
+        mountPath: /tmp
+    # Autoscaling: Scales worker replicas automatically based on CPU/RAM load.
+    # Memory target 75% of request (3Gi) = ~2.25Gi. At 50 users (~761Mi, 25%) → no scale.
+    # HPA triggers only when memory climbs past 2.25Gi (~75-85 users), giving time to
+    # add a 2nd worker before the 4Gi hard limit is hit during fast ramp-up.
+    # CPU request set to 500m. At 50 users (~340m CPU used, 68%), it won't scale.
+    # At 100 users (~680m CPU, 136%), HPA will scale to 2 workers.
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 75
+      behavior: *hpa-behavior-default
 
   payment:
     enabled: true
@@ -974,12 +1085,13 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
+      # kubectl top: 4m CPU, 104Mi mem (Node.js). P99 mem: 104Mi.
       requests:
-        cpu: 50m
-        memory: 100Mi
+        cpu: 10m
+        memory: 128Mi
       limits:
         cpu: 200m
-        memory: 200Mi
+        memory: 256Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -1028,10 +1140,10 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
-      # Right-sized for memory HPA safety valve (90% of 64Mi would thrash under normal Go RSS).
+      # Go microservice with GOMEMLIMIT=200MiB. Raise requests to handle concurrency.
       requests:
-        cpu: 100m
-        memory: 128Mi
+        cpu: 40m
+        memory: 64Mi
       limits:
         cpu: 300m
         memory: 256Mi
@@ -1043,7 +1155,8 @@ components:
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
-      targetRequestsPerSecond: 30
+      # Go backend can handle 100 RPS.
+      targetRequestsPerSecond: 100
       behavior: *hpa-behavior-default
     initContainers:
       - name: wait-for-postgresql
@@ -1105,12 +1218,13 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
+      # Python gRPC service. Raise to handle concurrency under load.
       requests:
         cpu: 50m
-        memory: 100Mi
+        memory: 160Mi
       limits:
-        cpu: 200m
-        memory: 200Mi
+        cpu: 300m
+        memory: 256Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -1150,12 +1264,13 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
+      # kubectl top: 2m CPU, 18Mi mem (PHP). P99 mem: 19Mi.
       requests:
-        cpu: 50m
-        memory: 64Mi
+        cpu: 5m
+        memory: 24Mi
       limits:
-        cpu: 150m
-        memory: 128Mi
+        cpu: 100m
+        memory: 64Mi
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -1206,12 +1321,13 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
+      # Python gRPC. Raise CPU request to 40m to align HPA CPU scale thresholds under normal concurrent load.
       requests:
-        cpu: 50m
-        memory: 256Mi
+        cpu: 40m
+        memory: 128Mi
       limits:
         cpu: 300m
-        memory: 500Mi            # This is high to enable supporting the recommendationCache feature flag use case
+        memory: 510Mi
     # Product-page traffic (P1); RPS primary; keep high mem limit for recommendationCache flag scenarios.
     autoscaling:
       enabled: true
@@ -1254,12 +1370,13 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
+      # P99 CPU ~0.8m; P99 mem ~6Mi (Rust). Minimal footprint confirmed.
       requests:
-        cpu: 20m
-        memory: 32Mi
+        cpu: 5m
+        memory: 8Mi
       limits:
-        cpu: 100m
-        memory: 64Mi
+        cpu: 50m
+        memory: 32Mi
 
   flagd:
     enabled: true
@@ -1297,9 +1414,10 @@ components:
       - name: GOMEMLIMIT
         value: 100MiB
     resources:
+      # kubectl top: 5m CPU, 46Mi mem (flagd container only, pod also has flagd-ui sidecar). P99: 45Mi.
       requests:
-        cpu: 50m
-        memory: 64Mi
+        cpu: 10m
+        memory: 56Mi
       limits:
         cpu: 150m
         memory: 128Mi
@@ -1344,9 +1462,10 @@ components:
           - name: PHX_SERVER
             value: "true"
         resources:
+          # kubectl top: ~138Mi mem (flagd-ui container). P99 mem: 142Mi.
           requests:
-            cpu: 50m
-            memory: 128Mi
+            cpu: 5m
+            memory: 176Mi
           limits:
             cpu: 200m
             memory: 256Mi
@@ -1439,12 +1558,14 @@ components:
       - name: KAFKA_LOG_DIRS
         value: /opt/kafka/data/kafka
     resources:
+      # kubectl top: 17m CPU, 546Mi mem (Kafka JVM). P99 mem: 546Mi. KAFKA_HEAP_OPTS=-Xmx400M.
+      # Guaranteed QoS (request=limit). Keep 200m CPU for JVM GC headroom on burst.
       requests:
         cpu: 200m
-        memory: 700Mi
+        memory: 650Mi
       limits:
         cpu: 200m
-        memory: 700Mi
+        memory: 650Mi
     securityContext:
       runAsUser: 1000  # appuser
       runAsGroup: 1000
@@ -1577,12 +1698,14 @@ components:
         mountPath: /docker-entrypoint-initdb.d
         existingConfigMap: postgresql-init
     resources:
+      # PostgreSQL requires sufficient memory to handle connection forks and queries.
+      # Cost-optimized: set requests/limits to 100m/400m CPU and 256Mi memory.
       requests:
         cpu: 100m
-        memory: 128Mi
+        memory: 256Mi
       limits:
-        cpu: 100m
-        memory: 128Mi
+        cpu: 400m
+        memory: 256Mi
     securityContext:
       runAsUser: 999
       runAsGroup: 999
@@ -1648,12 +1771,13 @@ components:
         username: valkey
         collection_interval: 10s
     resources:
+      # P99 CPU ~4m; P99 mem ~5Mi (Valkey). Tighten Guaranteed QoS at measured levels.
       requests:
-        cpu: 50m
-        memory: 128Mi
+        cpu: 10m
+        memory: 8Mi
       limits:
-        cpu: 50m
-        memory: 128Mi
+        cpu: 10m
+        memory: 8Mi
     securityContext:
       runAsUser: 999  # valkey
       runAsGroup: 1000
@@ -1755,14 +1879,15 @@ components:
       - name: network.host
         value: "0.0.0.0"
     resources:
-      # 200m CPU throttled bootstrap to ~4m+ and left almost no margin under the
-      # previous 5m startup window. 500m keeps Guaranteed QoS and realistic cold start.
+      # kubectl top: 42m CPU, 699Mi mem. P99 CPU 216m (bootstrap peak). P99 mem: 701Mi.
+      # OPENSEARCH_JAVA_OPTS=-Xms400m -Xmx400m. Guaranteed QoS (request=limit).
+      # 500m CPU allows faster JVM bootstrap (was 200m → 4m+ cold start). Steady-state ~42m.
       requests:
         cpu: 500m
-        memory: 1100Mi
+        memory: 900Mi
       limits:
         cpu: 500m
-        memory: 1100Mi
+        memory: 900Mi
     securityContext:
       runAsUser: 1000
       runAsGroup: 1000
@@ -1829,12 +1954,14 @@ opentelemetry-collector:
   # health :13133 stayed closed or hung → readiness/liveness connection refused → restart storm.
   # Healthy agents already sit ~110–150Mi; leave headroom + raise GOMEMLIMIT (80% of limit).
   resources:
+    # kubectl top: 5-31m CPU per agent, 90-120Mi mem per agent (5 DaemonSet pods).
+    # P99 per-pod mem: ~120Mi. 50m CPU request; 150Mi memory request (120Mi × 1.25).
     requests:
       cpu: 50m
-      memory: 128Mi
+      memory: 150Mi
     limits:
       cpu: 400m
-      memory: 384Mi
+      memory: 300Mi
   # Block liveness until health extension is serving (slow start under node memory pressure).
   startupProbe:
     httpGet:
@@ -2022,7 +2149,7 @@ jaeger:
       type: memory
     extraEnv:
       - name: MEMORY_MAX_TRACES
-        value: "25000"
+        value: "10000"
       - name: PROMETHEUS_ADDR
         value: prometheus:9090
       - name: OTEL_COLLECTOR_HOST
@@ -2034,9 +2161,10 @@ jaeger:
       - name: JAEGER_GRPC_PORT
         value: "4317"
     resources:
+      # kubectl top: 22m CPU, 305Mi mem. P99 mem: 306Mi. Memory backend for traces.
       requests:
-        cpu: 100m
-        memory: 256Mi
+        cpu: 25m
+        memory: 384Mi
       limits:
         cpu: 300m
         memory: 600Mi
@@ -2169,14 +2297,14 @@ prometheus:
     service:
       servicePort: 9090
     # Working set was ~398Mi against a 400Mi limit (probe timeouts + liveness kill loop).
-    # OTLP receiver + exemplars + k8s SD need headroom on Critical MNG.
+    # kubectl top: 25m CPU, 650Mi mem. P99 mem: 657Mi. Raise request to cover actual usage.
     resources:
       requests:
-        cpu: 150m
-        memory: 400Mi
+        cpu: 30m
+        memory: 700Mi
       limits:
         cpu: 750m
-        memory: 768Mi
+        memory: 900Mi
     # WAL/config load observed ~25–30s; block liveness until ready to avoid restart storms.
     startupProbe:
       enabled: true
@@ -2243,19 +2371,23 @@ grafana:
     datasources:
       enabled: true
     resources:
+      # kubectl top sidecars: sc-alerts ~74Mi, sc-dashboard ~75Mi, sc-datasources ~73Mi each.
+      # P99 per sidecar: ~75Mi. 80Mi request per sidecar is sufficient.
       requests:
-        cpu: 50m
-        memory: 64Mi
+        cpu: 5m
+        memory: 80Mi
       limits:
-        cpu: 150m
-        memory: 256Mi
+        cpu: 100m
+        memory: 128Mi
   resources:
+    # kubectl top: 16m CPU, 654Mi mem. P99 mem: 476Mi (but live shows 654Mi — cover it).
+    # Grafana loads plugins (grafana-opensearch-datasource) and dashboard state into heap.
     requests:
-      cpu: 50m
-      memory: 128Mi
+      cpu: 20m
+      memory: 700Mi
     limits:
-      cpu: 200m
-      memory: 512Mi
+      cpu: 300m
+      memory: 900Mi
   persistence:
     enabled: true
     storageClassName: gp2
@@ -2287,11 +2419,12 @@ metrics-server:
   args:
     - --kubelet-insecure-tls
   resources:
+    # kubectl top: 5m CPU, 29Mi mem. P99 mem: 29.5Mi. HPA dependency — keep lean.
     requests:
-      cpu: 100m
-      memory: 200Mi
+      cpu: 10m
+      memory: 40Mi
     limits:
-      memory: 200Mi
+      memory: 64Mi
 
 # Prometheus Adapter — custom/external metrics API for request-rate (RPS) HPA.
 # Reads OTel request counters already scraped into in-cluster Prometheus.
@@ -2320,7 +2453,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name)'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
       # HTTP server metrics (frontend Next.js and other HTTP services)
       - seriesQuery: 'http_server_duration_milliseconds_count{service_name!=""}'
         resources:
@@ -2328,7 +2461,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name)'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
       # Alternate HTTP duration naming (seconds unit)
       - seriesQuery: 'http_server_request_duration_seconds_count{service_name!=""}'
         resources:
@@ -2336,20 +2469,21 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name)'
-      # Spanmetrics fallback (covers services without rpc/http server histograms)
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+      # Alternate HTTP duration naming (seconds unit) or spanmetrics fallback
       - seriesQuery: 'traces_span_metrics_calls_total{service_name!=""}'
         resources:
           namespaced: false
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name)'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
   resources:
+    # kubectl top: 9m CPU, 38Mi mem. P99 mem: 45.1Mi. External metrics API for RPS HPA.
     requests:
-      cpu: 50m
-      memory: 128Mi
+      cpu: 10m
+      memory: 56Mi
     limits:
       cpu: 200m
-      memory: 256Mi
+      memory: 128Mi
   replicas: 1
