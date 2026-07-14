@@ -548,7 +548,7 @@ RPS uses External metric `http_requests_per_second` with label `service_name` (O
 | `recommendation` | 1 | 6 | CPU 70% / Mem 90% / RPS **15** | Karpenter (spot-tolerant) |
 | `frontend-proxy` | 2 | 10 | CPU 80% / Mem 90% / RPS **200** | **Critical MNG** (needs MNG headroom at max) |
 
-**Locust distributed mode:** `load-generator` is the **master** (fixed replicas, default `0`; scale to `1` for tests; no HPA; **Critical MNG / system nodes**). `load-generator-worker` is the **worker pool** (CPU-only HPA, min 1 / max 8 when enabled; **Karpenter Spot**). Ramp users via `LOCUST_USERS` / Locust UI on the master; workers join `load-generator:5557`. See `docs/changes/2026-07-14-distributed-load-generator.md`, `docs/changes/2026-07-14-fix-locust-master-worker-discovery.md`, and `docs/changes/2026-07-14-locust-master-critical-mng.md`.
+**Locust distributed mode:** `load-generator` is the **master** (fixed replicas, default `0`; scale to `1` for tests; no HPA; **Critical MNG / system nodes**). `load-generator-worker` is the **worker pool** (CPU-only HPA, min 1 / max 8 when enabled; **fast scale-down** 30s stabilize / 100% per 15s; **Karpenter Spot**). Ramp users via `LOCUST_USERS` / Locust UI on the master; workers join `load-generator:5557`. See `docs/changes/2026-07-14-distributed-load-generator.md`, `docs/changes/2026-07-14-fix-locust-master-worker-discovery.md`, `docs/changes/2026-07-14-locust-master-critical-mng.md`, and `docs/changes/2026-07-14-load-generator-worker-fast-scale-down.md`.
 
 Hot-path money-flow HPAs (`frontend`, `checkout`, `cart`, `frontend-proxy`) use **`minReplicas: 2`** in base `values.yaml` (Directive #3 maintenance floor + first-party PDB). `currency` / `product-catalog` / `recommendation` remain min **1**. First-party PDBs render when `minReplicas >= 2`.
 
@@ -814,4 +814,4 @@ kubectl -n argocd annotate application techx-corp-dev \
 - `templates/NOTES.txt` — post-install notes (port-forward, ALB, **Argo CD admin credential**)  
 - [operations/gitops-argocd.md](./operations/gitops-argocd.md) — GitOps runbook + UI access
 
-<!-- Change trail: @hungxqt - 2026-07-14 - Round-2 HPA max: currency 72, frontend 20, proxy 10. -->
+<!-- Change trail: @hungxqt - 2026-07-14 - Document load-generator-worker fast HPA scale-down. -->
