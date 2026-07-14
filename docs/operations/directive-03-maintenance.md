@@ -15,18 +15,19 @@ The acceptance SLOs are:
 
 ## Safety boundary
 
-This change removes single-pod failure from the **stateless** money-flow tier by
-setting a production floor of two replicas, rendering PodDisruptionBudgets and
-retaining readiness probes plus `maxUnavailable: 0` rolling updates.
+This change removes single-pod failure from the stateless money-flow tier and
+from cart state. Production cart uses Terraform-managed ElastiCache Valkey with
+a primary and replica in separate AZs plus automatic failover. The in-cluster
+`valkey-cart` singleton is disabled in production.
 
-It does **not** turn a singleton stateful application into a cluster. Kafka and
-`valkey-cart` are still stateful singletons until their replication, quorum,
-failover and data migration are designed and tested. Therefore:
+Kafka remains a singleton, but it is outside the synchronous checkout response
+path: checkout persists events to a Multi-AZ DynamoDB outbox and a background
+worker retries Kafka publication. Therefore:
 
-- Do not select a node hosting Kafka or `valkey-cart` for the first mentor drain.
+- Do not select a node hosting Kafka for the first mentor drain; Kafka recovery
+  is validated separately by stopping it while checkout traffic continues.
 - Do not use `kubectl drain --force` or `--disable-eviction`.
-- Do not claim that the stateful tier has no single point of failure.
-- Open a separate architecture/change record before draining a stateful node.
+- Confirm the outbox backlog drains after Kafka recovers.
 
 This is a release gate, not a reason to hide the residual risk.
 
@@ -38,14 +39,30 @@ This is a release gate, not a reason to hide the residual risk.
   stateless Deployment (fixed replicas and HPA-backed replicas).
 - Readiness probes keep an unready replacement out of Service endpoints.
 - Rolling deployments keep `maxUnavailable: 0` and `maxSurge: 1`.
-- Soft zone and host spreading prefers different failure domains while still
-  permitting scheduling when one zone has no spare capacity.
+- Production uses hard zone and hostname spreading (`DoNotSchedule`,
+  `minDomains: 2`) so two money-flow replicas cannot share one node/AZ.
+- A native 10-second preStop sleep plus a 30-second termination grace period
+  gives EndpointSlice and ALB target deregistration time before SIGTERM. The
+  native hook does not require a shell in the application image.
+- Production cart resolves `valkey-cart.techx.internal` to a Multi-AZ managed
+  Valkey primary endpoint; automatic failover promotes the cross-AZ replica.
+- Checkout uses a dedicated IRSA identity and DynamoDB durable outbox. Kafka
+  availability cannot block pod startup or the customer response.
 - Grafana dashboard **Directive #3 - Maintenance SLO** displays the four SLOs,
   Ready pods, Ready endpoints and pod-to-node placement.
 - `scripts/maintenance-load-test.js` drives the public storefront and enforces
   the same thresholds in k6.
 
 Flag definitions and the incident mechanism remain unchanged.
+
+Before opening the PR, run the production manifest policy check. It fails when
+a critical service loses its two-replica floor, PDB, safe rollout, readiness,
+drain hook, hard spread, or when the Directive #1 internal-ALB boundary changes:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File scripts/verify-directive-03.ps1
+```
 
 ## Change window roles
 
@@ -86,7 +103,11 @@ Proceed only if all of the following are true:
 - Every rendered PDB shows `ALLOWED DISRUPTIONS >= 1` before the drain.
 - No critical pod is Pending, CrashLooping or NotReady.
 - The cluster has schedulable headroom for replacement pods.
-- The chosen node does not host Kafka, `valkey-cart`, PostgreSQL or OpenSearch.
+- Every critical two-replica Deployment is placed on two distinct nodes and
+  across both configured zones; a Pending pod is a failed pre-flight, not a
+  reason to weaken the spread constraint during the window.
+- Managed Valkey reports a healthy primary and replica in distinct AZs.
+- The chosen node does not host Kafka, PostgreSQL or OpenSearch.
 - Storefront and operational-access requirements from Directive #1 are still met.
 
 Select and inspect the candidate node:
@@ -206,6 +227,9 @@ failed and the exercise is not accepted.
 
 ## Audit evidence to attach
 
+Copy [`directive-03-evidence-template.md`](directive-03-evidence-template.md)
+into the change ticket/PR evidence pack and complete every applicable field.
+
 - Approved maintenance window and mentor name.
 - PR URL, merge commit, Argo revision and `Synced/Healthy` output.
 - Candidate node, pod inventory before/after, drain and uncordon timestamps.
@@ -214,7 +238,7 @@ failed and the exercise is not accepted.
 - `directive-03-k6-summary.json`, k6 log and exit code.
 - Any alert, SLO breach, abort or rollback with its timeline.
 - Mentor confirmation.
-- Residual-risk owner and follow-up for Kafka/`valkey-cart` HA.
+- Kafka outage/recovery result and evidence that the DynamoDB outbox drained.
 
 The directive is complete only after the mentor observes the controlled
 maintenance and confirms that all required SLOs stayed within threshold.

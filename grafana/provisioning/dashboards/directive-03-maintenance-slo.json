@@ -297,7 +297,7 @@
         {
           "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
           "editorMode": "code",
-          "expr": "sum by (pod) (kube_pod_status_ready{namespace=\"techx-corp-prod\",condition=\"true\",pod=~\"frontend-proxy-.*|frontend-.*|cart-.*|checkout-.*|product-catalog-.*|currency-.*|payment-.*|shipping-.*|email-.*|quote-.*|flagd-.*\"})",
+          "expr": "sum by (pod) (kube_pod_status_ready{namespace=\"techx-corp-prod\",condition=\"true\",pod=~\"ad-.*|cart-.*|checkout-.*|currency-.*|email-.*|flagd-.*|frontend-.*|frontend-proxy-.*|image-provider-.*|payment-.*|product-catalog-.*|product-reviews-.*|quote-.*|recommendation-.*|shipping-.*\"})",
           "legendFormat": "{{pod}}",
           "range": true,
           "refId": "A"
@@ -340,7 +340,7 @@
         {
           "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
           "editorMode": "code",
-          "expr": "count by (endpointslice) (kube_endpointslice_endpoints{namespace=\"techx-corp-prod\",ready=\"true\",targetref_name=~\"frontend-proxy-.*|frontend-.*|cart-.*|checkout-.*|product-catalog-.*|currency-.*|payment-.*|shipping-.*|email-.*|quote-.*|flagd-.*\"})",
+          "expr": "count by (endpointslice) (kube_endpointslice_endpoints{namespace=\"techx-corp-prod\",ready=\"true\",targetref_name=~\"ad-.*|cart-.*|checkout-.*|currency-.*|email-.*|flagd-.*|frontend-.*|frontend-proxy-.*|image-provider-.*|payment-.*|product-catalog-.*|product-reviews-.*|quote-.*|recommendation-.*|shipping-.*\"})",
           "legendFormat": "{{endpointslice}}",
           "range": true,
           "refId": "A"
@@ -370,7 +370,7 @@
         {
           "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
           "editorMode": "code",
-          "expr": "max by (pod, node) (kube_pod_info{namespace=\"techx-corp-prod\",pod=~\"frontend-proxy-.*|frontend-.*|cart-.*|checkout-.*|product-catalog-.*|currency-.*|payment-.*|shipping-.*|email-.*|quote-.*|flagd-.*\"})",
+          "expr": "max by (pod, node) (kube_pod_info{namespace=\"techx-corp-prod\",pod=~\"ad-.*|cart-.*|checkout-.*|currency-.*|email-.*|flagd-.*|frontend-.*|frontend-proxy-.*|image-provider-.*|payment-.*|product-catalog-.*|product-reviews-.*|quote-.*|recommendation-.*|shipping-.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",

@@ -15,33 +15,89 @@ externalSecrets:
   namespace: techx-corp-prod
 
 default:
+  # DIRECTIVE #3: stop routing first, then terminate. The native lifecycle sleep
+  # works with distroless images because it does not execute a container binary.
+  terminationGracePeriodSeconds: 30
+  preStopSleepSeconds: 10
   image:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp
     # Replace with currently running tag before cutover (e.g. sha-a1b2c3d or v1.2.3).
     tag: "sha-9ef6ca3"
+  # Production replicas must occupy distinct hosts and, where capacity exists,
+  # both configured AZs. minDomains=2 prevents a one-zone placement from being
+  # treated as balanced. Karpenter can add the missing stateless capacity.
+  schedulingRules:
+    topologySpreadConstraints:
+      - maxSkew: 1
+        minDomains: 2
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+      - maxSkew: 1
+        minDomains: 2
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
 
 components:
-  # Temporary baseline: inherit the single-replica defaults from values.yaml.
-  # The previous production floor of two is retained below as comments for
-  # easy restoration after the capacity test.
-  # ad:
-  #   replicas: 2
-  # cart:
-  #   autoscaling:
-  #     minReplicas: 2
-  # checkout:
-  #   autoscaling:
-  #     minReplicas: 2
-  # currency:
-  #   autoscaling:
-  #     minReplicas: 2
-  # email:
-  #   replicas: 2
+  # DIRECTIVE #3: keep at least two Ready instances for every stateless service
+  # on the synchronous browse -> cart -> checkout path. HPA services use a
+  # production floor of two; fixed-size services declare replicas explicitly.
+  # Stateful dependencies require real replication/failover and must not be
+  # made "HA" by starting independent writers against the same storage.
+  ad:
+    replicas: 2
+    schedulingRules: &directive03-hard-spread
+      topologySpreadConstraints:
+        - maxSkew: 1
+          minDomains: 2
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+        - maxSkew: 1
+          minDomains: 2
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+  cart:
+    autoscaling:
+      minReplicas: 2
+    schedulingRules: *directive03-hard-spread
+    envOverrides:
+      - name: VALKEY_ADDR
+        value: valkey-cart.techx.internal:6379
+    # Production uses the Terraform-managed Multi-AZ Valkey endpoint. Keep the
+    # bounded startup gate, but target stable private DNS instead of the removed
+    # in-cluster singleton Service.
+    initContainers:
+      - name: wait-for-managed-valkey
+        image: busybox:latest
+        command: ["sh", "-c", "until nc -z -v -w5 valkey-cart.techx.internal 6379; do echo waiting for managed Valkey; sleep 2; done;"]
+  checkout:
+    autoscaling:
+      minReplicas: 2
+    schedulingRules: *directive03-hard-spread
+    serviceAccount:
+      create: true
+      name: checkout
+      annotations:
+        eks.amazonaws.com/role-arn: arn:aws:iam::493499579600:role/techx-prod-tf2-checkout-outbox
+    envOverrides:
+      - name: CHECKOUT_OUTBOX_TABLE
+        value: techx-prod-tf2-checkout-outbox
+      - name: AWS_REGION
+        value: us-east-1
+    # Kafka is no longer a startup dependency. The durable outbox worker retries
+    # publication after the checkout pod is Ready.
+    initContainers: []
+  currency:
+    autoscaling:
+      minReplicas: 2
+    schedulingRules: *directive03-hard-spread
+  email:
+    replicas: 2
+    schedulingRules: *directive03-hard-spread
 
   flagd:
-    # Flag definitions and incident controls remain unchanged. Temporarily use
-    # the single-replica default while the capacity test is in progress.
-    # replicas: 2
+    # Reliability-only change: flag definitions and incident controls remain
+    # unchanged. Two replicas remove flagd as a single-pod/node dependency.
+    replicas: 2
     # BTC central flag source (values-flagd-sync): read-only HTTP sync, no local flagd-ui.
     sidecarContainers: []
     command:
@@ -53,18 +109,12 @@ components:
       - "8016"
       - "--sources"
       - '[{"uri":"https://122.248.223.194.sslip.io/flags.json","provider":"http","authHeader":"Bearer 8de6246060a65f500bc44988467c5985b77d0808998284f9"}]'
-    schedulingRules:
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: topology.kubernetes.io/zone
-          whenUnsatisfiable: ScheduleAnyway
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
+    schedulingRules: *directive03-hard-spread
 
-  # frontend:
-  #   autoscaling:
-  #     minReplicas: 2
+  frontend:
+    autoscaling:
+      minReplicas: 2
+    schedulingRules: *directive03-hard-spread
 
   frontend-proxy:
     publicAlb:
@@ -78,40 +128,49 @@ components:
       # Do NOT enable ssl-redirect. See techx-corp-infra docs/client-vpn.md (TLS section).
       # certificateArn: "arn:aws:acm:us-east-1:493499579600:certificate/<ID>"
       certificateArn: "arn:aws:acm:us-east-1:493499579600:certificate/043175b8-99f5-492f-a258-ff280e0b9a75"
-    # autoscaling:
-    #   minReplicas: 2
+    autoscaling:
+      minReplicas: 2
     # Preserve the critical MNG pin from values.yaml, but prefer separate AZs
-    # and hosts. ScheduleAnyway preserves availability when one node is drained.
-    schedulingRules:
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: topology.kubernetes.io/zone
-          whenUnsatisfiable: ScheduleAnyway
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
+    # and hosts. Hard spread prevents both ingress replicas sharing one node/AZ.
+    schedulingRules: *directive03-hard-spread
 
-  # image-provider:
-  #   replicas: 2
-  # payment:
-  #   replicas: 2
-  # product-catalog:
-  #   autoscaling:
-  #     minReplicas: 2
-  # product-reviews:
-  #   replicas: 2
-  # quote:
-  #   replicas: 2
-  # recommendation:
-  #   autoscaling:
-  #     minReplicas: 2
-  # shipping:
-  #   replicas: 2
+  image-provider:
+    replicas: 2
+    schedulingRules: *directive03-hard-spread
+  payment:
+    replicas: 2
+    schedulingRules: *directive03-hard-spread
+  product-catalog:
+    autoscaling:
+      minReplicas: 2
+    schedulingRules: *directive03-hard-spread
+  product-reviews:
+    replicas: 2
+    schedulingRules: *directive03-hard-spread
+  quote:
+    autoscaling:
+      minReplicas: 2
+    schedulingRules: *directive03-hard-spread
+  recommendation:
+    autoscaling:
+      minReplicas: 2
+    schedulingRules: *directive03-hard-spread
+  shipping:
+    autoscaling:
+      minReplicas: 2
+    schedulingRules: *directive03-hard-spread
 
   # Locust distributed: keep master up while active load testing (base values idle at 0).
   # Scale back to 0 when tests stop to save Spot capacity.
   load-generator:
     replicas: 1
+
+  # Production cart state is provided by ElastiCache Valkey with a primary and
+  # replica in different AZs plus automatic failover. Development keeps the
+  # in-cluster singleton for cost-efficient local testing.
+  valkey-cart:
+    enabled: false
+
   load-generator-worker:
     imageOverride:
       repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp/load-generator
