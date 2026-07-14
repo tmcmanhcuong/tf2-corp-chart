@@ -2142,6 +2142,7 @@ opentelemetry-collector:
       spanmetrics: {}
 
     extensions:
+      health_check: {}
       # SEC-06: BasicAuth extension for OpenSearch exporter.
       # Credentials are injected via env vars from K8s Secret techx-corp-opensearch.
       basicauth/opensearch:
@@ -2150,7 +2151,7 @@ opentelemetry-collector:
           password: ${env:OPENSEARCH_PASSWORD}
 
     service:
-      extensions: [basicauth/opensearch]
+      extensions: [basicauth/opensearch, health_check]
       pipelines:
         traces:
           processors: [memory_limiter, resourcedetection, resource, transform, batch]
