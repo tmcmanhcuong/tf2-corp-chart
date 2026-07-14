@@ -1150,11 +1150,11 @@ components:
     resources:
       # 50-user baseline: P95/P99 CPU 19m/20.4m, P99 memory 14.8Mi.
       requests:
-        cpu: 35m
-        memory: 24Mi
+        cpu: 100m
+        memory: 64Mi
       limits:
         cpu: 200m
-        memory: 64Mi
+        memory: 128Mi
     # Hot read path under frontend/checkout; Karpenter spot-tolerant.
     # Highest backend RPS under Locust browse; RPS primary + CPU/mem safety valves.
     autoscaling:
@@ -1331,11 +1331,11 @@ components:
     resources:
       # 50-user baseline: P95/P99 CPU 12.8m/13.3m, P99 memory 45.5Mi.
       requests:
-        cpu: 25m
-        memory: 64Mi
+        cpu: 100m
+        memory: 128Mi
       limits:
         cpu: 200m
-        memory: 192Mi
+        memory: 256Mi
     # Product-page traffic (P1); RPS primary; CPU/memory remain safety valves.
     autoscaling:
       enabled: true
