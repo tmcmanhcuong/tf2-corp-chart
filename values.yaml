@@ -942,8 +942,8 @@ components:
     replicas: 0
     useDefault:
       env: true
-    # Locust master on Karpenter Spot (lightweight control plane for workers).
-    schedulingRules: *scheduling-spot-tolerant
+    # Locust master control plane → Critical MNG (system-*); workers stay on Karpenter Spot.
+    schedulingRules: *scheduling-critical
     command:
       - locust
       - --master
@@ -2670,4 +2670,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-14 - Locust worker HPA CPU-only; remove memory scale metric.
+# Change trail: @hungxqt - 2026-07-14 - Pin Locust master to Critical MNG (system nodes).

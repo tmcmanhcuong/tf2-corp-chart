@@ -9,7 +9,7 @@
 ## Context
 
 To run high-load simulations for TechX Corp microservices, the load generator architecture was migrated from a standalone single-pod configuration to a distributed **Master-Worker** architecture:
-- **`load-generator` (Locust Master):** Hosts the Locust web UI and coordinates work distribution. Scheduled on the **Karpenter Spot pool** (`*scheduling-spot-tolerant`).
+- **`load-generator` (Locust Master):** Hosts the Locust web UI and coordinates work distribution. Scheduled on the **Critical MNG / system nodes** (`*scheduling-critical`, `workload-class=critical`).
 - **`load-generator-worker` (Locust Workers):** Generate heavy browser/virtual user traffic. Scheduled on the **Karpenter Spot pool** with pod anti-affinity to keep storefront pods separate.
 
 To minimize ongoing AWS infrastructure costs when load testing is not active:
@@ -57,3 +57,5 @@ Because cost efficiency optimization on static workloads is currently a lower pr
 kubectl scale deployment load-generator --replicas=0 -n techx-corp-prod
 kubectl scale deployment load-generator-worker --replicas=0 -n techx-corp-prod
 ```
+
+<!-- Change trail: @hungxqt - 2026-07-14 - Locust master placement Critical MNG (system nodes). -->
