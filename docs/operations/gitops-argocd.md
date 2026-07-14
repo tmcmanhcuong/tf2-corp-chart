@@ -6,13 +6,45 @@ Git (`techx-corp-chart` / GitHub `tf2-corp-chart`) là nguồn sự thật; Argo
 namespace **`techx-corp-dev`** (dev) và **`techx-corp-prod`** (prod).  
 Sau cutover: **không** dùng `helm upgrade` thường xuyên.
 
-## Truy cập UI (v1 — không public Ingress)
+## Truy cập UI (không public Ingress)
 
-```bash
-kubectl -n argocd port-forward svc/argocd-server 8080:443
-# Admin password (xoay vòng sau login đầu):
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo
+### Production (preferred) — private DNS + Client VPN
+
+Same pattern as Grafana/Jaeger: connect **AWS Client VPN**, then open:
+
+```text
+https://internal.hungtran.id.vn/argocd/
 ```
+
+Requires:
+
+1. Infra: Argo CD `server.rootpath=/argocd`, `server.insecure=true`, `url` → private DNS base  
+2. Platform image: frontend-proxy Envoy routes `/argocd/` → `argocd-server.argocd.svc.cluster.local:80`  
+3. CloudFront blocks public `/argocd` (VPN-only path on internal ALB)
+
+Admin password (rotate after first login):
+
+```cmd
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}"
+```
+
+Decode the base64 value (PowerShell: `[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("..."))`).
+
+CLI (from VPN):
+
+```cmd
+argocd login internal.hungtran.id.vn --grpc-web --rootpath /argocd --username admin
+```
+
+### Break-glass — port-forward
+
+When private DNS / Envoy path is unavailable (HTTP:80 with `server.insecure=true`):
+
+```cmd
+kubectl -n argocd port-forward svc/argocd-server 8080:80
+```
+
+Then open `http://localhost:8080/argocd/` (rootpath is still `/argocd`).
 
 ## Bootstrap lần đầu
 

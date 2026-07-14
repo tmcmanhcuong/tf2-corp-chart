@@ -767,6 +767,7 @@ components:
         - /jaeger
         - /loadgen
         - /feature
+        - /argocd
         # /otlp-http and /flagservice are not listed: public browser OTLP + flagd EventStream
     podAnnotations:
       io.opentelemetry.discovery.metrics/enabled: 'true'
@@ -805,6 +806,12 @@ components:
         value: jaeger
       - name: JAEGER_UI_PORT
         value: "16686"
+      # Argo CD server (control-plane NS). Envoy routes /argocd/ → this host.
+      # Requires argocd server.insecure=true + rootpath=/argocd (infra modules/argocd).
+      - name: ARGOCD_HOST
+        value: argocd-server.argocd.svc.cluster.local
+      - name: ARGOCD_PORT
+        value: "80"
       - name: LOCUST_WEB_HOST
         value: load-generator
       - name: LOCUST_WEB_PORT
