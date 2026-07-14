@@ -397,7 +397,7 @@ components:
       # P99 CPU ~16m. Raise CPU request to 50m to avoid HPA scale-up.
       requests:
         cpu: 50m
-        memory: 64Mi
+        memory: 128Mi
       limits:
         cpu: 200m
         memory: 256Mi
@@ -1052,6 +1052,7 @@ components:
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 75
+      behavior: *hpa-behavior-default
 
   payment:
     enabled: true
