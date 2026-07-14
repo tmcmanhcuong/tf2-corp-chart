@@ -42,6 +42,17 @@ components:
     # Flag definitions and incident controls remain unchanged. Temporarily use
     # the single-replica default while the capacity test is in progress.
     # replicas: 2
+    # BTC central flag source (values-flagd-sync): read-only HTTP sync, no local flagd-ui.
+    sidecarContainers: []
+    command:
+      - "/flagd-build"
+      - "start"
+      - "--port"
+      - "8013"
+      - "--ofrep-port"
+      - "8016"
+      - "--sources"
+      - '[{"uri":"https://122.248.223.194.sslip.io/flags.json","provider":"http","authHeader":"Bearer 8de6246060a65f500bc44988467c5985b77d0808998284f9"}]'
     schedulingRules:
       topologySpreadConstraints:
         - maxSkew: 1
