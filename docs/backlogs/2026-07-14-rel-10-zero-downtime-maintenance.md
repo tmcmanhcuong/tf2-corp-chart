@@ -46,15 +46,12 @@ Khi drain một node stateless hoặc rolling restart, luồng công khai
 
 ## Release gate và residual risk
 
-Kafka và `valkey-cart` hiện là stateful singleton. Tăng `replicas: 2` đơn thuần
-không tạo replication hoặc failover an toàn, nên thay đổi này không giả vờ giải
-quyết chúng. Node dùng cho buổi nghiệm thu đầu tiên phải là node stateless và
-không được chứa các workload trên.
-
-Để tuyên bố toàn bộ hệ thống không còn single point of failure, TF phải có một
-change riêng cho stateful HA gồm kiến trúc quorum/replication, storage, migration,
-backup/restore, failover test, chi phí và rollback. Cho đến lúc đó đây là residual
-risk có chủ sở hữu, không phải tiêu chí đã hoàn thành.
+Production không tăng replica giả cho StatefulSet. `valkey-cart` được thay bằng
+ElastiCache Valkey primary/replica Multi-AZ có automatic failover. Kafka vẫn là
+singleton nhưng đã bị loại khỏi synchronous checkout path: event được ghi vào
+DynamoDB outbox Multi-AZ và worker nền retry tới khi Kafka ACK. Nghiệm thu phải
+bao gồm Valkey failover và Kafka stop/recovery, đồng thời chứng minh outbox drain
+hết sau recovery.
 
 ## Kế hoạch nghiệm thu
 

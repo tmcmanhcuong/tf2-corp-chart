@@ -23,7 +23,8 @@
 - [ ] Critical replicas occupy distinct nodes and both configured zones.
 - [ ] No critical pod is Pending, CrashLooping or NotReady.
 - [ ] Replacement capacity/headroom is available.
-- [ ] Candidate node contains no Kafka, `valkey-cart`, PostgreSQL or OpenSearch pod.
+- [ ] Managed Valkey has a healthy primary and replica in distinct AZs.
+- [ ] Candidate node contains no Kafka, PostgreSQL or OpenSearch pod.
 - [ ] Directive #1 public/private access boundary is unchanged.
 - [ ] flagd is enabled, Ready and using the reviewed BTC source.
 
@@ -79,7 +80,6 @@ service reaches zero Ready endpoints.
 
 ## Residual risk and follow-up
 
-- Stateful singleton owner:
-- Kafka follow-up:
-- `valkey-cart` follow-up:
+- Kafka stop/recovery test and outbox drain evidence:
+- Managed Valkey failover test:
 - Any incident/change ticket:

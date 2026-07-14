@@ -39,10 +39,11 @@ Static verification does not replace the mentor-observed production drain and
 k6/Grafana acceptance procedure in
 `docs/operations/directive-03-maintenance.md`.
 
-## Residual boundary
+## Stateful money-path treatment
 
-Kafka and `valkey-cart` remain singleton stateful services. The first acceptance
-drain must stay within the stateless-node safety boundary documented in the
-runbook. Full stateful-node fault tolerance requires a separate replicated
-data-plane design and failover test; independent extra StatefulSet replicas are
-not a safe substitute.
+Production disables the in-cluster `valkey-cart` singleton and connects cart to
+Terraform-managed ElastiCache Valkey with two nodes, Multi-AZ placement and
+automatic failover. Kafka is not scaled unsafely: checkout writes a durable
+DynamoDB outbox and publishes through a background worker, so broker downtime
+does not block pod startup or the customer response. The acceptance exercise
+must include managed Valkey failover and Kafka stop/recovery with outbox drain.

@@ -75,7 +75,7 @@ foreach ($name in $criticalServices) {
     Write-Host "PASS $name"
 }
 
-foreach ($name in @("kafka", "postgresql", "valkey-cart", "opensearch")) {
+foreach ($name in @("kafka", "postgresql", "opensearch")) {
     [array]$statefulSet = @(Get-Manifest -Kind "StatefulSet" -Name $name)
     if ($statefulSet.Count -ne 1) {
         throw "${name}: expected exactly one StatefulSet"
@@ -84,6 +84,18 @@ foreach ($name in @("kafka", "postgresql", "valkey-cart", "opensearch")) {
     if ((Get-Manifest -Kind "PodDisruptionBudget" -Name $name).Count -ne 0) {
         throw "${name}: do not render a misleading HA PDB for a singleton stateful service"
     }
+}
+
+if ((Get-Manifest -Kind "StatefulSet" -Name "valkey-cart").Count -ne 0) {
+    throw "valkey-cart: production must use managed Multi-AZ Valkey, not the singleton StatefulSet"
+}
+$cartDeployment = (Get-Manifest -Kind "Deployment" -Name "cart")
+Assert-Match $cartDeployment "(?ms)name: VALKEY_ADDR\s+value: valkey-cart.techx.internal:6379" "cart: managed Valkey address is required"
+$checkoutDeployment = (Get-Manifest -Kind "Deployment" -Name "checkout")
+Assert-Match $checkoutDeployment "(?ms)name: CHECKOUT_OUTBOX_TABLE\s+value: techx-prod-tf2-checkout-outbox" "checkout: durable outbox table is required"
+Assert-Match $checkoutDeployment "(?m)^      serviceAccountName: checkout$" "checkout: dedicated IRSA ServiceAccount is required"
+if ($checkoutDeployment -match "wait-for-kafka") {
+    throw "checkout: Kafka must not block pod startup"
 }
 
 [array]$publicIngress = @(Get-Manifest -Kind "Ingress" -Name "frontend-proxy-public")
