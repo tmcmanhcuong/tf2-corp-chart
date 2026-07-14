@@ -57,13 +57,13 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 | Tier | Profile | readiness (typical) | liveness (typical) | Components |
 |---|---|---|---|---|
 | **A – Fast** | Envoy/nginx/native/cache; quick bind | period 10, timeout 2, fail 3 (~30s) | period 20, timeout 3, fail 3 (~60s) | frontend-proxy, image-provider, flagd, currency, shipping, valkey-cart |
-| **B – Standard app** | Managed runtimes; modest CPU | period 10, timeout 3, fail 3 (~30s) | period 15, timeout 5, fail 5 (~75s) | cart*, checkout, payment, product-catalog, product-reviews‡, recommendation, quote, email, llm, frontend† |
+| **B – Standard app** | Managed runtimes; modest CPU | period 10, timeout 3, fail 3 (~30s) | period 15, timeout 5, fail 5 (~75s) | cart*, checkout, payment, product-catalog, product-reviews‡, recommendation‡, quote, email, llm, frontend† |
 | **C – JVM / Guaranteed DS** | JVM or tight Guaranteed CPU cold start | larger fail budget, timeout 5 | slower period, timeout 5 | ad, kafka, postgresql |
 | **D – Multi-minute** | Documented long bootstrap | existing OpenSearch set | existing | opensearch |
 
 \* cart: readiness gRPC (Tier B timings); liveness **tcpSocket** (Tier B liveness timings).  
 † frontend: Tier B structure but **timeoutSeconds: 5** and liveness period 20 / fail 4 (~80s) because `GET /` is a full page.  
-‡ product-reviews: Tier B structure but readiness **timeoutSeconds: 5** (RPC may stall under Python GIL / shared gRPC workers + modest CPU).
+‡ product-reviews / recommendation: Tier B structure but readiness **timeoutSeconds: 5** (RPC may stall under Python GIL / shared gRPC workers + modest CPU; unready pods make HPA CPU `<unknown>`).
 
 ---
 
@@ -83,7 +83,7 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 | product-catalog | grpc :8080 | grpc :8080 | 10 / 15 | 3 / 5 | 3 / 5 | 30s / 75s |
 | product-reviews | grpc :3551 | grpc :3551 | 10 / 15 | **5** / 5 | 3 / 5 | 30s / 75s |
 | quote | tcp :8080 | tcp :8080 | 10 / 15 | 3 / 5 | 3 / 5 | 30s / 75s |
-| recommendation | grpc :8080 | grpc :8080 | 10 / 15 | 3 / 5 | 3 / 5 | 30s / 75s |
+| recommendation | grpc :8080 | grpc :8080 | 10 / 15 | **5** / 5 | 3 / 5 | 30s / 75s |
 | shipping | tcp :8080 | tcp :8080 | 10 / 20 | 2 / 3 | 3 / 3 | 30s / 60s |
 | flagd | tcp :8013 | tcp :8013 | 10 / 20 | 2 / 3 | 3 / 3 | 30s / 60s |
 | llm | tcp :8000 | tcp :8000 | 10 / 15 | 3 / 5 | 3 / 5 | 30s / 75s |
@@ -297,4 +297,4 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 * `docs/backlogs/2026-07-08-rel-08-rollout-safety.md` — rollout + schema probe types
 * `UPGRADING.md` — historical REL-02 notes (handler types)
 
-<!-- Change trail: @hungxqt - 2026-07-14 - product-reviews readiness timeout 5s and memory note. -->
+<!-- Change trail: @hungxqt - 2026-07-14 - recommendation readiness timeout 5s (HPA CPU unknown). -->

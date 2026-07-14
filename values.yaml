@@ -1398,12 +1398,14 @@ components:
       env: true
     # Stateless → Karpenter hard placement
     schedulingRules: *scheduling-spot-tolerant
-    # Tier B (Python gRPC health; was missing from chart)
+    # Tier B‡ (Python gRPC): readiness timeout 5s — health shares the worker pool
+    # with ListRecommendations; under catalog/load stalls a 3s timeout flapped
+    # NotReady and HPA showed cpu: <unknown> for unready pods.
     readinessProbe:
       grpc:
         port: 8080
       periodSeconds: 10
-      timeoutSeconds: 3
+      timeoutSeconds: 5
       failureThreshold: 3
     livenessProbe:
       grpc:
@@ -1428,14 +1430,18 @@ components:
         value: "8013"
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
+      # Shared pool for business RPC + health; default 20 in image (was 10).
+      - name: GRPC_MAX_WORKERS
+        value: "20"
     resources:
       # 50-user baseline: P95/P99 CPU 12.8m/13.3m, P99 memory 45.5Mi.
+      # Raised under Locust: top ~180m CPU / thrash OOM risk at 200m/256Mi.
       requests:
         cpu: 100m
         memory: 128Mi
       limits:
-        cpu: 200m
-        memory: 256Mi
+        cpu: 400m
+        memory: 384Mi
     # Product-page traffic (P1); RPS primary; CPU/memory remain safety valves.
     autoscaling:
       enabled: true
@@ -1772,6 +1778,14 @@ components:
     imageOverride:
       repository: "postgres"
       tag: "17.6"
+    # Keep entrypoint so init scripts still run; raise slots for multi-replica apps.
+    # Default 100 was exhausted under product-catalog HPA (idle slots ~70+, errors:
+    # "remaining connection slots are reserved for roles with the SUPERUSER attribute").
+    command:
+      - docker-entrypoint.sh
+      - postgres
+      - -c
+      - max_connections=200
     replicas: 1
     service:
       port: 5432
@@ -1826,12 +1840,13 @@ components:
         existingConfigMap: postgresql-init
     resources:
       # 50-user baseline: P95/P99 CPU 52.7m/72.5m, P99 memory 50Mi.
+      # Load-test: top ~402m CPU / 133Mi mem at default 400m/256Mi; raise for 200 conns.
       requests:
-        cpu: 75m
-        memory: 128Mi
-      limits:
-        cpu: 400m
+        cpu: 100m
         memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 512Mi
     securityContext:
       runAsUser: 999
       runAsGroup: 999
@@ -2691,4 +2706,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-14 - Add product-reviews triple-metric HPA.
+# Change trail: @hungxqt - 2026-07-14 - Fix recommendation HPA unknown CPU; postgres capacity.
