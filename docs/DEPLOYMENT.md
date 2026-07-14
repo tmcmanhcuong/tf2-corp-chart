@@ -548,7 +548,7 @@ RPS uses External metric `http_requests_per_second` with label `service_name` (O
 | `recommendation` | 1 | 6 | CPU 70% / Mem 90% / RPS **15** | Karpenter (spot-tolerant) |
 | `frontend-proxy` | 1 | 3 | CPU 70% / Mem 90% / RPS **40** | **Critical MNG** (cap max at 3) |
 
-`load-generator` has **no HPA** (fixed `replicas` from chart default, typically 1). Ramp synthetic traffic via `LOCUST_USERS` / Locust UI — extra replicas with `LOCUST_AUTOSTART` would each run an independent swarm.
+**Locust distributed mode:** `load-generator` is the **master** (fixed replicas, default `0`; scale to `1` for tests; no HPA). `load-generator-worker` is the **worker pool** (CPU/mem HPA, min 1 / max 8 when enabled). Ramp users via `LOCUST_USERS` / Locust UI on the master; workers join `load-generator:5557`. See `docs/changes/2026-07-14-distributed-load-generator.md` and `docs/changes/2026-07-14-fix-locust-master-worker-discovery.md`.
 
 All HPA services use **`minReplicas: 1`** in base `values.yaml` (cost floor; scale-out still goes to max under load). First-party PDBs are only rendered when `minReplicas >= 2`, so none of these HPAs emit a PDB at the current floor.
 
@@ -652,7 +652,7 @@ kubectl -n techx-corp-prod get hpa,pdb
 kubectl -n techx-corp-prod describe hpa frontend checkout cart product-catalog currency recommendation frontend-proxy
 ```
 
-Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready (CPU/mem); External RPS targets populate after traffic + Adapter Ready; `kubectl top` trả về CPU/memory; seven HPAs on base (`frontend`, `checkout`, `cart`, `product-catalog`, `currency`, `recommendation`, `frontend-proxy`) all with `MINPODS=1`; no `load-generator` HPA; first-party PDBs only if some HPA later raises `minReplicas >= 2`. See `docs/operations/request-metric-hpa.md`.
+Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready (CPU/mem); External RPS targets populate after traffic + Adapter Ready; `kubectl top` trả về CPU/memory; seven request-path HPAs on base (`frontend`, `checkout`, `cart`, `product-catalog`, `currency`, `recommendation`, `frontend-proxy`) all with `MINPODS=1`; `load-generator` master has no HPA; `load-generator-worker` has CPU/mem HPA when enabled; first-party PDBs only if some HPA later raises `minReplicas >= 2`. See `docs/operations/request-metric-hpa.md`.
 
 ### Smoke test
 
@@ -812,4 +812,6 @@ kubectl -n argocd annotate application techx-corp-dev \
 - `secrets-chart/` — ExternalSecrets Helm release (`techx-corp-secrets`)  
 - `Chart.yaml` — subchart deps (OTel, Prometheus, Grafana, Jaeger, OpenSearch, **metrics-server**)  
 - `templates/NOTES.txt` — post-install notes (port-forward, ALB, **Argo CD admin credential**)  
-- [operations/gitops-argocd.md](./operations/gitops-argocd.md) — GitOps runbook + UI access  
+- [operations/gitops-argocd.md](./operations/gitops-argocd.md) — GitOps runbook + UI access
+
+<!-- Change trail: @hungxqt - 2026-07-14 - Document Locust distributed master-worker HPA model. -->

@@ -23,7 +23,8 @@ This chart implements **hard placement** between Critical MNG and Karpenter, plu
 | Service | HPA (base) | Contract | Note |
 |---------|------------|----------|------|
 | `frontend`, `checkout`, `cart`, `product-catalog`, `currency`, `recommendation` | base min **1**, production min **2** / max 6 (CPU 70% + Mem 90% + **RPS**) | spot-tolerant | Karpenter can add nodes under scale-out; RPS is primary under traffic; memory is safety valve only |
-| `load-generator` | **none** (fixed replicas) | spot-tolerant | Ramp via `LOCUST_USERS` / Locust UI; not Locust distributed mode — extra pods would each run independent swarms |
+| `load-generator` | **none** (fixed 0–1 master) | spot-tolerant | Locust **master** only; scale to 1 for tests. Workers are `load-generator-worker` |
+| `load-generator-worker` | **CPU/mem HPA** (min 1, max 8 when testing) | spot-tolerant + storefront anti-affinity | Locust **workers**; join master via `load-generator:5557` |
 | `frontend-proxy` | base min **1**, production min **2** / max **3** (CPU 70% + Mem 90% + **RPS**) | critical | Extra replicas **do not** land on Karpenter; Critical MNG must have enough multi-AZ capacity before maintenance |
 
 Request-rate metrics require Prometheus Adapter (`prometheus-adapter.enabled`). See `docs/operations/request-metric-hpa.md`. Placement contracts are unchanged by metric type.
@@ -90,7 +91,8 @@ Expected matrix (selected):
 |------|----------|----------|----------|----------------------|-----------------|
 | Deployment | frontend | stateless | `spot-tolerant` | Yes | Soft zone + hostname |
 | Deployment | checkout | stateless | `spot-tolerant` | Yes | Soft zone + hostname |
-| Deployment | load-generator | stateless | `spot-tolerant` | Yes | Soft zone + hostname |
+| Deployment | load-generator (master) | stateless | `spot-tolerant` | Yes | Soft zone + hostname |
+| Deployment | load-generator-worker | stateless | `spot-tolerant` + storefront anti-affinity | Yes | Soft zone + hostname |
 | Deployment | frontend-proxy | critical | `critical` | No | None (opt-out) |
 | StatefulSet | postgresql / kafka / … | critical | `critical` | No | None (opt-out) |
 | DaemonSet | otel-collector-agent | universal | none | Yes | N/A |
@@ -138,3 +140,5 @@ Topology spreads must not change A/B/C outcomes.
 * MNG taints / PriorityClass / admission policy.
 * Cluster Autoscaler for Critical MNG (scale-out is a reviewed Terraform `desired_size` change only).
 * Descheduler for rebalancing already-running pods after new nodes appear.
+
+<!-- Change trail: @hungxqt - 2026-07-14 - Document distributed Locust master and worker placement. -->

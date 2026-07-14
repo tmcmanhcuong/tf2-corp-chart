@@ -11,7 +11,12 @@ metadata:
     {{- include "techx-corp.labels" . | nindent 4 }}
 spec:
   {{- if not (and .autoscaling .autoscaling.enabled) }}
-  replicas: {{ .replicas | default .defaultValues.replicas }}
+  {{- /* hasKey so replicas: 0 is honored (Helm `default` treats 0 as empty). */}}
+  {{- if hasKey . "replicas" }}
+  replicas: {{ .replicas }}
+  {{- else }}
+  replicas: {{ .defaultValues.replicas }}
+  {{- end }}
   {{- end }}
   revisionHistoryLimit: {{ .revisionHistoryLimit | default .defaultValues.revisionHistoryLimit }}
   {{- $rollout := mergeOverwrite (dict) (deepCopy (default dict .defaultValues.rollout)) (deepCopy (default dict .rollout)) }}
@@ -485,3 +490,4 @@ spec:
       {{- include "techx-corp.selectorLabels" . | nindent 6 }}
 {{- end }}
 
+{{/* Change trail: @hungxqt - 2026-07-14 - Honor component replicas 0 for Locust master idle scale. */}}

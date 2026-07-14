@@ -52,7 +52,7 @@ The table below is the authoritative source of truth; the Helm template encodes 
 | Service | Receives from | Calls |
 |---------|---------------|-------|
 | **frontend-proxy** | ALB / external | frontend, grafana, jaeger, image-provider, load-generator, flagd |
-| **frontend** | frontend-proxy, load-generator | ad, cart, checkout, currency, product-catalog, product-reviews, recommendation, shipping, flagd |
+| **frontend** | frontend-proxy, load-generator, load-generator-worker | ad, cart, checkout, currency, product-catalog, product-reviews, recommendation, shipping, flagd |
 | **checkout** | frontend | cart, currency, email, payment, product-catalog, shipping, kafka |
 | **cart** | frontend, checkout | valkey-cart, flagd |
 | **payment** | checkout | flagd |
@@ -68,8 +68,9 @@ The table below is the authoritative source of truth; the Helm template encodes 
 | **fraud-detection** | — (Kafka consumer) | kafka, flagd |
 | **llm** | product-reviews | flagd |
 | **image-provider** | frontend-proxy | — |
-| **load-generator** | frontend-proxy (UI) | frontend-proxy |
-| **flagd** | all feature-flag clients | otel-collector |
+| **load-generator** (Locust master) | frontend-proxy (UI :8089), load-generator-worker (ZMQ :5557) | frontend-proxy, flagd, otel-collector |
+| **load-generator-worker** | — (no inbound) | load-generator :5557, frontend-proxy :8080, flagd, otel-collector |
+| **flagd** | all feature-flag clients (incl. load-generator + workers) | otel-collector |
 
 ### Data / infra tier
 
@@ -248,3 +249,5 @@ spec:
 | `prometheus` scrape egress | Policy allows `podSelector: {}` (all pods in namespace) to keep Prometheus SD working without enumerating every scrape target. Tighten to explicit selectors if a stricter posture is required. |
 | `initContainers` wait-for-* (busybox nc) | Init containers run before main containers; they need the same egress as the main container. The per-pod Egress policy covers them since NetworkPolicy applies at the pod level. |
 | Karpenter node registration | Node → API server traffic is outside the namespace scope; NetworkPolicy does not affect it. |
+
+<!-- Change trail: @hungxqt - 2026-07-14 - Document Locust master-worker NetworkPolicy matrix. -->

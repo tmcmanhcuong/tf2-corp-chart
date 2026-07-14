@@ -938,14 +938,18 @@ components:
 
   load-generator:
     enabled: true
+    # Fixed single master (not HPA). Default 0 saves cost when idle; scale to 1 for tests.
     replicas: 0
     useDefault:
       env: true
-    # Run Locust Master on Spot instances (always online, lightweight, automatically managed by Karpenter).
+    # Locust master on Karpenter Spot (lightweight control plane for workers).
     schedulingRules: *scheduling-spot-tolerant
     command:
       - locust
       - --master
+      - --master-bind-host=0.0.0.0
+      - --master-bind-port=5557
+      # Keep OTEL LoggingInstrumentor in locustfile as the sole log setup.
       - --skip-log-setup
     service:
       port: 8089
@@ -967,6 +971,9 @@ components:
         value: "false"
       - name: LOCUST_AUTOSTART
         value: "true"
+      # Wait for at least HPA minReplicas workers before autostart (avoids empty swarm race).
+      - name: LOCUST_EXPECT_WORKERS
+        value: "1"
       - name: LOCUST_BROWSER_TRAFFIC_ENABLED
         value: "false"
       - name: PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION
@@ -993,19 +1000,34 @@ components:
       limits:
         cpu: 200m
         memory: 128Mi
+    # Master web UI — restart if process becomes unresponsive (not a substitute for worker join).
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 8089
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /
+        port: 8089
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 5
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
 
   load-generator-worker:
     enabled: true
+    # HPA owns replica count when autoscaling.enabled; fixed replicas only when HPA off.
     replicas: 0
     useDefault:
       env: true
     imageOverride:
       repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp/load-generator
-    # Workers generate heavy traffic (runs on dynamic Karpenter Spot nodes).
-    # Configured with podAntiAffinity to prevent running on the same node as other storefront microservices.
+    # Workers generate traffic on Karpenter Spot; anti-affinity keeps them off storefront nodes.
     schedulingRules:
       nodeSelector:
         workload-class: spot-tolerant
@@ -1042,6 +1064,7 @@ components:
       - locust
       - --worker
       - --master-host=load-generator
+      - --master-port=5557
       - --skip-log-setup
     env:
       - name: LOCUST_HOST
@@ -1075,18 +1098,31 @@ components:
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
-    # Autoscaling: Scales worker replicas automatically based on CPU/RAM load.
-    # Browser traffic is disabled, so workers use regular HTTP Locust tasks
-    # rather than embedded Playwright browsers. The 512Mi request and 1Gi
-    # limit keep scale-out schedulable without allocating a node per worker.
-    # CPU request is 250m; CPU remains a second scale-out signal.
+    # CPU-only HPA for worker pool (memory omitted — Locust RSS is steady and
+    # memory targets caused unnecessary scale churn). Longer scale-down window
+    # reduces worker churn that used to race Locust master after pod terminate.
     autoscaling:
       enabled: true
       minReplicas: 1
       maxReplicas: 8
       targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 75
-      behavior: *hpa-behavior-default
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Pods
+              value: 2
+              periodSeconds: 15
+            - type: Percent
+              value: 100
+              periodSeconds: 15
+          selectPolicy: Max
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 50
+              periodSeconds: 60
 
   payment:
     enabled: true
@@ -2634,4 +2670,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-14 - Drop no-op disable flag; document non-admin password for Grafana login.
+# Change trail: @hungxqt - 2026-07-14 - Locust worker HPA CPU-only; remove memory scale metric.

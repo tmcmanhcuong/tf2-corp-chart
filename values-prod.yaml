@@ -108,6 +108,10 @@ components:
   # shipping:
   #   replicas: 2
 
+  # Locust distributed: keep master up while active load testing (base values idle at 0).
+  # Scale back to 0 when tests stop to save Spot capacity.
+  load-generator:
+    replicas: 1
   load-generator-worker:
     imageOverride:
       repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp/load-generator
@@ -130,4 +134,4 @@ opentelemetry-collector:
           value: techx-corp-prod
           action: upsert
 
-# Change trail: @hungxqt - 2026-07-14 - Explicit prod OTEL resource attributes for APM filters.
+# Change trail: @hungxqt - 2026-07-14 - Prod Locust master replicas=1 while active load testing.

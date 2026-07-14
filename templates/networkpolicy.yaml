@@ -184,6 +184,13 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+    - from:
+        - podSelector:
+            matchLabels:
+              opentelemetry.io/name: load-generator-worker
+      ports:
+        - protocol: TCP
+          port: 8080
   egress:
     - to:
         - podSelector:
@@ -1117,7 +1124,7 @@ spec:
           port: 4318
 {{- end }}
 
-{{/* ── 24. LOAD-GENERATOR ───────────────────────────────────────────── */}}
+{{/* ── 24. LOAD-GENERATOR (Locust master) ────────────────────────────── */}}
 {{- if (index .Values.components "load-generator").enabled }}
 ---
 apiVersion: networking.k8s.io/v1
@@ -1134,6 +1141,7 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # Locust web UI via frontend-proxy
     - from:
         - podSelector:
             matchLabels:
@@ -1141,7 +1149,68 @@ spec:
       ports:
         - protocol: TCP
           port: 8089
+    # Distributed Locust: workers register/heartbeat on master bind port
+    - from:
+        - podSelector:
+            matchLabels:
+              opentelemetry.io/name: load-generator-worker
+      ports:
+        - protocol: TCP
+          port: 5557
   egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              opentelemetry.io/name: frontend-proxy
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - podSelector:
+            matchLabels:
+              opentelemetry.io/name: flagd
+      ports:
+        - protocol: TCP
+          port: 8013
+        - protocol: TCP
+          port: 8016
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: otel-collector
+      ports:
+        - protocol: TCP
+          port: 4317
+        - protocol: TCP
+          port: 4318
+{{- end }}
+
+{{/* ── 24b. LOAD-GENERATOR-WORKER (Locust workers) ───────────────────── */}}
+{{- if (index .Values.components "load-generator-worker").enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: load-generator-worker
+  labels:
+    {{- include "techx-corp.labels" $relCtx | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      opentelemetry.io/name: load-generator-worker
+  policyTypes:
+    - Ingress
+    - Egress
+  # Workers do not serve inbound traffic; deny ingress by default (empty rules).
+  ingress: []
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              opentelemetry.io/name: load-generator
+      ports:
+        - protocol: TCP
+          port: 5557
     - to:
         - podSelector:
             matchLabels:
@@ -1204,6 +1273,7 @@ spec:
                   - product-catalog
                   - product-reviews
                   - load-generator
+                  - load-generator-worker
                   - llm
       ports:
         - protocol: TCP
@@ -1413,3 +1483,5 @@ spec:
 {{- end }}
 
 {{- end }}{{/* end networkPolicy.enabled */}}
+
+# Change trail: @hungxqt - 2026-07-14 - Allow Locust worker master traffic and worker NP.
