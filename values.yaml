@@ -764,7 +764,7 @@ components:
         - /loadgen
         - /feature
         - /flagservice
-        - /otlp-http
+        # /otlp-http is not listed: public browser OTLP must reach the collector
     podAnnotations:
       io.opentelemetry.discovery.metrics/enabled: 'true'
       io.opentelemetry.discovery.metrics/scraper: httpcheck
