@@ -1275,11 +1275,18 @@ components:
     resources:
       # kubectl top: 2m CPU, 18Mi mem (PHP). P99 mem: 19Mi.
       requests:
-        cpu: 5m
-        memory: 24Mi
+        cpu: 50m
+        memory: 32Mi
       limits:
-        cpu: 100m
-        memory: 64Mi
+        cpu: 250m
+        memory: 128Mi
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 90
+      behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -1381,11 +1388,18 @@ components:
     resources:
       # 50-user baseline: P99 CPU 1.53m, P99 memory 3.74Mi.
       requests:
-        cpu: 5m
-        memory: 8Mi
-      limits:
         cpu: 50m
         memory: 16Mi
+      limits:
+        cpu: 200m
+        memory: 64Mi
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 90
+      behavior: *hpa-behavior-default
 
   flagd:
     enabled: true
