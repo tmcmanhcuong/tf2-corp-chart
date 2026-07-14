@@ -544,13 +544,14 @@ RPS uses External metric `http_requests_per_second` with label `service_name` (O
 | `checkout` | 2 | 16 | CPU 70% / Mem 90% / RPS **30** | Karpenter (spot-tolerant) |
 | `cart` | 2 | 12 | CPU 70% / Mem 90% / RPS **100** | Karpenter (default) |
 | `product-catalog` | 2 | 12 | CPU 70% / Mem 90% / RPS **100** | Karpenter (spot-tolerant) |
+| `product-reviews` | 1 | 6 | CPU 70% / Mem 90% / RPS **10** | Karpenter (spot-tolerant) |
 | `currency` | 1 | 72 | CPU 70% / Mem 90% / RPS **150** | Karpenter (spot-tolerant) |
 | `recommendation` | 1 | 6 | CPU 70% / Mem 90% / RPS **15** | Karpenter (spot-tolerant) |
 | `frontend-proxy` | 2 | 10 | CPU 80% / Mem 90% / RPS **200** | **Critical MNG** (needs MNG headroom at max) |
 
 **Locust distributed mode:** `load-generator` is the **master** (fixed replicas, default `0`; scale to `1` for tests; no HPA; **Critical MNG / system nodes**). `load-generator-worker` is the **worker pool** (CPU-only HPA, min 1 / max 8 when enabled; **fast scale-down** 30s stabilize / 100% per 15s; **Karpenter Spot**). Ramp users via `LOCUST_USERS` / Locust UI on the master; workers join `load-generator:5557`. See `docs/changes/2026-07-14-distributed-load-generator.md`, `docs/changes/2026-07-14-fix-locust-master-worker-discovery.md`, `docs/changes/2026-07-14-locust-master-critical-mng.md`, and `docs/changes/2026-07-14-load-generator-worker-fast-scale-down.md`.
 
-Hot-path money-flow HPAs (`frontend`, `checkout`, `cart`, `product-catalog`, `frontend-proxy`) use **`minReplicas: 2`** in base `values.yaml` (Directive #3 maintenance floor + first-party PDB). `currency` / `recommendation` remain min **1**. First-party PDBs render when `minReplicas >= 2`.
+Hot-path money-flow HPAs (`frontend`, `checkout`, `cart`, `product-catalog`, `frontend-proxy`) use **`minReplicas: 2`** in base `values.yaml` (Directive #3 maintenance floor + first-party PDB). `currency` / `recommendation` / `product-reviews` remain min **1**. First-party PDBs render when `minReplicas >= 2`.
 
 **Critical capacity note:** `frontend-proxy` scale-out still lands only on Critical MNG (small floor). Chart `maxReplicas` is **10**; if proxy pods go `Pending` under load, free Critical capacity or adjust MNG size in infra before further raises.
 
@@ -649,10 +650,10 @@ kubectl get --raw /apis/external.metrics.k8s.io/v1beta1 | head -c 200; echo
 
 # HPA + PDB for multi-replica autoscaled services
 kubectl -n techx-corp-prod get hpa,pdb
-kubectl -n techx-corp-prod describe hpa frontend checkout cart product-catalog currency recommendation frontend-proxy
+kubectl -n techx-corp-prod describe hpa frontend checkout cart product-catalog product-reviews currency recommendation frontend-proxy
 ```
 
-Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready (CPU/mem); External RPS targets populate after traffic + Adapter Ready; `kubectl top` trả về CPU/memory; seven request-path HPAs on base (`frontend`, `checkout`, `cart`, `product-catalog`, `currency`, `recommendation`, `frontend-proxy`) all with `MINPODS=1`; `load-generator` master has no HPA; `load-generator-worker` has CPU/mem HPA when enabled; first-party PDBs only if some HPA later raises `minReplicas >= 2`. See `docs/operations/request-metric-hpa.md`.
+Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready (CPU/mem); External RPS targets populate after traffic + Adapter Ready; `kubectl top` trả về CPU/memory; eight request-path HPAs on base (`frontend`, `checkout`, `cart`, `product-catalog`, `product-reviews`, `currency`, `recommendation`, `frontend-proxy`); money-flow mins are 2, others min 1; `load-generator` master has no HPA; `load-generator-worker` has CPU HPA when enabled; first-party PDBs when `minReplicas >= 2`. See `docs/operations/request-metric-hpa.md`.
 
 ### Smoke test
 
@@ -814,4 +815,4 @@ kubectl -n argocd annotate application techx-corp-dev \
 - `templates/NOTES.txt` — post-install notes (port-forward, ALB, **Argo CD admin credential**)  
 - [operations/gitops-argocd.md](./operations/gitops-argocd.md) — GitOps runbook + UI access
 
-<!-- Change trail: @hungxqt - 2026-07-14 - product-catalog HPA maxReplicas 12; inventory sync. -->
+<!-- Change trail: @hungxqt - 2026-07-14 - Add product-reviews to HPA inventory. -->

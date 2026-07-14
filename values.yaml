@@ -1310,6 +1310,17 @@ components:
       limits:
         cpu: 300m
         memory: 256Mi
+    # Product-page AI reviews (P1); RPS primary; CPU/mem safety valves.
+    # Lower RPS/pod than recommendation — LLM + Postgres path is heavier.
+    # maxReplicas 6: same band as recommendation until load-test pin data.
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 90
+      targetRequestsPerSecond: 10
+      behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
         mountPath: /tmp
@@ -2680,4 +2691,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-14 - Raise product-catalog HPA maxReplicas 6→12.
+# Change trail: @hungxqt - 2026-07-14 - Add product-reviews triple-metric HPA.

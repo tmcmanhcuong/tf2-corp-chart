@@ -28,6 +28,7 @@ HPA desired replicas = **max** across all configured metrics (RPS, CPU, memory).
 | `frontend-proxy` | 2 | 10 | 200 | Critical MNG (needs MNG headroom at max) |
 | `frontend` | 2 | 20 | 50 | spot-tolerant |
 | `product-catalog` | 2 | 12 | 100 | spot-tolerant |
+| `product-reviews` | 1 | 6 | 10 | spot-tolerant (LLM + Postgres; lower RPS/pod) |
 | `cart` | 2 | 12 | 100 | spot-tolerant |
 | `currency` | 1 | 72 | 150 | spot-tolerant (tiny CPU request amplifies %; max covers 412%/70% pin) |
 | `checkout` | 2 | 16 | 30 | spot-tolerant |
@@ -85,7 +86,7 @@ kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/<ns>/http_re
 
 # HPA
 kubectl -n <ns> get hpa
-kubectl -n <ns> describe hpa frontend cart product-catalog currency checkout recommendation frontend-proxy
+kubectl -n <ns> describe hpa frontend cart product-catalog product-reviews currency checkout recommendation frontend-proxy
 ```
 
 Expect External + Resource targets populated after traffic (not stuck `<unknown>` forever). Under Locust ramp, P0 services should scale when RPS/pod exceeds target even if CPU stays below 70% (especially `currency`).
@@ -128,4 +129,4 @@ Optionally remove `targetRequestsPerSecond` from components. CPU/memory HPA cont
 * `docs/operations/workload-placement.md` — node contracts under scale-out
 * Chart: `templates/_objects.tpl` (`techx-corp.hpa`), `values.yaml` (`prometheus-adapter`, `components.*.autoscaling`)
 
-<!-- Change trail: @hungxqt - 2026-07-14 - product-catalog HPA maxReplicas 6→12; table sync. -->
+<!-- Change trail: @hungxqt - 2026-07-14 - Add product-reviews triple-metric HPA. -->
