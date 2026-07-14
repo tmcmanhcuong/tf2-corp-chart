@@ -1032,7 +1032,7 @@ components:
         value: /tmp/.config
     resources:
       requests:
-        cpu: 500m
+        cpu: 600m
         memory: 3Gi
       limits:
         cpu: "1.5"
