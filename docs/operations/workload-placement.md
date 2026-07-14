@@ -22,10 +22,10 @@ This chart implements **hard placement** between Critical MNG and Karpenter, plu
 
 | Service | HPA (base) | Contract | Note |
 |---------|------------|----------|------|
-| `frontend`, `checkout`, `cart`, `product-catalog`, `currency`, `recommendation` | min **1–2** / max **6–16** per service (CPU + Mem 90% + **RPS**); see `request-metric-hpa.md` | spot-tolerant | Karpenter can add nodes under scale-out; RPS is primary under traffic; memory is safety valve only |
+| `frontend`, `checkout`, `cart`, `product-catalog`, `currency`, `recommendation` | min **1–2** / max **6–72** per service (CPU + Mem 90% + **RPS**); see `request-metric-hpa.md` | spot-tolerant | Karpenter can add nodes under scale-out; RPS is primary under traffic; memory is safety valve only |
 | `load-generator` | **none** (fixed 0–1 master) | critical | Locust **master** only on Critical MNG (`system-*`); scale to 1 for tests. Workers are `load-generator-worker` |
 | `load-generator-worker` | **CPU-only HPA** (min 1, max 8 when testing) | spot-tolerant + storefront anti-affinity | Locust **workers** on Karpenter; join master via `load-generator:5557` |
-| `frontend-proxy` | min **2** / max **6** (CPU 80% + Mem 90% + **RPS**) | critical | Extra replicas **do not** land on Karpenter; Critical MNG must have enough multi-AZ capacity before load tests / maintenance |
+| `frontend-proxy` | min **2** / max **10** (CPU 80% + Mem 90% + **RPS**) | critical | Extra replicas **do not** land on Karpenter; Critical MNG must have enough multi-AZ capacity before load tests / maintenance |
 
 Request-rate metrics require Prometheus Adapter (`prometheus-adapter.enabled`). See `docs/operations/request-metric-hpa.md`. Placement contracts are unchanged by metric type.
 
@@ -141,4 +141,4 @@ Topology spreads must not change A/B/C outcomes.
 * Cluster Autoscaler for Critical MNG (scale-out is a reviewed Terraform `desired_size` change only).
 * Descheduler for rebalancing already-running pods after new nodes appear.
 
-<!-- Change trail: @hungxqt - 2026-07-14 - HPA maxReplicas for cart/checkout/currency/frontend/proxy. -->
+<!-- Change trail: @hungxqt - 2026-07-14 - Round-2 HPA max: currency 72, frontend 20, proxy 10. -->

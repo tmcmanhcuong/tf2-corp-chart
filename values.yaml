@@ -565,11 +565,11 @@ components:
         cpu: 100m
         memory: 16Mi
     # High-RPS / low-CPU gRPC (native C++): RPS is the primary capacity signal; CPU often never hits 70%.
-    # maxReplicas 12: load-test pin at 6 with CPU ~140%/70% → desired ~12.
+    # maxReplicas 72: load-test pin at 12 with CPU ~412%/70% → desired ~71 (tiny 10m request amplifies %).
     autoscaling:
       enabled: true
       minReplicas: 1
-      maxReplicas: 12
+      maxReplicas: 72
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
       # Native C++ gRPC easily handles 150 RPS.
@@ -725,11 +725,11 @@ components:
         cpu: 500m
         memory: 384Mi
     # BFF/SSR: RPS primary (often I/O-wait on backends); CPU/mem safety valves.
-    # maxReplicas 14: load-test pin at 6 with CPU ~157%/80% → desired ~12; +headroom.
+    # maxReplicas 20: load-test pin at 14 with CPU ~100%/80% → desired ~18; +headroom.
     autoscaling:
       enabled: true
       minReplicas: 2
-      maxReplicas: 14
+      maxReplicas: 20
       targetCPUUtilizationPercentage: 80
       targetMemoryUtilizationPercentage: 90
       targetRequestsPerSecond: 50
@@ -859,14 +859,14 @@ components:
       limits:
         cpu: 300m
         memory: 128Mi
-    # Edge / ALB target on Critical MNG (small floor). maxReplicas 6 needs MNG headroom.
+    # Edge / ALB target on Critical MNG (small floor). maxReplicas 10 needs MNG headroom.
     # RPS primary; CPU/mem safety valves. If pods Pending: free Critical capacity in infra.
     # OTel service.name may differ for Envoy — set autoscaling.serviceName after metric inventory.
-    # maxReplicas 6: load-test pin at 3 with CPU ~128%/80% → desired ~5; +headroom.
+    # maxReplicas 10: load-test pin at 6 with CPU ~110%/80% → desired ~8; +headroom.
     autoscaling:
       enabled: true
       minReplicas: 2
-      maxReplicas: 6
+      maxReplicas: 10
       targetCPUUtilizationPercentage: 80
       targetMemoryUtilizationPercentage: 90
       # Envoy handles massive connections, set target to 200 RPS.
@@ -2677,4 +2677,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-14 - Raise HPA maxReplicas for load-test CPU pin.
+# Change trail: @hungxqt - 2026-07-14 - Round-2 HPA max: currency 72, frontend 20, proxy 10.
