@@ -8,7 +8,32 @@ Sau cutover: **không** dùng `helm upgrade` thường xuyên.
 
 ## Truy cập UI (không public Ingress)
 
-### Production (preferred) — private DNS + Client VPN
+Two supported local/operator paths (no public storefront ALB Ingress).  
+Argo CD uses **`server.rootpath=/argocd`** and **HTTP:80** (`server.insecure=true`).
+
+### A. Localhost — kubectl port-forward (always allowed)
+
+Works with kubeconfig only (no VPN required if the API is reachable):
+
+```cmd
+kubectl port-forward service/argocd-server 8080:80 -n argocd
+```
+
+Then open:
+
+```text
+http://localhost:8080/argocd/
+```
+
+Do **not** use `http://localhost:8080/` alone — the UI lives under `/argocd/` because of rootpath.
+
+CLI via port-forward:
+
+```cmd
+argocd login localhost:8080 --grpc-web --rootpath /argocd --username admin --insecure
+```
+
+### B. Production preferred — private DNS + Client VPN
 
 Same pattern as Grafana/Jaeger: connect **AWS Client VPN**, then open:
 
@@ -35,16 +60,6 @@ CLI (from VPN):
 ```cmd
 argocd login internal.hungtran.id.vn --grpc-web --rootpath /argocd --username admin
 ```
-
-### Break-glass — port-forward
-
-When private DNS / Envoy path is unavailable (HTTP:80 with `server.insecure=true`):
-
-```cmd
-kubectl -n argocd port-forward svc/argocd-server 8080:80
-```
-
-Then open `http://localhost:8080/argocd/` (rootpath is still `/argocd`).
 
 ## Bootstrap lần đầu
 

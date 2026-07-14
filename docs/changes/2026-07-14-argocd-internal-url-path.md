@@ -20,7 +20,7 @@ Infra exposes Argo CD with `server.rootpath=/argocd` and plain HTTP. Platform En
 * `ARGOCD_HOST=argocd-server.argocd.svc.cluster.local`, `ARGOCD_PORT=80`.
 * `blockedPrefixes` includes `/argocd`.
 * NetworkPolicy (when enabled) allows frontend-proxy → argocd-server TCP/80.
-* Runbook: preferred private DNS URL + break-glass port-forward on `:80` at `/argocd/`.
+* Runbook: private DNS URL **and** localhost port-forward on `:80` at `/argocd/` (both supported).
 
 ## Technical Design Decisions
 
