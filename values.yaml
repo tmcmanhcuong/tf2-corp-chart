@@ -416,10 +416,11 @@ components:
     # Valkey remains singleton; cart pods are stateless clients.
     # Triple metrics (Option B+): RPS primary; CPU 70% + memory 90% safety valves (HPA uses max).
     # behavior anchor is shared by all HPA-enabled services (must be defined before first alias).
+    # maxReplicas 12: load-test pin at 6 with CPU ~110%/70% → desired ~10; +headroom.
     autoscaling:
       enabled: true
       minReplicas: 2
-      maxReplicas: 6
+      maxReplicas: 12
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
       # .NET service can easily handle 100 RPS per pod.
@@ -507,10 +508,11 @@ components:
         cpu: 150m
         memory: 128Mi
     # Triple metrics: expensive orchestration → lower RPS target; CPU/mem safety valves.
+    # maxReplicas 16: load-test pin at 6 with CPU ~148%/70% → desired ~13; +headroom.
     autoscaling:
       enabled: true
       minReplicas: 2
-      maxReplicas: 6
+      maxReplicas: 16
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
       # Go service can handle 30 RPS orchestration easily.
@@ -563,10 +565,11 @@ components:
         cpu: 100m
         memory: 16Mi
     # High-RPS / low-CPU gRPC (native C++): RPS is the primary capacity signal; CPU often never hits 70%.
+    # maxReplicas 12: load-test pin at 6 with CPU ~140%/70% → desired ~12.
     autoscaling:
       enabled: true
       minReplicas: 1
-      maxReplicas: 6
+      maxReplicas: 12
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
       # Native C++ gRPC easily handles 150 RPS.
@@ -722,10 +725,11 @@ components:
         cpu: 500m
         memory: 384Mi
     # BFF/SSR: RPS primary (often I/O-wait on backends); CPU/mem safety valves.
+    # maxReplicas 14: load-test pin at 6 with CPU ~157%/80% → desired ~12; +headroom.
     autoscaling:
       enabled: true
       minReplicas: 2
-      maxReplicas: 6
+      maxReplicas: 14
       targetCPUUtilizationPercentage: 80
       targetMemoryUtilizationPercentage: 90
       targetRequestsPerSecond: 50
@@ -855,13 +859,14 @@ components:
       limits:
         cpu: 300m
         memory: 128Mi
-    # Edge / ALB target on Critical MNG (small floor). Cap maxReplicas to limit pressure.
+    # Edge / ALB target on Critical MNG (small floor). maxReplicas 6 needs MNG headroom.
     # RPS primary; CPU/mem safety valves. If pods Pending: free Critical capacity in infra.
     # OTel service.name may differ for Envoy — set autoscaling.serviceName after metric inventory.
+    # maxReplicas 6: load-test pin at 3 with CPU ~128%/80% → desired ~5; +headroom.
     autoscaling:
       enabled: true
       minReplicas: 2
-      maxReplicas: 3
+      maxReplicas: 6
       targetCPUUtilizationPercentage: 80
       targetMemoryUtilizationPercentage: 90
       # Envoy handles massive connections, set target to 200 RPS.
@@ -2672,4 +2677,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-14 - product-reviews: raise memory and readiness timeout.
+# Change trail: @hungxqt - 2026-07-14 - Raise HPA maxReplicas for load-test CPU pin.

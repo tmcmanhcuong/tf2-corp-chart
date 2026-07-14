@@ -540,19 +540,19 @@ RPS uses External metric `http_requests_per_second` with label `service_name` (O
 
 | Service | min | max | Metrics | Placement |
 |---|---:|---:|---|---|
-| `frontend` | 1 | 6 | CPU 70% / Mem 90% / RPS **15** | Karpenter (spot-tolerant) |
-| `checkout` | 1 | 6 | CPU 70% / Mem 90% / RPS **5** | Karpenter (spot-tolerant) |
-| `cart` | 1 | 6 | CPU 70% / Mem 90% / RPS **20** | Karpenter (default) |
+| `frontend` | 2 | 14 | CPU 80% / Mem 90% / RPS **50** | Karpenter (spot-tolerant) |
+| `checkout` | 2 | 16 | CPU 70% / Mem 90% / RPS **30** | Karpenter (spot-tolerant) |
+| `cart` | 2 | 12 | CPU 70% / Mem 90% / RPS **100** | Karpenter (default) |
 | `product-catalog` | 1 | 6 | CPU 70% / Mem 90% / RPS **30** | Karpenter (spot-tolerant) |
-| `currency` | 1 | 6 | CPU 70% / Mem 90% / RPS **50** | Karpenter (spot-tolerant) |
+| `currency` | 1 | 12 | CPU 70% / Mem 90% / RPS **150** | Karpenter (spot-tolerant) |
 | `recommendation` | 1 | 6 | CPU 70% / Mem 90% / RPS **15** | Karpenter (spot-tolerant) |
-| `frontend-proxy` | 1 | 3 | CPU 70% / Mem 90% / RPS **40** | **Critical MNG** (cap max at 3) |
+| `frontend-proxy` | 2 | 6 | CPU 80% / Mem 90% / RPS **200** | **Critical MNG** (needs MNG headroom at max) |
 
 **Locust distributed mode:** `load-generator` is the **master** (fixed replicas, default `0`; scale to `1` for tests; no HPA; **Critical MNG / system nodes**). `load-generator-worker` is the **worker pool** (CPU-only HPA, min 1 / max 8 when enabled; **Karpenter Spot**). Ramp users via `LOCUST_USERS` / Locust UI on the master; workers join `load-generator:5557`. See `docs/changes/2026-07-14-distributed-load-generator.md`, `docs/changes/2026-07-14-fix-locust-master-worker-discovery.md`, and `docs/changes/2026-07-14-locust-master-critical-mng.md`.
 
-All HPA services use **`minReplicas: 1`** in base `values.yaml` (cost floor; scale-out still goes to max under load). First-party PDBs are only rendered when `minReplicas >= 2`, so none of these HPAs emit a PDB at the current floor.
+Hot-path money-flow HPAs (`frontend`, `checkout`, `cart`, `frontend-proxy`) use **`minReplicas: 2`** in base `values.yaml` (Directive #3 maintenance floor + first-party PDB). `currency` / `product-catalog` / `recommendation` remain min **1**. First-party PDBs render when `minReplicas >= 2`.
 
-**Critical capacity note:** `frontend-proxy` scale-out still lands only on Critical MNG (small floor). If extra proxy pods are `Pending`, free Critical capacity or adjust MNG size in infra — do not raise chart `maxReplicas` without capacity review.
+**Critical capacity note:** `frontend-proxy` scale-out still lands only on Critical MNG (small floor). Chart `maxReplicas` is **6**; if proxy pods go `Pending` under load, free Critical capacity or adjust MNG size in infra before further raises.
 
 **Prometheus Adapter:** pin Critical MNG; talks to in-cluster `http://prometheus:9090`. Disable with `prometheus-adapter.enabled: false` if you only want CPU/memory HPA.
 
@@ -814,4 +814,4 @@ kubectl -n argocd annotate application techx-corp-dev \
 - `templates/NOTES.txt` — post-install notes (port-forward, ALB, **Argo CD admin credential**)  
 - [operations/gitops-argocd.md](./operations/gitops-argocd.md) — GitOps runbook + UI access
 
-<!-- Change trail: @hungxqt - 2026-07-14 - Locust master on Critical MNG; workers on Spot. -->
+<!-- Change trail: @hungxqt - 2026-07-14 - HPA maxReplicas inventory for load-test scale-out. -->

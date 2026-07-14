@@ -25,12 +25,12 @@ HPA desired replicas = **max** across all configured metrics (RPS, CPU, memory).
 
 | Service | min | max | RPS/pod target | Placement |
 |---------|----:|----:|---------------:|-----------|
-| `frontend-proxy` | 1 | 3 | 40 | Critical MNG |
-| `frontend` | 1 | 6 | 15 | spot-tolerant |
+| `frontend-proxy` | 2 | 6 | 200 | Critical MNG (needs MNG headroom at max) |
+| `frontend` | 2 | 14 | 50 | spot-tolerant |
 | `product-catalog` | 1 | 6 | 30 | spot-tolerant |
-| `cart` | 1 | 6 | 20 | spot-tolerant |
-| `currency` | 1 | 6 | 50 | spot-tolerant |
-| `checkout` | 1 | 6 | 5 | spot-tolerant |
+| `cart` | 2 | 12 | 100 | spot-tolerant |
+| `currency` | 1 | 12 | 150 | spot-tolerant |
+| `checkout` | 2 | 16 | 30 | spot-tolerant |
 | `recommendation` | 1 | 6 | 15 | spot-tolerant |
 
 Targets are **starting points**, not SLOs. Raise if flapping; lower if latency climbs before CPU.
@@ -109,7 +109,7 @@ Use Grafana APM / spanmetrics rate panels for total RPS.
 | External TARGET `<unknown>` | Adapter down, wrong series/labels, no traffic yet | Check adapter logs; inventory Prom series; confirm `service_name` |
 | Only CPU scales | RPS metric zero/missing | Fix adapter rules or instrumentation; CPU/mem still work |
 | Flapping replicas | Target too low / noisy rate | Raise RPS target; rely on scaleDown stabilization (60s) |
-| `frontend-proxy` Pending | Critical MNG full | Free Critical capacity or reviewed MNG size — do **not** raise chart `maxReplicas` without capacity review |
+| `frontend-proxy` Pending | Critical MNG full | Free Critical capacity or raise MNG size in infra; chart `maxReplicas` is 6 — confirm multi-AZ Critical capacity before load tests |
 | Adapter Pending | Critical placement | Same as metrics-server; Critical floor capacity |
 
 ## Disable request metrics
@@ -127,3 +127,5 @@ Optionally remove `targetRequestsPerSecond` from components. CPU/memory HPA cont
 * `docs/DEPLOYMENT.md` — install inventory and smoke checks
 * `docs/operations/workload-placement.md` — node contracts under scale-out
 * Chart: `templates/_objects.tpl` (`techx-corp.hpa`), `values.yaml` (`prometheus-adapter`, `components.*.autoscaling`)
+
+<!-- Change trail: @hungxqt - 2026-07-14 - Raise HPA maxReplicas for CPU-pinned hot-path services. -->
