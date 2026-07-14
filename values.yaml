@@ -1032,7 +1032,7 @@ components:
         value: /tmp/.config
     resources:
       requests:
-        cpu: 500m
+        cpu: 600m
         memory: 3Gi
       limits:
         cpu: "1.5"
@@ -1049,7 +1049,7 @@ components:
     autoscaling:
       enabled: true
       minReplicas: 1
-      maxReplicas: 4
+      maxReplicas: 1
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 75
       behavior: *hpa-behavior-default
