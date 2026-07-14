@@ -534,10 +534,11 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
-      # kubectl top: 5m CPU, 3Mi mem (native C++). P99 mem: 3.5Mi. 8Mi minimum.
+      # kubectl top: 5m CPU, 9Mi mem peak (native C++). Request 16Mi gives ~56% idle headroom.
+      # Was 8Mi → pod used 9Mi → 112% of request → HPA falsely triggered memory scale-up.
       requests:
         cpu: 10m
-        memory: 8Mi
+        memory: 16Mi
       limits:
         cpu: 100m
         memory: 32Mi
