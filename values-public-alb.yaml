@@ -13,10 +13,13 @@
 #   catch-all / → frontend-proxy
 #
 # CloudFront path blocking (edge): see techx-corp-infra docs/cloudfront.md
-#   BLOCKED at CF when enabled: /grafana, /jaeger, /loadgen, /feature, /flagservice, /otlp-http
+#   BLOCKED at CF when enabled: /grafana, /jaeger, /loadgen, /feature
+#   (/otlp-http and /flagservice allowed at CF for browser OTLP + flagd)
 #
-# Operator admin access (private): AWS Client VPN → THIS ALB hostname (full path
-# surface). Do not add a second admin Ingress. See techx-corp-infra docs/client-vpn.md
+# Operator admin access (private): AWS Client VPN → private DNS
+#   internal.hungtran.id.vn/<service> (e.g. /grafana/) → THIS ALB
+#   (full path surface). Do not add a second admin Ingress.
+#   See techx-corp-infra docs/client-vpn.md
 #
 # Layer order: values.yaml → values-public-alb.yaml → values-dev|prod.yaml
 
