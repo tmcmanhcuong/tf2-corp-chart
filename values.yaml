@@ -750,7 +750,11 @@ components:
       # Public edge + path blocking: techx-corp-infra modules/cloudfront-alb.
       scheme: internal
       targetType: ip
+      # HTTP:80 required for CloudFront VPC origin. Add HTTPS:443 + certificateArn for
+      # https://internal.hungtran.id.vn (operator private DNS). Never set ssl-redirect.
       listenPorts: '[{"HTTP":80}]'
+      # ACM ARN in ALB region (us-east-1). Empty = HTTP only.
+      certificateArn: ""
       host: ""
       # ALB has no path-block rules by default (blockSensitivePaths=false).
       # Sensitive prefixes are blocked at CloudFront (viewer-request Function).

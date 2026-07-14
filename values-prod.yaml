@@ -66,6 +66,13 @@ components:
       # Internal ALB; path blocking is on CloudFront (infra cloudfront_block_sensitive_paths).
       scheme: internal
       blockSensitivePaths: false
+      # HTTPS for operator private DNS (https://internal.hungtran.id.vn/...).
+      # Set to the same ACM ARN as techx-corp-infra production:
+      #   private_dns_acm_certificate_arn
+      # Template enables HTTP:80 + HTTPS:443 when non-empty. Keep CloudFront on :80.
+      # Do NOT enable ssl-redirect. See techx-corp-infra docs/client-vpn.md (TLS section).
+      # certificateArn: "arn:aws:acm:us-east-1:493499579600:certificate/<ID>"
+      certificateArn: "arn:aws:acm:us-east-1:493499579600:certificate/043175b8-99f5-492f-a258-ff280e0b9a75"
     autoscaling:
       minReplicas: 2
     # Preserve the critical MNG pin from values.yaml, but prefer separate AZs
