@@ -27,7 +27,7 @@ HPA desired replicas = **max** across all configured metrics (RPS, CPU, memory).
 |---------|----:|----:|---------------:|-----------|
 | `frontend-proxy` | 2 | 10 | 200 | Critical MNG (needs MNG headroom at max) |
 | `frontend` | 2 | 20 | 50 | spot-tolerant |
-| `product-catalog` | 1 | 6 | 30 | spot-tolerant |
+| `product-catalog` | 2 | 12 | 100 | spot-tolerant |
 | `cart` | 2 | 12 | 100 | spot-tolerant |
 | `currency` | 1 | 72 | 150 | spot-tolerant (tiny CPU request amplifies %; max covers 412%/70% pin) |
 | `checkout` | 2 | 16 | 30 | spot-tolerant |
@@ -128,4 +128,4 @@ Optionally remove `targetRequestsPerSecond` from components. CPU/memory HPA cont
 * `docs/operations/workload-placement.md` — node contracts under scale-out
 * Chart: `templates/_objects.tpl` (`techx-corp.hpa`), `values.yaml` (`prometheus-adapter`, `components.*.autoscaling`)
 
-<!-- Change trail: @hungxqt - 2026-07-14 - Round-2 maxReplicas: currency 72, frontend 20, proxy 10. -->
+<!-- Change trail: @hungxqt - 2026-07-14 - product-catalog HPA maxReplicas 6→12; table sync. -->

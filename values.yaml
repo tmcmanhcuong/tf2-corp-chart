@@ -1226,10 +1226,11 @@ components:
         memory: 128Mi
     # Hot read path under frontend/checkout; Karpenter spot-tolerant.
     # Highest backend RPS under Locust browse; RPS primary + CPU/mem safety valves.
+    # maxReplicas 12: load-test pin at 6 with CPU ~126%/70% → desired ~11; +headroom.
     autoscaling:
       enabled: true
       minReplicas: 2
-      maxReplicas: 6
+      maxReplicas: 12
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 90
       # Go backend can handle 100 RPS.
@@ -2679,4 +2680,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-14 - Faster load-generator-worker HPA scale-down (30s / 100%).
+# Change trail: @hungxqt - 2026-07-14 - Raise product-catalog HPA maxReplicas 6→12.
