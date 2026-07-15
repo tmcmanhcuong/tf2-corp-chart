@@ -1027,7 +1027,9 @@ components:
       env: true
     imageOverride:
       repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp/load-generator
-    # Workers generate traffic on Karpenter Spot; anti-affinity keeps them off storefront nodes.
+    # Workers on Karpenter Spot: pack onto one node first (cost), keep off storefront nodes.
+    # Affinity fully replaces default; restate preferred Spot capacity-type here.
+    # topologySpreadConstraints: [] opts out of default soft multi-node/AZ spreads.
     schedulingRules:
       nodeSelector:
         workload-class: spot-tolerant
@@ -1036,7 +1038,29 @@ components:
           operator: Equal
           value: spot-tolerant
           effect: NoSchedule
+      topologySpreadConstraints: []
       affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: karpenter.sh/capacity-type
+                    operator: In
+                    values:
+                      - spot
+        # Soft pack: prefer co-locating workers on the same hostname before new nodes.
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - load-generator-worker
+                topologyKey: kubernetes.io/hostname
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
@@ -2290,7 +2314,10 @@ opentelemetry-collector:
             action: upsert
 
     connectors:
-      spanmetrics: {}
+      # The default 60s flush interval leaves fewer than two samples in the
+      # Prometheus Adapter rate window, so the HPA sees 0 RPS under load.
+      spanmetrics:
+        metrics_flush_interval: 15s
 
     extensions:
       health_check: {}
@@ -2505,22 +2532,22 @@ prometheus:
       size: 8Gi
     service:
       servicePort: 9090
-    # Prometheus now replays a larger WAL with exemplar storage enabled. The former
-    # 900Mi limit caused OOMKilled (exit 137) before readiness; retain enough
-    # headroom for WAL replay while keeping steady-state scheduling bounded.
+    # PVC + OTLP + exemplars: WAL replay (~50s) and head block exceed the former
+    # 2Gi limit (OOMKilled exit 137 / CrashLoop). Request stays below Critical
+    # t4g.large packing pressure; limit covers replay spikes.
     resources:
-      # 50-user baseline: P95/P99 CPU 44.6m/251m, P99 memory 1.04Gi.
+      # 50-user baseline steady ~1.04Gi; prod WAL replay + OTLP needs higher ceiling.
       requests:
         cpu: 100m
-        memory: 1280Mi
+        memory: 1536Mi
       limits:
-        cpu: 750m
-        memory: 2Gi
-    # WAL/config load observed ~25–30s; block liveness until ready to avoid restart storms.
+        cpu: "1"
+        memory: 3Gi
+    # WAL/config load observed ~50s under load; block liveness until ready.
     startupProbe:
       enabled: true
       periodSeconds: 10
-      failureThreshold: 30
+      failureThreshold: 36
       timeoutSeconds: 10
     readinessProbeInitialDelay: 10
     readinessProbePeriodSeconds: 10
@@ -2684,7 +2711,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
       # HTTP server metrics (frontend Next.js and other HTTP services)
       - seriesQuery: 'http_server_duration_milliseconds_count{service_name!=""}'
         resources:
@@ -2692,7 +2719,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
       # Alternate HTTP duration naming (seconds unit)
       - seriesQuery: 'http_server_request_duration_seconds_count{service_name!=""}'
         resources:
@@ -2700,7 +2727,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
       # Alternate HTTP duration naming (seconds unit) or spanmetrics fallback
       - seriesQuery: 'traces_span_metrics_calls_total{service_name!=""}'
         resources:
@@ -2708,7 +2735,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
   resources:
     # kubectl top: 9m CPU, 38Mi mem. P99 mem: 45.1Mi. External metrics API for RPS HPA.
     requests:
@@ -2719,4 +2746,5 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-15 - Restore load-generator-worker HPA stable scale-down.
+# Change trail: @hungxqt - 2026-07-15 - Pack load-generator-worker pods onto one node first.
+# Change trail: @Khanhle11342 - 2026-07-15 - Stabilize request-rate metrics for maintenance HPA.
