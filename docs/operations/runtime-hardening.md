@@ -58,6 +58,8 @@ confirm a compliant object is admitted, then delete it.
 
 ```bash
 kubectl apply -f gitops/gatekeeper/tests/fixtures/root-container.yaml
+kubectl apply -f gitops/gatekeeper/tests/fixtures/explicit-root-user.yaml
+kubectl apply -f gitops/gatekeeper/tests/fixtures/added-capability.yaml
 kubectl apply -f gitops/gatekeeper/tests/fixtures/latest-lowercase.yaml
 kubectl apply -f gitops/gatekeeper/tests/fixtures/missing-limit-memory.yaml
 kubectl apply -f gitops/gatekeeper/tests/fixtures/valid-pod.yaml

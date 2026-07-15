@@ -25,6 +25,14 @@ tests:
         object: fixtures/missing-drop-all.yaml
         assertions:
           - violations: 1
+      - name: explicit-root-user
+        object: fixtures/explicit-root-user.yaml
+        assertions:
+          - violations: 1
+      - name: added-capability
+        object: fixtures/added-capability.yaml
+        assertions:
+          - violations: 1
       - name: insecure-init-container
         object: fixtures/insecure-init-container.yaml
         assertions:

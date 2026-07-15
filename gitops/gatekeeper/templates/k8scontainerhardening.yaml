@@ -50,10 +50,21 @@ spec:
                 pod_sc := object.get(pod_spec, "securityContext", {})
               }
 
+              effective_run_as_user(container) := object.get(container_sc, "runAsUser", object.get(pod_sc, "runAsUser", -1)) if {
+                container_sc := object.get(container, "securityContext", {})
+                pod_sc := object.get(pod_spec, "securityContext", {})
+              }
+
               violation contains {"msg": msg} if {
                 some ref in checked_containers
                 effective_run_as_non_root(ref.container) != true
                 msg := sprintf("%s %s: %s %s must set effective securityContext.runAsNonRoot=true", [input.review.kind.kind, input.review.object.metadata.name, ref.type, ref.container.name])
+              }
+
+              violation contains {"msg": msg} if {
+                some ref in checked_containers
+                effective_run_as_user(ref.container) == 0
+                msg := sprintf("%s %s: %s %s must not set effective securityContext.runAsUser=0", [input.review.kind.kind, input.review.object.metadata.name, ref.type, ref.container.name])
               }
 
               violation contains {"msg": msg} if {
@@ -63,4 +74,12 @@ spec:
                 drops := object.get(capabilities, "drop", [])
                 not "ALL" in drops
                 msg := sprintf("%s %s: %s %s must include ALL in securityContext.capabilities.drop", [input.review.kind.kind, input.review.object.metadata.name, ref.type, ref.container.name])
+              }
+
+              violation contains {"msg": msg} if {
+                some ref in checked_containers
+                container_sc := object.get(ref.container, "securityContext", {})
+                capabilities := object.get(container_sc, "capabilities", {})
+                count(object.get(capabilities, "add", [])) > 0
+                msg := sprintf("%s %s: %s %s must not add Linux capabilities", [input.review.kind.kind, input.review.object.metadata.name, ref.type, ref.container.name])
               }

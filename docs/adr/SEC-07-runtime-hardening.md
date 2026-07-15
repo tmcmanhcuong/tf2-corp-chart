@@ -19,8 +19,9 @@ Install the pinned upstream Gatekeeper chart `3.23.0` from the dedicated
 `gatekeeper-chart` wrapper in this repository. Argo CD owns both the Gatekeeper
 Helm release and three policies; AWS Terraform is not part of this decision:
 
-- `K8sContainerHardening`: effective `runAsNonRoot=true` and capability drop `ALL`
-  for containers, init containers, and ephemeral containers.
+- `K8sContainerHardening`: effective `runAsNonRoot=true`, no effective
+  `runAsUser=0`, capability drop `ALL`, and no added Linux capabilities for
+  containers, init containers, and ephemeral containers.
 - `K8sAllowedImageTags`: fixed tags or valid SHA-256 digests; no missing tag or
   case-insensitive `latest`.
 - `K8sRequiredResources`: CPU/memory requests and limits for containers and init
