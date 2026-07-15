@@ -22,7 +22,7 @@ default:
   image:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp
     # Replace with currently running tag before cutover (e.g. sha-a1b2c3d or v1.2.3).
-    tag: "sha-9ef6ca3"
+    tag: "sha-66b851a"
   # Production replicas must occupy distinct hosts and, where capacity exists,
   # both configured AZs. minDomains=2 prevents a one-zone placement from being
   # treated as balanced. Karpenter can add the missing stateless capacity.
@@ -60,8 +60,25 @@ components:
       minReplicas: 2
     schedulingRules: *directive03-hard-spread
     envOverrides:
+      # Stable private DNS (Route53 CNAME → ElastiCache primary). TCP-only init
+      # proves reachability; the app must use TLS + AUTH (replication group has
+      # transit_encryption_enabled and auth_token). Without them the process
+      # hangs in StackExchange.Redis ConnectRetry and never binds :8080 →
+      # liveness connection refused / readiness timeout.
       - name: VALKEY_ADDR
         value: valkey-cart.techx.internal:6379
+      - name: VALKEY_TLS
+        value: "true"
+      # SslHost must match the ElastiCache certificate CN/SAN (AWS endpoint),
+      # not the private CNAME. Update if the replication group is recreated:
+      #   terraform -chdir=environments/production output -raw commerce_valkey_primary_endpoint
+      - name: VALKEY_TLS_HOST
+        value: master.techx-prod-tf2-cart.2bnsjq.use1.cache.amazonaws.com
+      - name: VALKEY_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: techx-corp-valkey-cart
+            key: VALKEY_PASSWORD
     # Production uses the Terraform-managed Multi-AZ Valkey endpoint. Keep the
     # bounded startup gate, but target stable private DNS instead of the removed
     # in-cluster singleton Service.
@@ -98,8 +115,14 @@ components:
     # Reliability-only change: flag definitions and incident controls remain
     # unchanged. Two replicas remove flagd as a single-pod/node dependency.
     replicas: 2
-    # BTC central flag source (values-flagd-sync): read-only HTTP sync, no local flagd-ui.
-    sidecarContainers: []
+    # Dual sources: local ConfigMap file + BTC central HTTP.
+    # Merge order: later source wins on key clash — HTTP last so BTC always wins
+    # for shared original keys (paymentFailure, cartFailure, …).
+    # Local file / flagd-ui: local-* keys only (no BTC original names in UI).
+    # Team self-test: toggle local-* in /feature (apps OR/max with BTC keys).
+    # flagd-ui: inherit base values.yaml sidecar (writes local file only).
+    # Access: /feature via internal ALB / Client VPN (CloudFront blocks /feature).
+    # Requires ESO Secret techx-corp-flagd-ui (SECRET_KEY_BASE).
     command:
       - "/flagd-build"
       - "start"
@@ -108,7 +131,7 @@ components:
       - "--ofrep-port"
       - "8016"
       - "--sources"
-      - '[{"uri":"https://122.248.223.194.sslip.io/flags.json","provider":"http","authHeader":"Bearer 8de6246060a65f500bc44988467c5985b77d0808998284f9"}]'
+      - '[{"uri":"/etc/flagd/demo.flagd.json","provider":"file"},{"uri":"https://122.248.223.194.sslip.io/flags.json","provider":"http","authHeader":"Bearer 8de6246060a65f500bc44988467c5985b77d0808998284f9"}]'
     schedulingRules: *directive03-hard-spread
 
   frontend:
@@ -197,4 +220,4 @@ opentelemetry-collector:
           value: techx-corp-prod
           action: upsert
 
-# Change trail: @hungxqt - 2026-07-14 - Prod Locust master replicas=1 while active load testing.
+# Change trail: @hungxqt - 2026-07-15 - Local flagd file/UI is local-* keys only.

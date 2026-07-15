@@ -26,3 +26,13 @@ targets:
   grafanaAdmin: techx-corp-grafana-admin
   # SEC-06: OpenSearch security plugin credentials
   opensearch: techx-corp-opensearch
+  # Directive #3: managed ElastiCache Valkey auth (prod only; see values-prod.yaml)
+  valkeyCart: techx-corp-valkey-cart
+
+# Managed cart Valkey auth token (Terraform commerce_ha module).
+# Dev keeps in-cluster valkey-cart without auth — leave enabled: false.
+valkeyCart:
+  enabled: false
+  # Full ASM secret name (not under remoteKeyPrefix). Example prod: techx-prod-tf2/valkey-cart
+  remoteKey: ""
+# Change trail: @hungxqt - 2026-07-15 - Add optional managed Valkey cart auth ExternalSecret.
