@@ -1,6 +1,6 @@
 # Request-Metric HPA (Prometheus Adapter)
 
-Hot-path services scale on **requests per second (RPS)** in addition to CPU/memory. Metrics come from OTel → Prometheus → **Prometheus Adapter** → HPA External metrics.
+Hot-path services scale on **requests per second (RPS)** in addition to CPU. Metrics come from OTel → Prometheus → **Prometheus Adapter** → HPA External metrics.
 
 ## Architecture
 
@@ -9,17 +9,16 @@ App / auto-instrumentation (OTel)
   → OTel Collector (OTLP + spanmetrics)
   → Prometheus (OTLP receiver)
   → Prometheus Adapter (external metric: http_requests_per_second)
-  → HorizontalPodAutoscaler (External AverageValue + Resource CPU/mem)
+  → HorizontalPodAutoscaler (External AverageValue + Resource CPU)
   → Deployment replicas
 ```
 
-HPA desired replicas = **max** across all configured metrics (RPS, CPU, memory).
+HPA desired replicas = **max** across all configured metrics (RPS, CPU). Memory resource metrics are **not** configured in base values (optional via `targetMemoryUtilizationPercentage` if re-enabled).
 
 | Signal | Target (base) | Role |
 |--------|---------------|------|
 | RPS (External) | per-service `targetRequestsPerSecond` | Primary capacity under traffic |
-| CPU | 70% utilization | Safety when load is compute-bound |
-| Memory | 90% utilization | Safety valve only (near request / OOM-adjacent) |
+| CPU | 70% utilization (80% for frontend / frontend-proxy) | Safety when load is compute-bound |
 
 ## Services (base `values.yaml`)
 
@@ -121,7 +120,7 @@ prometheus-adapter:
   enabled: false
 ```
 
-Optionally remove `targetRequestsPerSecond` from components. CPU/memory HPA continues if Metrics Server is healthy.
+Optionally remove `targetRequestsPerSecond` from components. CPU HPA continues if Metrics Server is healthy.
 
 ## Related
 
@@ -129,4 +128,4 @@ Optionally remove `targetRequestsPerSecond` from components. CPU/memory HPA cont
 * `docs/operations/workload-placement.md` — node contracts under scale-out
 * Chart: `templates/_objects.tpl` (`techx-corp.hpa`), `values.yaml` (`prometheus-adapter`, `components.*.autoscaling`)
 
-<!-- Change trail: @hungxqt - 2026-07-14 - Add product-reviews triple-metric HPA. -->
+<!-- Change trail: @hungxqt - 2026-07-15 - Drop memory metric from request-metric HPA inventory. -->

@@ -414,7 +414,7 @@ components:
         memory: 256Mi
     # Hot-path under scaled frontend/checkout; Karpenter (default spot-tolerant).
     # Valkey remains singleton; cart pods are stateless clients.
-    # Triple metrics (Option B+): RPS primary; CPU 70% + memory 90% safety valves (HPA uses max).
+    # Dual metrics: RPS primary; CPU 70% safety valve (HPA uses max).
     # behavior anchor is shared by all HPA-enabled services (must be defined before first alias).
     # maxReplicas 12: load-test pin at 6 with CPU ~110%/70% → desired ~10; +headroom.
     autoscaling:
@@ -422,7 +422,6 @@ components:
       minReplicas: 2
       maxReplicas: 12
       targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 90
       # .NET service can easily handle 100 RPS per pod.
       targetRequestsPerSecond: 100
       behavior: &hpa-behavior-default
@@ -507,14 +506,13 @@ components:
       limits:
         cpu: 150m
         memory: 128Mi
-    # Triple metrics: expensive orchestration → lower RPS target; CPU/mem safety valves.
+    # Dual metrics: expensive orchestration → lower RPS target; CPU safety valve.
     # maxReplicas 16: load-test pin at 6 with CPU ~148%/70% → desired ~13; +headroom.
     autoscaling:
       enabled: true
       minReplicas: 2
       maxReplicas: 16
       targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 90
       # Go service can handle 30 RPS orchestration easily.
       targetRequestsPerSecond: 30
       behavior: *hpa-behavior-default
@@ -571,7 +569,6 @@ components:
       minReplicas: 1
       maxReplicas: 72
       targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 90
       # Native C++ gRPC easily handles 150 RPS.
       targetRequestsPerSecond: 150
       behavior: *hpa-behavior-default
@@ -724,14 +721,13 @@ components:
       limits:
         cpu: 500m
         memory: 384Mi
-    # BFF/SSR: RPS primary (often I/O-wait on backends); CPU/mem safety valves.
+    # BFF/SSR: RPS primary (often I/O-wait on backends); CPU safety valve.
     # maxReplicas 20: load-test pin at 14 with CPU ~100%/80% → desired ~18; +headroom.
     autoscaling:
       enabled: true
       minReplicas: 2
       maxReplicas: 20
       targetCPUUtilizationPercentage: 80
-      targetMemoryUtilizationPercentage: 90
       targetRequestsPerSecond: 50
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
@@ -860,7 +856,7 @@ components:
         cpu: 300m
         memory: 128Mi
     # Edge / ALB target on Critical MNG (small floor). maxReplicas 10 needs MNG headroom.
-    # RPS primary; CPU/mem safety valves. If pods Pending: free Critical capacity in infra.
+    # RPS primary; CPU safety valve. If pods Pending: free Critical capacity in infra.
     # OTel service.name may differ for Envoy — set autoscaling.serviceName after metric inventory.
     # maxReplicas 10: load-test pin at 6 with CPU ~110%/80% → desired ~8; +headroom.
     autoscaling:
@@ -868,7 +864,6 @@ components:
       minReplicas: 2
       maxReplicas: 10
       targetCPUUtilizationPercentage: 80
-      targetMemoryUtilizationPercentage: 90
       # Envoy handles massive connections, set target to 200 RPS.
       targetRequestsPerSecond: 200
       behavior: *hpa-behavior-default
@@ -1225,14 +1220,13 @@ components:
         cpu: 200m
         memory: 128Mi
     # Hot read path under frontend/checkout; Karpenter spot-tolerant.
-    # Highest backend RPS under Locust browse; RPS primary + CPU/mem safety valves.
+    # Highest backend RPS under Locust browse; RPS primary + CPU safety valve.
     # maxReplicas 12: load-test pin at 6 with CPU ~126%/70% → desired ~11; +headroom.
     autoscaling:
       enabled: true
       minReplicas: 2
       maxReplicas: 12
       targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 90
       # Go backend can handle 100 RPS.
       targetRequestsPerSecond: 100
       behavior: *hpa-behavior-default
@@ -1310,7 +1304,7 @@ components:
       limits:
         cpu: 300m
         memory: 256Mi
-    # Product-page AI reviews (P1); RPS primary; CPU/mem safety valves.
+    # Product-page AI reviews (P1); RPS primary; CPU safety valve.
     # Lower RPS/pod than recommendation — LLM + Postgres path is heavier.
     # maxReplicas 6: same band as recommendation until load-test pin data.
     autoscaling:
@@ -1318,7 +1312,6 @@ components:
       minReplicas: 1
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 90
       targetRequestsPerSecond: 10
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
@@ -1377,7 +1370,6 @@ components:
       minReplicas: 1
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 90
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
@@ -1442,13 +1434,12 @@ components:
       limits:
         cpu: 400m
         memory: 384Mi
-    # Product-page traffic (P1); RPS primary; CPU/memory remain safety valves.
+    # Product-page traffic (P1); RPS primary; CPU safety valve.
     autoscaling:
       enabled: true
       minReplicas: 1
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 90
       targetRequestsPerSecond: 15
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
@@ -1496,7 +1487,6 @@ components:
       minReplicas: 1
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 90
       behavior: *hpa-behavior-default
 
   flagd:
@@ -2627,7 +2617,7 @@ grafana:
       drop:
         - ALL
 
-# Metrics Server — required for HPA (autoscaling/v2 CPU & memory metrics).
+# Metrics Server — required for HPA (autoscaling/v2 CPU metrics; memory optional).
 # Set enabled: false if the cluster already runs metrics-server (e.g. kube-system).
 metrics-server:
   enabled: true
@@ -2649,7 +2639,7 @@ metrics-server:
 
 # Prometheus Adapter — custom/external metrics API for request-rate (RPS) HPA.
 # Reads OTel request counters already scraped into in-cluster Prometheus.
-# Set enabled: false to fall back to CPU/memory-only HPA (targets stay in values but External metrics fail closed).
+# Set enabled: false to fall back to CPU-only HPA (targets stay in values but External metrics fail closed).
 # Ops: docs/operations/request-metric-hpa.md
 prometheus-adapter:
   enabled: true
@@ -2709,4 +2699,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-15 - Note prod dual flagd sources; base remains local file.
+# Change trail: @hungxqt - 2026-07-15 - Removed memory metric HPA targets from all autoscaled services.

@@ -36,8 +36,8 @@
 - Images đã có trên ECR theo format nested (xem Phase 3 / platform repo).
 - **Helm** v3+, **kubectl**, **bash** (smoke test); **argocd** CLI optional (có thể dùng UI / `kubectl`).
 - **GitOps:** Argo CD installed (`argocd` namespace); repo credential trong `argocd` nếu repo private (GitHub App / deploy key / PAT).
-- **Metrics Server:** chart cài kèm subchart `metrics-server` (default `enabled: true`) để HPA đọc CPU/memory. **Không** cần cài sẵn trong `kube-system`. Nếu cluster **đã** có Metrics Server (một APIService `v1beta1.metrics.k8s.io` duy nhất), tắt trong overlay: `metrics-server.enabled: false`.
-- **Prometheus Adapter:** chart cài kèm subchart `prometheus-adapter` (default `enabled: true`) để HPA đọc RPS External metrics từ Prometheus. Tắt: `prometheus-adapter.enabled: false` (chỉ còn CPU/memory HPA).
+- **Metrics Server:** chart cài kèm subchart `metrics-server` (default `enabled: true`) để HPA đọc CPU. **Không** cần cài sẵn trong `kube-system`. Nếu cluster **đã** có Metrics Server (một APIService `v1beta1.metrics.k8s.io` duy nhất), tắt trong overlay: `metrics-server.enabled: false`.
+- **Prometheus Adapter:** chart cài kèm subchart `prometheus-adapter` (default `enabled: true`) để HPA đọc RPS External metrics từ Prometheus. Tắt: `prometheus-adapter.enabled: false` (chỉ còn CPU HPA).
 
 ## 4. Hằng số & quy ước image
 
@@ -522,17 +522,16 @@ Chart dependency: **metrics-server 3.13.1** (`https://kubernetes-sigs.github.io/
 | `metrics-server.args` | `--kubelet-insecure-tls` | Thường cần trên EKS (kubelet serving cert) |
 | `metrics-server.resources` | requests 100m/200Mi, limit memory 200Mi | |
 
-HPA templates (`templates/hpa.yaml`) dùng `autoscaling/v2` — **cần** Metrics Server (API `metrics.k8s.io`) cho CPU/memory. Request-rate (RPS) HPA **cần** Prometheus Adapter (API `external.metrics.k8s.io`), subchart `prometheus-adapter` (default `enabled: true`). Optional `autoscaling.behavior` (scale-up/down policies) is rendered when set. Multi-replica HPA services also get a first-party **PodDisruptionBudget** (`minAvailable: 1`) when `minReplicas >= 2`.
+HPA templates (`templates/hpa.yaml`) dùng `autoscaling/v2` — **cần** Metrics Server (API `metrics.k8s.io`) cho CPU. Request-rate (RPS) HPA **cần** Prometheus Adapter (API `external.metrics.k8s.io`), subchart `prometheus-adapter` (default `enabled: true`). Optional `autoscaling.behavior` (scale-up/down policies) is rendered when set. Multi-replica HPA services also get a first-party **PodDisruptionBudget** (`minAvailable: 1`) when `minReplicas >= 2`.
 
-**Metric policy (Option B+ — triple metrics):**
+**Metric policy (dual metrics — RPS + CPU; no memory):**
 
 | Metric | Target | Role |
 |---|---:|---|
 | **RPS** (External) | per-service `targetRequestsPerSecond` | Primary under traffic (I/O-bound / high-RPS low-CPU paths) |
-| CPU | **70%** | Safety when load is compute-bound |
-| Memory | **90%** | Safety valve only (near request / OOM-adjacent pressure) |
+| CPU | **70%** (80% for frontend / frontend-proxy) | Safety when load is compute-bound |
 
-HPA desired replicas = **max** across metrics. A low memory target would dominate scale-out; 90% is intentional so idle heaps do not pin high replica counts. If idle memory utilization stays near request, **raise `requests.memory`** — do not lower the memory target to “fix” thrash. Hard OOM protection remains `limits` + runtime caps (e.g. `GOMEMLIMIT`).
+HPA desired replicas = **max** across configured metrics. Memory resource metrics are **not** set in base values (optional via `targetMemoryUtilizationPercentage` in the HPA template if re-enabled later). Hard OOM protection remains `limits` + runtime caps (e.g. `GOMEMLIMIT`).
 
 RPS uses External metric `http_requests_per_second` with label `service_name` (OTel). Ops detail: `docs/operations/request-metric-hpa.md`.
 
@@ -540,14 +539,16 @@ RPS uses External metric `http_requests_per_second` with label `service_name` (O
 
 | Service | min | max | Metrics | Placement |
 |---|---:|---:|---|---|
-| `frontend` | 2 | 20 | CPU 80% / Mem 90% / RPS **50** | Karpenter (spot-tolerant) |
-| `checkout` | 2 | 16 | CPU 70% / Mem 90% / RPS **30** | Karpenter (spot-tolerant) |
-| `cart` | 2 | 12 | CPU 70% / Mem 90% / RPS **100** | Karpenter (default) |
-| `product-catalog` | 2 | 12 | CPU 70% / Mem 90% / RPS **100** | Karpenter (spot-tolerant) |
-| `product-reviews` | 1 | 6 | CPU 70% / Mem 90% / RPS **10** | Karpenter (spot-tolerant) |
-| `currency` | 1 | 72 | CPU 70% / Mem 90% / RPS **150** | Karpenter (spot-tolerant) |
-| `recommendation` | 1 | 6 | CPU 70% / Mem 90% / RPS **15** | Karpenter (spot-tolerant) |
-| `frontend-proxy` | 2 | 10 | CPU 80% / Mem 90% / RPS **200** | **Critical MNG** (needs MNG headroom at max) |
+| `frontend` | 2 | 20 | CPU 80% / RPS **50** | Karpenter (spot-tolerant) |
+| `checkout` | 2 | 16 | CPU 70% / RPS **30** | Karpenter (spot-tolerant) |
+| `cart` | 2 | 12 | CPU 70% / RPS **100** | Karpenter (default) |
+| `product-catalog` | 2 | 12 | CPU 70% / RPS **100** | Karpenter (spot-tolerant) |
+| `product-reviews` | 1 | 6 | CPU 70% / RPS **10** | Karpenter (spot-tolerant) |
+| `currency` | 1 | 72 | CPU 70% / RPS **150** | Karpenter (spot-tolerant) |
+| `recommendation` | 1 | 6 | CPU 70% / RPS **15** | Karpenter (spot-tolerant) |
+| `frontend-proxy` | 2 | 10 | CPU 80% / RPS **200** | **Critical MNG** (needs MNG headroom at max) |
+| `quote` | 1 | 4 | CPU 70% | Karpenter (default) |
+| `shipping` | 1 | 4 | CPU 70% | Karpenter (default) |
 
 **Locust distributed mode:** `load-generator` is the **master** (fixed replicas, default `0`; scale to `1` for tests; no HPA; **Critical MNG / system nodes**). `load-generator-worker` is the **worker pool** (CPU-only HPA, min 1 / max 8 when enabled; **fast scale-down** 30s stabilize / 100% per 15s; **Karpenter Spot**). Ramp users via `LOCUST_USERS` / Locust UI on the master; workers join `load-generator:5557`. See `docs/changes/2026-07-14-distributed-load-generator.md`, `docs/changes/2026-07-14-fix-locust-master-worker-discovery.md`, `docs/changes/2026-07-14-locust-master-critical-mng.md`, and `docs/changes/2026-07-14-load-generator-worker-fast-scale-down.md`.
 
@@ -555,7 +556,7 @@ Hot-path money-flow HPAs (`frontend`, `checkout`, `cart`, `product-catalog`, `fr
 
 **Critical capacity note:** `frontend-proxy` scale-out still lands only on Critical MNG (small floor). Chart `maxReplicas` is **10**; if proxy pods go `Pending` under load, free Critical capacity or adjust MNG size in infra before further raises.
 
-**Prometheus Adapter:** pin Critical MNG; talks to in-cluster `http://prometheus:9090`. Disable with `prometheus-adapter.enabled: false` if you only want CPU/memory HPA.
+**Prometheus Adapter:** pin Critical MNG; talks to in-cluster `http://prometheus:9090`. Disable with `prometheus-adapter.enabled: false` if you only want CPU HPA.
 
 ### Kiểm tra image trong Pod
 
@@ -653,7 +654,7 @@ kubectl -n techx-corp-prod get hpa,pdb
 kubectl -n techx-corp-prod describe hpa frontend checkout cart product-catalog product-reviews currency recommendation frontend-proxy
 ```
 
-Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready (CPU/mem); External RPS targets populate after traffic + Adapter Ready; `kubectl top` trả về CPU/memory; eight request-path HPAs on base (`frontend`, `checkout`, `cart`, `product-catalog`, `product-reviews`, `currency`, `recommendation`, `frontend-proxy`); money-flow mins are 2, others min 1; `load-generator` master has no HPA; `load-generator-worker` has CPU HPA when enabled; first-party PDBs when `minReplicas >= 2`. See `docs/operations/request-metric-hpa.md`.
+Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready (CPU); External RPS targets populate after traffic + Adapter Ready; `kubectl top` trả về CPU/memory; no memory HPA targets on base; eight request-path HPAs (`frontend`, `checkout`, `cart`, `product-catalog`, `product-reviews`, `currency`, `recommendation`, `frontend-proxy`) plus CPU-only `quote` / `shipping`; money-flow mins are 2, others min 1; `load-generator` master has no HPA; `load-generator-worker` has CPU HPA when enabled; first-party PDBs when `minReplicas >= 2`. See `docs/operations/request-metric-hpa.md`.
 
 ### Smoke test
 
@@ -815,4 +816,4 @@ kubectl -n argocd annotate application techx-corp-dev \
 - `templates/NOTES.txt` — post-install notes (port-forward, ALB, **Argo CD admin credential**)  
 - [operations/gitops-argocd.md](./operations/gitops-argocd.md) — GitOps runbook + UI access
 
-<!-- Change trail: @hungxqt - 2026-07-14 - Add product-reviews to HPA inventory. -->
+<!-- Change trail: @hungxqt - 2026-07-15 - Remove memory metric from HPA inventory and metric policy. -->
