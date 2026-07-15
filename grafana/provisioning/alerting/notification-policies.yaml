@@ -1,0 +1,57 @@
+# Copyright TechX Corp Platform Team
+# SPDX-License-Identifier: Apache-2.0
+#
+# Grafana provisioning — Notification Policies
+#
+# Routing:
+#   - hot path alerts (alert_type label) → group by service_name + alert_type
+#   - severity=critical  → repeat mỗi 30 phút
+#   - severity=warning   → repeat mỗi 1 giờ
+#   - default fallback   → discord-alerts, repeat 4h
+---
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: discord-alerts
+    group_by:
+      - namespace
+      - alertname
+      - severity
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      - receiver: discord-alerts
+        matchers:
+          - alert_type =~ "error_rate|latency|restart"
+        group_by:
+          - service_name
+          - alert_type
+          - severity
+        group_wait: 30s
+        group_interval: 2m
+        repeat_interval: 30m
+        continue: false
+
+      - receiver: discord-alerts
+        matchers:
+          - severity = critical
+        group_by:
+          - namespace
+          - alertname
+        group_wait: 10s
+        group_interval: 2m
+        repeat_interval: 30m
+        continue: false
+
+      - receiver: discord-alerts
+        matchers:
+          - severity = warning
+        group_by:
+          - namespace
+          - alertname
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 1h
+        continue: false

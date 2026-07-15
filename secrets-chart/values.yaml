@@ -28,6 +28,8 @@ targets:
   opensearch: techx-corp-opensearch
   # Directive #3: managed ElastiCache Valkey auth (prod only; see values-prod.yaml)
   valkeyCart: techx-corp-valkey-cart
+  # Grafana Discord alert webhook (ESO-managed, replaces kubectl create secret)
+  grafanaDiscord: techx-corp-grafana-discord
 
 # Managed cart Valkey auth token (Terraform commerce_ha module).
 # Dev keeps in-cluster valkey-cart without auth — leave enabled: false.

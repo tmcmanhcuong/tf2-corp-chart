@@ -1,0 +1,27 @@
+# Copyright TechX Corp Platform Team
+# SPDX-License-Identifier: Apache-2.0
+#
+# Grafana provisioning — Contact Points
+#
+# Required env var — inject vào values.yaml grafana.envValueFrom:
+#   DISCORD_WEBHOOK_URL : webhook URL từ Discord Server Settings → Integrations → Webhooks
+#                         dạng: https://discord.com/api/webhooks/<id>/<token>
+#
+# Secret được quản lý qua AWS Secrets Manager + ESO (secrets-chart):
+#   ASM path : techx-corp/production/grafana-discord → {"webhook-url":"<url>"}
+#   Bootstrap: DISCORD_WEBHOOK_URL=<url> ./scripts/bootstrap-asm-secrets.sh techx-corp/production
+#   K8s Secret techx-corp-grafana-discord được ESO tạo tự động — không dùng kubectl create secret.
+---
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: discord-alerts
+    receivers:
+      - uid: discord-alerts-receiver
+        type: discord
+        settings:
+          url: "${DISCORD_WEBHOOK_URL}"
+          # Dùng @everyone mention cho critical nếu muốn — để trống để không mention
+          use_discord_username: false
+        disableResolveMessage: false
