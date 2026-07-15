@@ -30,19 +30,18 @@ Production flagd now loads feature flags from **both** the chart-local `flagd/de
   ```
 
 * **file first, HTTP last** → central definitions override the same keys from local.
-* flagd-ui remains disabled in prod (no cluster UI writing the local file for shared keys).
-* Team-only flags: add **unique** keys to `flagd/demo.flagd.json` (Git → ConfigMap → pod restart so init re-copies emptyDir).
+* **flagd-ui re-enabled in prod** (inherit base sidecar; see also re-enable follow-up in the same day change set). UI writes local file only; shared BTC keys still follow HTTP.
+* Team-only flags: unique keys via UI `/feature` (live emptyDir) or `flagd/demo.flagd.json` (Git → ConfigMap → restart).
 
 ## Technical Design Decisions
 
 * **Central wins (HTTP last)** rather than local-last, so a mistaken local copy of a BTC key cannot soft-bypass mentor/chaos control.
-* **Keep flagd-ui off in prod** — UI only mutates the file source; with central-last that is safe for shared keys, but disabling UI avoids operator confusion and accidental local-only toggles.
+* **flagd-ui on for team-only toggles** — UI mutates the file source only; with central-last, shared BTC keys stay authoritative. Operators must not treat UI as controlling mentor/chaos flags.
 * **No change to base `values.yaml` command** — pure local/Compose installs stay offline-capable without BTC HTTP dependency.
 * **Absolute file path** `/etc/flagd/demo.flagd.json` matches the emptyDir mount from base values (more reliable than `./etc/...` under `--sources`).
 * Alternatives rejected:
   * Local-last merge — unsafe for BTC-owned keys.
   * HTTP-only (previous) — blocks TF-only flags without central cooperation.
-  * Re-enable flagd-ui — out of scope; can be revisited if team needs live local toggles for unique keys only.
 
 ## Implementation Details
 
@@ -138,4 +137,4 @@ helm template techx-corp . -n techx-corp-prod ^
 1. Revert this commit (or restore previous single-HTTP `--sources` in `values-prod.yaml` / `values-flagd-sync.yaml`).
 2. Merge to `main`; Argo syncs flagd back to central-only.
 
-<!-- Change trail: @hungxqt - 2026-07-15 - Dual flagd sources: local file + BTC HTTP (central wins). -->
+<!-- Change trail: @hungxqt - 2026-07-15 - Dual flagd sources + flagd-ui for team-only toggles. -->

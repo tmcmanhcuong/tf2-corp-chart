@@ -118,9 +118,10 @@ components:
     # Dual sources: local ConfigMap file (team-only keys) + BTC central HTTP.
     # Merge order: later source wins on key clash — HTTP last so BTC always wins
     # for shared chaos/incident flags (paymentFailure, cartFailure, …).
-    # flagd-ui stays off so cluster UI cannot override central definitions.
-    # Team flags: add unique keys to flagd/demo.flagd.json (not BTC key names).
-    sidecarContainers: []
+    # flagd-ui: inherit base values.yaml sidecar (writes local file only).
+    # UI toggles team-only keys effectively; shared BTC keys still follow HTTP.
+    # Access: /feature via internal ALB / Client VPN (CloudFront blocks /feature).
+    # Requires ESO Secret techx-corp-flagd-ui (SECRET_KEY_BASE).
     command:
       - "/flagd-build"
       - "start"
@@ -214,4 +215,4 @@ opentelemetry-collector:
           value: techx-corp-prod
           action: upsert
 
-# Change trail: @hungxqt - 2026-07-15 - Dual flagd sources: local file + BTC HTTP (central wins).
+# Change trail: @hungxqt - 2026-07-15 - Dual flagd sources + re-enable flagd-ui for team-only toggles.
