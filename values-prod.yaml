@@ -191,6 +191,11 @@ components:
     autoscaling:
       minReplicas: 2
     schedulingRules: *directive03-hard-spread
+    envOverrides:
+      - name: LLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - name: LLM_MODEL
+        value: openai/gpt-oss-20b
     serviceAccount:
       annotations:
         eks.amazonaws.com/role-arn: arn:aws:iam::493499579600:role/techx-prod-tf2-product-reviews-model-read
