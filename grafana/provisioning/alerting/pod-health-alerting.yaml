@@ -210,6 +210,8 @@ groups:
 
       # ------------------------------------------------------------------ #
       # 4. Pod Not Ready >5m — loại trừ pod đang trong quá trình restart    #
+      #    Dùng max_over_time để aggregate container-level restart về pod   #
+      #    level trước khi join, tránh cardinality mismatch với unless      #
       # ------------------------------------------------------------------ #
       - uid: pod-not-ready-004
         title: PodNotReady
@@ -223,22 +225,18 @@ groups:
             model:
               editorMode: code
               expr: |
+                kube_pod_status_ready{
+                  namespace="techx-corp-prod",
+                  condition="true"
+                } == 0
+                unless on(namespace, pod)
                 (
-                  kube_pod_status_ready{
-                    namespace="techx-corp-prod",
-                    condition="true"
-                  } == 0
-                )
-                unless
-                (
-                  kube_pod_container_status_restarts_total{
-                    namespace="techx-corp-prod"
-                  } > 0
-                  and
-                  increase(
-                    kube_pod_container_status_restarts_total{
-                      namespace="techx-corp-prod"
-                    }[5m]
+                  max by (namespace, pod) (
+                    increase(
+                      kube_pod_container_status_restarts_total{
+                        namespace="techx-corp-prod"
+                      }[5m]
+                    )
                   ) > 0
                 )
               instant: true
@@ -613,6 +611,64 @@ groups:
             Node <b>{{ $labels.node }}</b> không ở trạng thái <b>Ready</b> hơn 5 phút.
             Tất cả pod trên node này có thể bị ảnh hưởng.
             Kiểm tra: kubectl describe node {{ $labels.node }}
+        labels:
+          severity: critical
+          team: platform
+        isPaused: false
+        notification_settings:
+          receiver: discord-alerts
+
+      # ------------------------------------------------------------------ #
+      # 11. Pod Evicted — bị kubelet evict do node pressure                 #
+      # ------------------------------------------------------------------ #
+      - uid: pod-evicted-011
+        title: PodEvicted
+        condition: threshold
+        data:
+          - refId: evicted
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: webstore-metrics
+            model:
+              editorMode: code
+              expr: |
+                kube_pod_status_reason{
+                  namespace="techx-corp-prod",
+                  reason="Evicted"
+                } == 1
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: evicted
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: threshold
+              expression: evicted
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+                  operator:
+                    type: and
+                  query:
+                    params: [threshold]
+                  reducer:
+                    type: last
+                    params: []
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        keepFiringFor: 10m
+        annotations:
+          summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} bị Evicted"
+          description: >-
+            Pod <b>{{ $labels.namespace }}/{{ $labels.pod }}</b> đã bị kubelet evict,
+            thường do node <b>MemoryPressure</b> hoặc <b>DiskPressure</b>.
+            Kiểm tra node và xem xét tăng resource limits.
+            Cleanup: kubectl delete pod {{ $labels.pod }} -n {{ $labels.namespace }}
         labels:
           severity: critical
           team: platform

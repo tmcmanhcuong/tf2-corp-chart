@@ -8,9 +8,9 @@
 # Namespace    : techx-corp-prod
 #
 # Thresholds:
-#   Error rate  > 1%    (5m window)  → warning
-#   P95 latency > 1000ms (5m window) → warning
-#   Pod restart > 3     (5m window)  → critical
+#   Error rate  > 1%     (5m window)  → warning  [guard: traffic > 1 rps]
+#   P95 latency > 1000ms (5m window)  → warning
+#   Pod restart > 3      (5m window)  → critical
 #
 # Hot path services:
 #   frontend, frontend-proxy, cart, checkout, currency,
@@ -27,12 +27,12 @@ groups:
 
       # ------------------------------------------------------------------ #
       # 1. Error Rate > 1%                                                   #
-      #    Guard: chỉ fire khi có ít nhất 1 req/s để tránh false positive   #
-      #    khi traffic = 0 (0/0 = NaN)                                      #
+      #    Dùng Math expression để combine traffic guard + error rate:       #
+      #    chỉ fire khi total_rate > 1 rps VÀ error_rate > 1%              #
       # ------------------------------------------------------------------ #
       - uid: hotpath-error-rate-001
         title: HotPathHighErrorRate
-        condition: threshold
+        condition: combined
         data:
           - refId: total_rate
             relativeTimeRange:
@@ -83,34 +83,26 @@ groups:
               intervalMs: 1000
               maxDataPoints: 43200
               refId: error_rate
-          # Guard: chỉ pass threshold khi total_rate > 1 req/s VÀ error_rate > 1%
-          - refId: has_traffic
+          # Math: fire chỉ khi CẢ HAI điều kiện đều true (value > 0)
+          # total_rate > 1  →  (total_rate - 1) > 0
+          # error_rate > 1% →  (error_rate - 1) > 0
+          # combined = (total_rate - 1) * (error_rate - 1): dương khi cả 2 vượt ngưỡng
+          - refId: combined
             datasourceUid: __expr__
             model:
-              type: threshold
-              refId: has_traffic
-              expression: total_rate
-              conditions:
-                - evaluator:
-                    type: gt
-                    params: [1]
-                  operator:
-                    type: and
-                  query:
-                    params: [has_traffic]
-                  reducer:
-                    type: last
-                    params: []
+              type: math
+              refId: combined
+              expression: "($total_rate - 1) * ($error_rate - 1)"
           - refId: threshold
             datasourceUid: __expr__
             model:
               type: threshold
               refId: threshold
-              expression: error_rate
+              expression: combined
               conditions:
                 - evaluator:
                     type: gt
-                    params: [1]
+                    params: [0]
                   operator:
                     type: and
                   query:
@@ -200,6 +192,7 @@ groups:
 
       # ------------------------------------------------------------------ #
       # 3. Pod Restart > 3 lần / 5 phút — hot path pods only               #
+      #    for: 1m để tránh false positive từ increase() lúc pod mới start  #
       # ------------------------------------------------------------------ #
       - uid: hotpath-pod-restart-003
         title: HotPathPodRestarting
@@ -242,7 +235,7 @@ groups:
                     params: []
         noDataState: OK
         execErrState: Error
-        for: 0s
+        for: 1m
         keepFiringFor: 5m
         annotations:
           summary: "Hot path pod {{ $labels.pod }} restart > 3 lần/5m"
