@@ -1099,8 +1099,8 @@ components:
       - name: tmp-dir
         mountPath: /tmp
     # CPU-only HPA for worker pool (memory omitted — Locust RSS is steady and
-    # memory targets caused unnecessary scale churn). Fast scale-down returns
-    # Spot capacity quickly when Locust load drops (workers only; master fixed).
+    # memory targets caused unnecessary scale churn). Slow scale-down reduces
+    # Locust master disconnect thrash (fixed user count rebalances after scale-out).
     autoscaling:
       enabled: true
       minReplicas: 1
@@ -1118,12 +1118,12 @@ components:
               periodSeconds: 15
           selectPolicy: Max
         scaleDown:
-          # Was 300s / 50% per 60s — held 8 workers at ~5% CPU for many minutes.
-          stabilizationWindowSeconds: 30
+          # Restored 300s / 50% per 60s after 30s/100%/15s caused 1↔2 thrash.
+          stabilizationWindowSeconds: 300
           policies:
             - type: Percent
-              value: 100
-              periodSeconds: 15
+              value: 50
+              periodSeconds: 60
           selectPolicy: Max
 
   payment:
@@ -2700,4 +2700,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-15 - Local flagd file/UI is local-* keys only.
+# Change trail: @hungxqt - 2026-07-15 - Restore load-generator-worker HPA stable scale-down.
