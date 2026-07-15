@@ -2597,6 +2597,21 @@ grafana:
       secretKeyRef:
         name: techx-corp-opensearch
         key: password
+    # Telegram alert bot -- used by grafana/provisioning/alerting/contact-points.yaml
+    # Channel: @alerttesst (chat ID: -1003956520239)
+    # Tao secret truoc khi deploy:
+    #   kubectl create secret generic techx-corp-grafana-telegram \
+    #     --from-literal=bot-token=8270213587:AAF-w2diIGz1Q3Zud_WX--mVfarQsGkJaok \
+    #     --from-literal=chat-id=-1003956520239 \
+    #     -n techx-corp-prod
+    TELEGRAM_BOT_TOKEN:
+      secretKeyRef:
+        name: techx-corp-grafana-telegram
+        key: bot-token
+    TELEGRAM_CHAT_ID:
+      secretKeyRef:
+        name: techx-corp-grafana-telegram
+        key: chat-id
   plugins:
     - grafana-opensearch-datasource
   sidecar:
