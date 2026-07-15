@@ -2277,7 +2277,10 @@ opentelemetry-collector:
             action: upsert
 
     connectors:
-      spanmetrics: {}
+      # The default 60s flush interval leaves fewer than two samples in the
+      # Prometheus Adapter rate window, so the HPA sees 0 RPS under load.
+      spanmetrics:
+        metrics_flush_interval: 15s
 
     extensions:
       health_check: {}
@@ -2671,7 +2674,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
       # HTTP server metrics (frontend Next.js and other HTTP services)
       - seriesQuery: 'http_server_duration_milliseconds_count{service_name!=""}'
         resources:
@@ -2679,7 +2682,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
       # Alternate HTTP duration naming (seconds unit)
       - seriesQuery: 'http_server_request_duration_seconds_count{service_name!=""}'
         resources:
@@ -2687,7 +2690,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
       # Alternate HTTP duration naming (seconds unit) or spanmetrics fallback
       - seriesQuery: 'traces_span_metrics_calls_total{service_name!=""}'
         resources:
@@ -2695,7 +2698,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
   resources:
     # kubectl top: 9m CPU, 38Mi mem. P99 mem: 45.1Mi. External metrics API for RPS HPA.
     requests:
