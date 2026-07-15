@@ -71,11 +71,11 @@ A request change is rejected when the evidence window is missing, the proposed m
 4. Confirm new pods retain the expected workload-class selector, taint toleration, and production hard zone/hostname spread.
 5. Confirm Spot is preferred and On-Demand remains available as fallback; do not force interruption in production.
 6. Stop the workload using its approved operator procedure and observe HPA stabilization.
-7. Confirm Karpenter waits `5m` in development or `10m` in production before eligible consolidation and respects PDBs for voluntary disruption.
+7. Confirm Karpenter consolidates with `consolidateAfter: 0s` (DaemonSet-only / empty nodes, including otel-collector agent only, reclaim immediately) and respects PDBs for voluntary disruption.
 8. Retain at least 30 minutes of results and stop promotion on any alert, unexpected replacement, or unsatisfied capacity gate.
 
 ## Rollback
 
 Revert the alert and scrape configuration in Git and allow Argo CD to reconcile it. Do not use direct mutating Helm or kubectl commands. Alert rollback does not authorize relaxing workload topology or Karpenter disruption policy.
 
-<!-- Change trail: @hungxqt - 2026-07-15 - Define evidence gates for HPA and Karpenter scaling validation. -->
+<!-- Change trail: @hungxqt - 2026-07-15 - Expect consolidateAfter 0s empty reclaim in autoscaling validation. -->
