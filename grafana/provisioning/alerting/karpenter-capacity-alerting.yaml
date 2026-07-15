@@ -1,0 +1,246 @@
+# Copyright TechX Corp Platform Team
+# SPDX-License-Identifier: Apache-2.0
+---
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: karpenter-capacity
+    folder: platform
+    interval: 1m
+    rules:
+      - uid: karpenter-unschedulable-001
+        title: KarpenterUnschedulablePods
+        condition: threshold
+        data:
+          - refId: pending
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: webstore-metrics
+            model:
+              editorMode: code
+              expr: 'karpenter_scheduler_unschedulable_pods_count{controller="provisioner"} > 0'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: pending
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: threshold
+              expression: pending
+              conditions:
+                - evaluator: {type: gt, params: [0]}
+                  operator: {type: and}
+                  query: {params: [threshold]}
+                  reducer: {type: last, params: []}
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        keepFiringFor: 5m
+        annotations:
+          summary: Karpenter cannot schedule one or more pods
+          description: Inspect Pending pod events, NodePool limits, eligible instance categories, topology constraints, and Spot fallback health.
+        labels: {severity: warning, team: platform}
+        isPaused: false
+        notification_settings: {receiver: discord-alerts}
+
+      - uid: karpenter-capacity-high-002
+        title: KarpenterNodePoolCapacityHigh
+        condition: threshold
+        data:
+          - refId: utilization
+            relativeTimeRange: {from: 1800, to: 0}
+            datasourceUid: webstore-metrics
+            model:
+              editorMode: code
+              expr: |
+                (
+                  karpenter_nodepools_usage{resource_type=~"cpu|memory"}
+                  / on(nodepool, resource_type)
+                  karpenter_nodepools_limit{resource_type=~"cpu|memory"}
+                ) > 0.80
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: utilization
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: threshold
+              expression: utilization
+              conditions:
+                - evaluator: {type: gt, params: [0]}
+                  operator: {type: and}
+                  query: {params: [threshold]}
+                  reducer: {type: last, params: []}
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        keepFiringFor: 5m
+        annotations:
+          summary: Karpenter NodePool exceeds 80 percent of its configured limit
+          description: Review the affected nodepool and resource_type before raising limits; validate the workload request model and cost impact first.
+        labels: {severity: warning, team: platform}
+        isPaused: false
+        notification_settings: {receiver: discord-alerts}
+
+      - uid: karpenter-state-sync-003
+        title: KarpenterClusterStateNotSynced
+        condition: threshold
+        data:
+          - refId: sync_state
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: webstore-metrics
+            model:
+              editorMode: code
+              expr: 'karpenter_cluster_state_synced == 0'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: sync_state
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: threshold
+              expression: sync_state
+              conditions:
+                - evaluator: {type: gt, params: [0]}
+                  operator: {type: and}
+                  query: {params: [threshold]}
+                  reducer: {type: last, params: []}
+        noDataState: Error
+        execErrState: Error
+        for: 5m
+        keepFiringFor: 5m
+        annotations:
+          summary: Karpenter cluster-state synchronization is unhealthy
+          description: Check the controller deployment, Kubernetes API access, interruption queue, and controller logs without printing credentials.
+        labels: {severity: critical, team: platform}
+        isPaused: false
+        notification_settings: {receiver: discord-alerts}
+
+      - uid: production-unschedulable-warning-004
+        title: ProductionPodsUnschedulableWarning
+        condition: threshold
+        data:
+          - refId: unschedulable
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: webstore-metrics
+            model:
+              editorMode: code
+              expr: 'sum(kube_pod_status_unschedulable{namespace="techx-corp-prod"}) > 0'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: unschedulable
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: threshold
+              expression: unschedulable
+              conditions:
+                - evaluator: {type: gt, params: [0]}
+                  operator: {type: and}
+                  query: {params: [threshold]}
+                  reducer: {type: last, params: []}
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        keepFiringFor: 5m
+        annotations:
+          summary: Production pods have been unschedulable for five minutes
+          description: Check pod events for topology, taint, PDB, resource, NodePool-limit, or instance-capacity constraints.
+        labels: {severity: warning, team: platform}
+        isPaused: false
+        notification_settings: {receiver: discord-alerts}
+
+      - uid: production-unschedulable-critical-005
+        title: ProductionPodsUnschedulableCritical
+        condition: threshold
+        data:
+          - refId: unschedulable
+            relativeTimeRange: {from: 1800, to: 0}
+            datasourceUid: webstore-metrics
+            model:
+              editorMode: code
+              expr: 'sum(kube_pod_status_unschedulable{namespace="techx-corp-prod"}) > 0'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: unschedulable
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: threshold
+              expression: unschedulable
+              conditions:
+                - evaluator: {type: gt, params: [0]}
+                  operator: {type: and}
+                  query: {params: [threshold]}
+                  reducer: {type: last, params: []}
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        keepFiringFor: 10m
+        annotations:
+          summary: Production pods remain unschedulable for fifteen minutes
+          description: Escalate to the platform operator; preserve hard production spread unless an approved incident procedure explicitly changes it.
+        labels: {severity: critical, team: platform}
+        isPaused: false
+        notification_settings: {receiver: discord-alerts}
+
+      - uid: critical-headroom-006
+        title: CriticalNodeResourceHeadroomLow
+        condition: threshold
+        data:
+          - refId: request_ratio
+            relativeTimeRange: {from: 1800, to: 0}
+            datasourceUid: webstore-metrics
+            model:
+              editorMode: code
+              expr: |
+                (
+                  sum by (resource, unit) (
+                    kube_pod_container_resource_requests{resource=~"cpu|memory"}
+                    * on(node) group_left()
+                    kube_node_labels{label_workload_class="critical"}
+                  )
+                  /
+                  sum by (resource, unit) (
+                    kube_node_status_allocatable{resource=~"cpu|memory"}
+                    * on(node) group_left()
+                    kube_node_labels{label_workload_class="critical"}
+                  )
+                ) > 0.75
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: request_ratio
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: threshold
+              expression: request_ratio
+              conditions:
+                - evaluator: {type: gt, params: [0]}
+                  operator: {type: and}
+                  query: {params: [threshold]}
+                  reducer: {type: last, params: []}
+        noDataState: Error
+        execErrState: Error
+        for: 10m
+        keepFiringFor: 5m
+        annotations:
+          summary: Critical managed-node requested resource headroom is below 25 percent
+          description: Review the affected CPU or memory request ratio per Availability Zone before scheduling or infrastructure changes.
+        labels: {severity: warning, team: platform}
+        isPaused: false
+        notification_settings: {receiver: discord-alerts}
+
+# Change trail: @hungxqt - 2026-07-15 - Add Karpenter, Pending-pod, and critical-capacity alerts.

@@ -9,6 +9,21 @@ $valueFiles = @(
     (Join-Path $chartRoot "values-public-alb.yaml"),
     (Join-Path $chartRoot "values-prod.yaml")
 )
+$prodValues = Get-Content -Raw (Join-Path $chartRoot "values-prod.yaml")
+$componentsBlockMatch = [regex]::Match($prodValues, '(?ms)^components:[ \t]*\r?\n(?<block>.*?)(?=^[^\s#][^:\r\n]*:[ \t]*(?:#.*)?$|\z)')
+if (-not $componentsBlockMatch.Success) {
+    throw 'flagd: values-prod.yaml must contain a top-level components block'
+}
+$flagdBlockMatch = [regex]::Match($componentsBlockMatch.Groups['block'].Value, '(?ms)^  flagd:[ \t]*(?:#.*)?\r?\n(?<block>.*?)(?=^  [^\s#][^:\r\n]*:[ \t]*(?:#.*)?$|\z)')
+if (-not $flagdBlockMatch.Success) {
+    throw 'flagd: values-prod.yaml components block must contain flagd'
+}
+$flagdBlock = $flagdBlockMatch.Groups['block'].Value
+$flagdAuthHeaders = [regex]::Matches($flagdBlock, '"authHeader"\s*:')
+$exactFlagdAuthHeaders = [regex]::Matches($flagdBlock, [regex]::Escape('"authHeader":"Bearer $(FLAGD_SYNC_TOKEN)"'))
+if ($flagdAuthHeaders.Count -ne 1 -or $exactFlagdAuthHeaders.Count -ne 1) {
+    throw 'flagd: values-prod.yaml authHeader must use only the FLAGD_SYNC_TOKEN placeholder'
+}
 
 $helmArgs = @(
     "template", "techx-corp", $chartRoot,
@@ -42,6 +57,15 @@ function Assert-Match {
     }
 }
 
+function Assert-MinimumReplicaFloor {
+    param([string]$Manifest, [string]$Field, [string]$Name)
+
+    $floorMatch = [regex]::Match($Manifest, "(?m)^  $([regex]::Escape($Field)): (?<floor>[0-9]+)$")
+    if (-not $floorMatch.Success -or [int]$floorMatch.Groups['floor'].Value -lt 2) {
+        throw "${Name}: ${Field} must be at least 2"
+    }
+}
+
 # Money-path / storefront stateless floor: two Ready replicas + PDB + hard spread.
 $criticalServices = @(
     "ad", "cart", "checkout", "currency", "email", "frontend",
@@ -57,10 +81,10 @@ foreach ($name in $criticalServices) {
 
     [array]$hpa = @(Get-Manifest -Kind "HorizontalPodAutoscaler" -Name $name)
     if ($hpa.Count -eq 1) {
-        Assert-Match $hpa[0] "(?m)^  minReplicas: 2$" "${name}: HPA floor must be 2"
+        Assert-MinimumReplicaFloor $hpa[0] "minReplicas" $name
     }
     else {
-        Assert-Match $deployment[0] "(?m)^  replicas: 2$" "${name}: fixed replica floor must be 2"
+        Assert-MinimumReplicaFloor $deployment[0] "replicas" $name
     }
 
     [array]$pdb = @(Get-Manifest -Kind "PodDisruptionBudget" -Name $name)
@@ -92,6 +116,8 @@ if ((Get-Manifest -Kind "PodDisruptionBudget" -Name "flagd").Count -ne 0) {
 Assert-Match $flagdDeployment[0] "(?ms)^  strategy:\s+rollingUpdate:\s+maxSurge: 1\s+maxUnavailable: 0\s+type: RollingUpdate" "flagd: unsafe rolling update strategy"
 Assert-Match $flagdDeployment[0] "(?m)^      terminationGracePeriodSeconds: 30$" "flagd: termination grace must be 30 seconds"
 Assert-Match $flagdDeployment[0] "(?ms)^          readinessProbe:.*?          lifecycle:\s+preStop:\s+sleep:\s+seconds: 10" "flagd: readiness and native preStop drain hook are required"
+Assert-Match $flagdDeployment[0] "(?ms)^          env:.*?- name: FLAGD_SYNC_TOKEN\s+valueFrom:\s+secretKeyRef:\s+key: FLAGD_SYNC_TOKEN\s+name: techx-corp-flagd-ui" "flagd: FLAGD_SYNC_TOKEN must come from techx-corp-flagd-ui/FLAGD_SYNC_TOKEN"
+Assert-Match $flagdDeployment[0] '(?ms)^          command:\s+- /flagd-build\s+- start\s+- --port\s+- "8013"\s+- --ofrep-port\s+- "8016"\s+- --sources\s+- ''\[\{"uri":"/etc/flagd/demo\.flagd\.json","provider":"file"\},\{"uri":"https://122\.248\.223\.194\.sslip\.io/flags\.json","provider":"http","authHeader":"Bearer\s+\$\(FLAGD_SYNC_TOKEN\)"\}\]''$' "flagd: rendered command must use the exact secret-backed --sources value"
 Write-Host "PASS flagd (singleton on critical)"
 
 foreach ($name in @("kafka", "postgresql", "opensearch")) {
@@ -123,6 +149,25 @@ if ($publicIngress.Count -ne 1) {
 }
 Assert-Match $publicIngress[0] 'alb.ingress.kubernetes.io/scheme: "?internal"?' "Directive #1 regression: storefront origin ALB must remain internal"
 
+# Regression: when an HPA is active, a stale fixed replicas value must not create a PDB.
+$singleReplicaHpaArgs = $helmArgs + @(
+    "--set", "components.product-reviews.replicas=2",
+    "--set", "components.product-reviews.autoscaling.minReplicas=1"
+)
+$singleReplicaHpaLines = & $Helm @singleReplicaHpaArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "helm template for single-replica HPA regression failed with exit code $LASTEXITCODE"
+}
+$singleReplicaHpaDocuments = (($singleReplicaHpaLines -join "`n") -split "(?m)^---\s*$")
+$singleReplicaHpaPdbs = @($singleReplicaHpaDocuments | Where-Object {
+    $_ -match "(?m)^kind: PodDisruptionBudget$" -and
+    $_ -match "(?m)^  name: product-reviews$"
+})
+if ($singleReplicaHpaPdbs.Count -ne 0) {
+    throw "product-reviews: HPA minReplicas=1 must not render a PDB even when replicas=2 is present"
+}
+Write-Host "PASS product-reviews active-HPA PDB ownership regression"
+
 Write-Host "Directive #3 production manifest policy checks passed."
 
-# Change trail: @hungxqt - 2026-07-15 - flagd singleton on Critical MNG; exclude from 2-replica floor.
+# Change trail: @hungxqt - 2026-07-15 - Verify active HPA replica floors and stale fixed-replica PDB regression.

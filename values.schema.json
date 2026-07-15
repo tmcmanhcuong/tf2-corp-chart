@@ -278,6 +278,7 @@
             "enabled": { "type": "boolean" },
             "awsRegion": { "type": "string" },
             "fetcherImage": { "type": "string" },
+            "extractorImage": { "type": "string" },
             "s3Uri": { "type": "string", "pattern": "^s3://" },
             "mountPath": { "type": "string" },
             "cacheSizeLimit": { "type": "string" },

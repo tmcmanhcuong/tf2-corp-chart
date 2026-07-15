@@ -245,6 +245,7 @@ spec:
       {{- if or .initContainers (and .modelDelivery .modelDelivery.enabled) }}
       initContainers:
         {{- if and .modelDelivery .modelDelivery.enabled }}
+        {{/* aws-cli image has aws + sha256sum but no tar; extract in a second init. */}}
         - name: fetch-ai-guardrail-model
           image: {{ .modelDelivery.fetcherImage | quote }}
           imagePullPolicy: IfNotPresent
@@ -256,10 +257,10 @@ spec:
               aws s3 cp {{ .modelDelivery.s3Uri | quote }} "$archive" --only-show-errors
               aws s3 cp {{ printf "%s.sha256" .modelDelivery.s3Uri | quote }} "$checksum" --only-show-errors
               cd /tmp
+              # Windows-uploaded .sha256 files may use CRLF; strip CR so the
+              # filename is model.tar.gz not model.tar.gz$'\r'.
+              sed -i 's/\r$//' model.tar.gz.sha256
               sha256sum -c model.tar.gz.sha256
-              mkdir -p /models
-              tar -xzf "$archive" -C /models
-              test -f /models/.model-ready
           env:
             - name: AWS_REGION
               value: {{ .modelDelivery.awsRegion | quote }}
@@ -274,6 +275,24 @@ spec:
               value: /tmp/.aws/config
             - name: AWS_SHARED_CREDENTIALS_FILE
               value: /tmp/.aws/credentials
+          resources:
+            {{- .modelDelivery.resources | toYaml | nindent 12 }}
+          securityContext:
+            {{- mergeOverwrite (dict) (default dict .defaultValues.initContainerSecurityContext) | toYaml | nindent 12 }}
+          volumeMounts:
+            - name: tmp-dir
+              mountPath: /tmp
+        - name: extract-ai-guardrail-model
+          image: {{ .modelDelivery.extractorImage | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              archive=/tmp/model.tar.gz
+              mkdir -p /models
+              tar -xzf "$archive" -C /models
+              test -f /models/.model-ready
+              rm -f "$archive" /tmp/model.tar.gz.sha256
           resources:
             {{- .modelDelivery.resources | toYaml | nindent 12 }}
           securityContext:
@@ -559,4 +578,4 @@ spec:
     matchLabels:
       {{- include "techx-corp.selectorLabels" . | nindent 6 }}
 {{- end }}
-{{/* Change trail: @hungxqt - 2026-07-15 - Point AI model fetch init HOME at /tmp for RO root. */}}
+{{/* Change trail: @hungxqt - 2026-07-15 - Split AI model fetch (aws-cli) and extract (busybox; no tar in aws-cli). */}}
