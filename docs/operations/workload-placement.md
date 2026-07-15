@@ -1,13 +1,13 @@
 # Workload Placement (Chart)
 
-This chart implements **hard placement** between Critical MNG and Karpenter, plus **soft topology balancing** for multi-replica stateless pods. Infrastructure labels, taints, NodePool weights, and capacity policy live in `techx-corp-infra` — see that repo’s `docs/workload-placement.md`.
+This chart implements **hard placement** between Critical MNG and Karpenter. Base/development values use soft topology balancing; the production overlay replaces it with hard zone and hostname spreading for the protected multi-replica workloads. Infrastructure capacity policy lives in `techx-corp-infra`.
 
 ## Placement contracts
 
 | Contract | Mechanism | Workloads |
 |----------|-----------|-----------|
-| **Critical** | `nodeSelector.workload-class=critical`; **no** Karpenter toleration; **no** topology spreads (`topologySpreadConstraints: []`) | `frontend-proxy`, `flagd`, `load-generator` (Locust master), `postgresql`, `kafka`, `valkey-cart`, `opensearch`, `prometheus.server`, `grafana`, `jaeger.jaeger`, `metrics-server` |
-| **Stateless (default)** | `nodeSelector.workload-class=spot-tolerant` + toleration `workload-class=spot-tolerant:NoSchedule` + preferred Spot affinity + **soft** zone/hostname topology spreads | All first-party Deployments that inherit `default.schedulingRules` (explicit: `frontend`, `product-catalog`, `recommendation`, and other classified demo apps; **exception:** `load-generator-worker` packs on one node — see table below) |
+| **Critical** | `nodeSelector.workload-class=critical`; no Karpenter toleration; singleton/stateful workloads opt out while protected production replicas may use hard spreads | `frontend-proxy`, `flagd`, `load-generator` master, stateful dependencies, Prometheus, Grafana, Jaeger, metrics-server, kube-state-metrics |
+| **Stateless (default)** | `nodeSelector.workload-class=spot-tolerant` + matching `NoSchedule` toleration + preferred Spot affinity; soft spreads in base/dev and hard spreads in production | First-party Deployments inheriting `default.schedulingRules`; `load-generator-worker` intentionally packs and opts out of spread |
 | **Universal DaemonSet** | No workload-class selector; Karpenter taint toleration | `opentelemetry-collector` (agent DaemonSet) |
 
 ### Important distinctions
@@ -16,23 +16,23 @@ This chart implements **hard placement** between Critical MNG and Karpenter, plu
 * **`frontend-proxy`** is critical ingress/gateway → Critical MNG.
 * Spot capacity-type affinity is a **preference only**. Primary vs On-Demand fallback is decided by **NodePool weight** in infra, not by chart affinity alone.
 * Isolation is **one-way**: classified critical pods cannot land on Karpenter; classified stateless pods cannot land on MNG; **unclassified** pods without the Karpenter toleration can still schedule on MNG.
-* Topology spread is **additive soft balancing** only. It never replaces `nodeSelector` / tolerations and uses `whenUnsatisfiable: ScheduleAnyway` so capacity in a single AZ cannot leave pods Pending.
+* Topology spread never replaces hard `nodeSelector` or tolerations. Production intentionally uses `DoNotSchedule` with `minDomains: 2`; loss of a schedulable AZ can therefore leave replicas Pending and requires operator action.
 
 ### Multi-replica HPA vs placement
 
 | Service | HPA (base) | Contract | Note |
 |---------|------------|----------|------|
-| `frontend`, `checkout`, `cart`, `product-catalog`, `product-reviews`, `currency`, `recommendation` | min **1–2** / max **6–72** per service (CPU + Mem 90% + **RPS**); see `request-metric-hpa.md` | spot-tolerant | Karpenter can add nodes under scale-out; RPS is primary under traffic; memory is safety valve only |
+| `frontend`, `checkout`, `cart`, `product-catalog`, `product-reviews`, `currency`, `recommendation` | production min **2–3** / max **6–72** (CPU + **RPS**, no memory metric); see `request-metric-hpa.md` | spot-tolerant | Karpenter can add nodes under scale-out; RPS is primary under traffic and CPU is the safety metric |
 | `load-generator` | **none** (fixed 0–1 master) | critical | Locust **master** only on Critical MNG (`system-*`); scale to 1 for tests. Workers are `load-generator-worker` |
 | `load-generator-worker` | **CPU-only HPA** (min 1, max 8; scaleDown 300s / 50%) | spot-tolerant + storefront anti-affinity + **preferred worker podAffinity (hostname pack)**; **no** topology spreads | Locust **workers** on Karpenter; prefer scale-out on one node first (cost); join master via `load-generator:5557`; stable scale-in to limit thrash |
-| `frontend-proxy` | min **2** / max **10** (CPU 80% + Mem 90% + **RPS**) | critical | Extra replicas **do not** land on Karpenter; Critical MNG must have enough multi-AZ capacity before load tests / maintenance |
+| `frontend-proxy` | min **2** / max **10** (CPU 80% + **RPS**, no memory metric) | critical | Extra replicas **do not** land on Karpenter; Critical MNG must pass the headroom gate before load tests or maintenance |
 
 Request-rate metrics require Prometheus Adapter (`prometheus-adapter.enabled`). See `docs/operations/request-metric-hpa.md`. Placement contracts are unchanged by metric type.
 
-PDBs (`minAvailable: 1`) are rendered for any enabled multi-replica stateless
-Deployment: HPA services with `minReplicas >= 2` and fixed services with
-`replicas >= 2`. The production overlay supplies the two-replica floor required
-by Directive #3. Base/dev overlays may still use a floor of one to control cost.
+PDBs (`minAvailable: 1`) follow the active replica controller. When HPA is enabled,
+only `autoscaling.minReplicas >= 2` is considered and a stale fixed `replicas` value
+is ignored. Without HPA, fixed `replicas >= 2` renders the PDB. Production sets
+`product-reviews.autoscaling.minReplicas: 2` explicitly.
 
 Critical placement normally opts out of default stateless spreading. The
 production overlay adds hard zone/hostname spreading to multi-replica critical
@@ -42,7 +42,7 @@ file/UI state is not split across emptyDirs.
 
 ## Pod distribution (topology spread)
 
-Default (spot-tolerant) contract includes:
+Base/development defaults include:
 
 | Constraint | `topologyKey` | `whenUnsatisfiable` | Purpose |
 |------------|---------------|---------------------|---------|
@@ -53,8 +53,9 @@ Default (spot-tolerant) contract includes:
 * Deployments also get `matchLabelKeys: [pod-template-hash]` so rolling updates do not skew against old ReplicaSet pods.
 * Critical workloads **opt out** with `topologySpreadConstraints: []` to protect the small Critical MNG floor (`desired=1` per AZ).
 * Soft spreads on single-replica Deployments are effectively a no-op.
+* Production replaces both entries with `DoNotSchedule` and `minDomains: 2` for protected multi-replica workloads.
 
-Hard `DoNotSchedule` zone constraints, PriorityClass, and MNG taints remain separate follow-ups. First-party **PDB** for multi-replica HPA Deployments is implemented (`templates/pdb.yaml`).
+PriorityClass and Critical MNG taints remain separate follow-ups. Hard production spreading and active-controller **PDB** behavior are implemented.
 
 ## Template behavior
 
@@ -62,7 +63,8 @@ Hard `DoNotSchedule` zone constraints, PriorityClass, and MNG taints remain sepa
 
 ## Overlays
 
-* **values-dev.yaml** / **values-prod.yaml** — image tags, ALB path blocking, secrets; critical/stateless contracts live in base `values.yaml`.
+* **values-dev.yaml** — base soft distribution and environment image/configuration values.
+* **values-prod.yaml** — hard zone/hostname spreading, production replica floors, secrets, and critical kube-state-metrics placement.
 
 ## Prerequisites
 
@@ -80,30 +82,30 @@ Validate **all** PodTemplates, not only Deployments:
 Deployment, StatefulSet, DaemonSet, Job, CronJob, Helm hooks, test Pods
 ```
 
-```bash
+```cmd
 helm lint . -f values.yaml -f values-dev.yaml
-helm template test . -f values.yaml -f values-dev.yaml > /tmp/render-dev.yaml
-helm template test . -f values.yaml -f values-prod.yaml > /tmp/render-prod.yaml
+helm template test . -f values.yaml -f values-dev.yaml > %TEMP%\render-dev.yaml
+helm template test . -f values.yaml -f values-prod.yaml > %TEMP%\render-prod.yaml
 ```
 
 Expected matrix (selected):
 
 | Kind | Workload | Contract | Selector | Karpenter toleration | Topology spread |
 |------|----------|----------|----------|----------------------|-----------------|
-| Deployment | frontend | stateless | `spot-tolerant` | Yes | Soft zone + hostname |
-| Deployment | checkout | stateless | `spot-tolerant` | Yes | Soft zone + hostname |
+| Deployment | frontend | stateless | `spot-tolerant` | Yes | Production hard zone + hostname |
+| Deployment | checkout | stateless | `spot-tolerant` | Yes | Production hard zone + hostname |
 | Deployment | load-generator (master) | critical | `critical` | No | None (opt-out) |
 | Deployment | load-generator-worker | stateless (pack-first) | `spot-tolerant` + storefront anti-affinity + preferred same-worker hostname affinity | Yes | None (opt-out; pack on one node first) |
-| Deployment | frontend-proxy | critical | `critical` | No | None (opt-out) |
+| Deployment | frontend-proxy | critical | `critical` | No | Production hard zone + hostname |
 | StatefulSet | postgresql / kafka / … | critical | `critical` | No | None (opt-out) |
 | DaemonSet | otel-collector-agent | universal | none | Yes | N/A |
-| Deployment | prometheus / grafana / jaeger | critical | `critical` | No | N/A (subchart pins) |
+| Deployment | prometheus / grafana / jaeger / kube-state-metrics | critical | `critical` | No | N/A (subchart pins) |
 
 List any intentionally unclassified workload explicitly during acceptance review.
 
 ## Live verification
 
-```bash
+```cmd
 kubectl get nodes -L workload-class,topology.kubernetes.io/zone,karpenter.sh/capacity-type,role,karpenter.sh/nodepool
 kubectl get pod -A -o wide
 
@@ -112,11 +114,11 @@ kubectl get pod -A -o wide
 # OTel agent on both layers
 
 # Multi-replica stateless distribution (when ≥2 eligible nodes/zones exist):
-kubectl get pods -n <ns> -l opentelemetry.io/name=frontend -o wide
-kubectl get pods -n <ns> -l opentelemetry.io/name=checkout -o wide
+kubectl get pods -n %NAMESPACE% -l opentelemetry.io/name=frontend -o wide
+kubectl get pods -n %NAMESPACE% -l opentelemetry.io/name=checkout -o wide
 ```
 
-Soft spreads prefer multi-zone placement when capacity allows; if only one zone has free capacity, pods must still Schedule.
+Base/development soft spreads prefer multi-zone placement when capacity allows. Production hard spreads remain Pending until both required domains are schedulable.
 
 ## Canaries (runtime acceptance)
 
@@ -137,9 +139,8 @@ Topology spreads must not change A/B/C outcomes.
 
 ## Out of scope (follow-up)
 
-* Hard zone `DoNotSchedule` once multi-AZ headroom is routine.
 * MNG taints / PriorityClass / admission policy.
 * Cluster Autoscaler for Critical MNG (scale-out is a reviewed Terraform `desired_size` change only).
 * Descheduler for rebalancing already-running pods after new nodes appear.
 
-<!-- Change trail: @hungxqt - 2026-07-15 - flagd singleton on Critical MNG; no multi-replica spread. -->
+<!-- Change trail: @hungxqt - 2026-07-15 - Document active-controller PDBs and hard production topology spreading. -->

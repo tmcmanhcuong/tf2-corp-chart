@@ -1,6 +1,6 @@
 # External Secrets Operator + AWS Secrets Manager (SEC-05)
 
-Credentials live in **AWS Secrets Manager**. **ESO** syncs them into Kubernetes `Secret`s. Pods use `secretKeyRef` only. Terraform never stores secret *values*.
+Credentials live in **AWS Secrets Manager**. **ESO** syncs them into Kubernetes `Secret`s. Pods use `secretKeyRef` only. Terraform must never read, accept, or store token values, including in state, plans, outputs, or logs.
 
 ```
 AWS Secrets Manager  ──(IRSA)──►  ESO  ──►  K8s Secret  ──►  Pod env
@@ -12,12 +12,12 @@ Full plan: workspace `docs/eso-aws-secrets-manager.md`.
 
 ## Deploy order (required)
 
-1. Terraform: ASM secret **shells** + ESO IRSA (no values in state)
-2. Bootstrap ASM with **currently live** credentials (`put-secret-value`)
-3. Install ESO + `ClusterSecretStore` Ready
-4. Helm release **`techx-corp-secrets`** → wait ExternalSecret Ready
-5. Helm release **`techx-corp`** (app chart with `secretKeyRef`)
-6. Smoke test
+1. Provision the replacement property in the existing ASM object through the approved out-of-band secret-entry process. Terraform must not read or store it.
+2. Merge the `techx-corp-secrets` Git change and let Argo CD sync the `ExternalSecret` mapping.
+3. Verify the `ExternalSecret` is Ready and that the generated Kubernetes `Secret` contains the required key name, without reading or printing its payload.
+4. Merge the application chart reference to the generated Secret and let Argo CD sync it.
+5. Verify the replacement pods become Ready and flag synchronization succeeds.
+6. Revoke the superseded token only after the replacement pods are healthy.
 
 Never combine “source migration” and “password rotation” in one change.
 
@@ -50,20 +50,20 @@ Prefer the infra bootstrap scripts (same defaults and env overrides on both plat
 
 Use the **full extension** (`.ps1` / `.cmd` / `.sh`). From `techx-corp-infra`:
 
-**PowerShell (recommended on Windows):**
-
-```powershell
-.\scripts\bootstrap-asm-secrets.ps1 techx-corp/development us-east-1
-# production:
-.\scripts\bootstrap-asm-secrets.ps1 techx-corp/production us-east-1
-```
-
 **Windows CMD:**
 
 ```cmd
 scripts\bootstrap-asm-secrets.cmd techx-corp/development us-east-1
 REM production:
 scripts\bootstrap-asm-secrets.cmd techx-corp/production us-east-1
+```
+
+**PowerShell:**
+
+```powershell
+.\scripts\bootstrap-asm-secrets.ps1 techx-corp/development us-east-1
+# production:
+.\scripts\bootstrap-asm-secrets.ps1 techx-corp/production us-east-1
 ```
 
 **Bash / Git Bash / WSL:**
@@ -95,11 +95,19 @@ aws secretsmanager put-secret-value --region "$REGION" \
 aws secretsmanager put-secret-value --region "$REGION" \
   --secret-id "${PREFIX}/postgresql-app" \
   --secret-string '{"username":"otelu","password":"otelp","database":"otel"}'
+```
 
-aws secretsmanager put-secret-value --region "$REGION" \
-  --secret-id "${PREFIX}/flagd-ui" \
-  --secret-string '{"SECRET_KEY_BASE":"yYrECL4qbNwleYInGJYvVnSkwJuSQJ4ijPTx5tirGUXrbznFIBFVJdPl5t6O9ASw"}'
+The existing `<prefix>/flagd-ui` ASM object must have this JSON shape before the GitOps cutover:
 
+```json
+{"SECRET_KEY_BASE":"<existing-value>","FLAGD_SYNC_TOKEN":"<replacement-value>"}
+```
+
+Provision `FLAGD_SYNC_TOKEN` through the approved out-of-band secret-entry process. Do not pass it through Terraform variables, plans, state, outputs, or repository files.
+
+The flagd cutover verification commands are presented in Windows CMD first in Phase 2c. No command here accepts or prints the token. The remaining manual bootstrap examples continue below for unrelated secret objects:
+
+```bash
 aws secretsmanager put-secret-value --region "$REGION" \
   --secret-id "${PREFIX}/product-reviews" \
   --secret-string '{"OPENAI_API_KEY":"dummy"}'
@@ -175,72 +183,36 @@ If a prior revision was `deployed` and only an upgrade is pending, try `helm rol
 
 ---
 
-## Phase 2c — ExternalSecrets release
+## Phase 2c — ExternalSecrets GitOps sync
 
-```bash
-cd techx-corp-chart
+Commit the `secrets-chart` mapping, merge it through the normal repository workflow, and let Argo CD reconcile the secrets release. Do not run direct mutating Helm or kubectl commands against this Argo-managed release.
 
-# --- Development ---
-kubectl create namespace techx-corp-dev --dry-run=client -o yaml | kubectl apply -f -
-helm upgrade --install techx-corp-secrets ./secrets-chart \
-  -n techx-corp-dev \
-  -f secrets-chart/values.yaml \
-  -f secrets-chart/values-dev.yaml \
-  --wait --timeout 5m
-kubectl -n techx-corp-dev wait --for=condition=Ready externalsecret --all --timeout=120s
-kubectl -n techx-corp-dev get secret \
-  techx-corp-postgresql-admin \
-  techx-corp-postgresql-app \
-  techx-corp-flagd-ui \
-  techx-corp-product-reviews \
-  techx-corp-grafana-admin \
-  techx-corp-opensearch
+After Argo CD reports the sync healthy, use read-only checks. The second command prints key names only, never payloads.
 
-# --- Production ---
-kubectl create namespace techx-corp-prod --dry-run=client -o yaml | kubectl apply -f -
-helm upgrade --install techx-corp-secrets ./secrets-chart \
-  -n techx-corp-prod \
-  -f secrets-chart/values.yaml \
-  -f secrets-chart/values-prod.yaml \
-  --wait --timeout 5m
-kubectl -n techx-corp-prod wait --for=condition=Ready externalsecret --all --timeout=120s
-kubectl -n techx-corp-prod get secret \
-  techx-corp-postgresql-admin \
-  techx-corp-postgresql-app \
-  techx-corp-flagd-ui \
-  techx-corp-product-reviews \
-  techx-corp-grafana-admin \
-  techx-corp-opensearch
-# Do not print secret values
+```cmd
+kubectl -n techx-corp-prod wait --for=condition=Ready externalsecret/techx-corp-flagd-ui --timeout=120s
+kubectl -n techx-corp-prod get secret techx-corp-flagd-ui -o go-template="{{range $key, $value := .data}}{{println $key}}{{end}}"
 ```
+
+The key-name output must include both `SECRET_KEY_BASE` and `FLAGD_SYNC_TOKEN`. Stop the cutover if the `ExternalSecret` is not Ready or either key is absent.
 
 `creationPolicy: Orphan` — deleting ExternalSecret during experiments should not GC the K8s Secret (verify on pinned ESO version in dev).
 
 ---
 
-## Phase 3 — App chart (source cutover only)
+## Phase 3 — App chart GitOps cutover
 
-```bash
-# Development
-helm upgrade --install techx-corp-dev ./ \
-  -n techx-corp-dev \
-  -f values.yaml \
-  -f values-public-alb.yaml \
-  -f values-dev.yaml \
-  --wait --atomic --timeout 15m
-./scripts/smoke-test.sh --namespace techx-corp-dev
+Merge the `values-prod.yaml` `secretKeyRef` and placeholder only after Phase 2c confirms the generated Secret has `FLAGD_SYNC_TOKEN`. Let Argo CD reconcile the application release; do not use direct Helm upgrades, rollbacks, or mutating kubectl commands for this Argo-managed workload.
 
-# Production
-helm upgrade --install techx-corp ./ \
-  -n techx-corp-prod \
-  -f values.yaml \
-  -f values-public-alb.yaml \
-  -f values-prod.yaml \
-  --wait --atomic --timeout 15m
-./scripts/smoke-test.sh --namespace techx-corp-prod
+Use read-only checks to confirm the new pod revision is Ready and flagd remains healthy:
+
+```cmd
+kubectl -n techx-corp-prod get deployment flagd
+kubectl -n techx-corp-prod get pods -l opentelemetry.io/name=flagd
+kubectl -n techx-corp-prod logs deployment/flagd --tail=100
 ```
 
-Expect no `CreateContainerConfigError`. Logs for accounting / product-catalog / product-reviews healthy.
+Do not print environment variables or Kubernetes Secret payloads during verification. Revoke the superseded token out-of-band only after the replacement pods are Ready and the remote flag source is synchronizing successfully.
 
 ### Local demo without ESO
 
@@ -273,10 +245,9 @@ aws secretsmanager put-secret-value --region us-east-1 \
 # 4) Wait ESO
 kubectl -n techx-corp-prod wait --for=condition=Ready externalsecret/techx-corp-postgresql-app --timeout=120s
 
-# 5) Restart consumers (ESO does not refresh running pod env)
-kubectl -n techx-corp-prod rollout restart deployment/accounting
-kubectl -n techx-corp-prod rollout restart deployment/product-catalog
-kubectl -n techx-corp-prod rollout restart deployment/product-reviews
+# 5) Restart consumers through a reviewed Git chart change so Argo CD owns
+#    reconciliation. Do not run kubectl rollout restart on managed Deployments.
+#    After Argo sync, the read-only status check is:
 kubectl -n techx-corp-prod rollout status deployment/accounting --timeout=300s
 
 # 6) Smoke
@@ -307,8 +278,9 @@ Repeat pattern for admin / Grafana / flagd-ui as needed. After admin rotation, u
 
 ## Rollback after cutover
 
-- `helm rollback techx-corp` — keep ESO and K8s Secrets
-- **Do not** re-introduce production passwords into Git
+- Revert the Git reference to the last known-good secret-backed configuration and let Argo CD reconcile it. Do not run a direct Helm rollback against the managed release.
+- Keep ESO and the Kubernetes Secret in place while investigating.
+- Never restore a literal, superseded, or revoked credential to Git. If the replacement token is invalid, issue another replacement out-of-band and repeat the ordered GitOps cutover.
 - Local/demo only: `values-demo.yaml`
 
-<!-- Change trail: @hungxqt - 2026-07-14 - Grafana ASM example must not use admin-password admin. -->
+<!-- Change trail: @hungxqt - 2026-07-15 - Repaired flagd secret guidance fences and CMD-first verification flow. -->

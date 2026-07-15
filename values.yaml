@@ -2479,6 +2479,9 @@ prometheus:
       enabled: false
   kube-state-metrics:
     enabled: true
+    # Expose only the node-placement labels required by capacity alerts.
+    metricLabelsAllowlist:
+      - nodes=[workload-class,karpenter.sh/nodepool,karpenter.sh/capacity-type,topology.kubernetes.io/zone]
     resources:
       # 50-user baseline: P99 CPU 1.90m, P99 memory 31.3Mi.
       requests:
@@ -2491,6 +2494,13 @@ prometheus:
     enabled: false
   prometheus-pushgateway:
     enabled: false
+  # Karpenter exposes controller, scheduler, NodePool usage/limit, and
+  # cluster-state metrics on the in-cluster http-metrics service port.
+  extraScrapeConfigs: |
+    - job_name: karpenter
+      static_configs:
+        - targets:
+            - karpenter.kube-system.svc.cluster.local:8080
   server:
     fullnameOverride: prometheus
     # Observability control plane → Critical MNG
@@ -2769,4 +2779,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-15 - product-reviews modelDelivery.extractorImage (busybox) for tar extract.
+# Change trail: @hungxqt - 2026-07-15 - Configure product-reviews extraction and bounded Karpenter observability.

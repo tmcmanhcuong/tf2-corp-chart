@@ -11,14 +11,18 @@
     {{- $config := set . "observability" $.Values.observability }}
     {{- $config := set . "defaultValues" $.Values.default }}
 
-    {{- $fixedReplicas := int ($config.replicas | default $.Values.default.replicas) -}}
-    {{- $autoscalingMinReplicas := 0 -}}
+    {{- $fixedReplicas := int $.Values.default.replicas -}}
+    {{- if hasKey $config "replicas" -}}
+        {{- $fixedReplicas = int $config.replicas -}}
+    {{- end -}}
+    {{- $activeReplicaFloor := $fixedReplicas -}}
     {{- if and $config.autoscaling $config.autoscaling.enabled -}}
-        {{- $autoscalingMinReplicas = int ($config.autoscaling.minReplicas | default 1) -}}
+        {{- /* An active HPA owns replicas; ignore any stale fixed replica value. */ -}}
+        {{- $activeReplicaFloor = int ($config.autoscaling.minReplicas | default 1) -}}
     {{- end -}}
 
-    {{- /* Protect both HPA-backed and fixed-size multi-replica Deployments. */ -}}
-    {{- if and $config.enabled (not $config.stateful) (or (ge $fixedReplicas 2) (ge $autoscalingMinReplicas 2)) -}}
+    {{- if and $config.enabled (not $config.stateful) (ge $activeReplicaFloor 2) -}}
         {{- include "techx-corp.pdb" $config -}}
     {{- end }}
 {{- end }}
+{{/* Change trail: @hungxqt - 2026-07-15 - Base PDB eligibility on the active replica controller floor. */}}

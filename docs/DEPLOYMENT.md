@@ -522,7 +522,7 @@ Chart dependency: **metrics-server 3.13.1** (`https://kubernetes-sigs.github.io/
 | `metrics-server.args` | `--kubelet-insecure-tls` | Thường cần trên EKS (kubelet serving cert) |
 | `metrics-server.resources` | requests 100m/200Mi, limit memory 200Mi | |
 
-HPA templates (`templates/hpa.yaml`) dùng `autoscaling/v2` — **cần** Metrics Server (API `metrics.k8s.io`) cho CPU. Request-rate (RPS) HPA **cần** Prometheus Adapter (API `external.metrics.k8s.io`), subchart `prometheus-adapter` (default `enabled: true`). Optional `autoscaling.behavior` (scale-up/down policies) is rendered when set. Multi-replica HPA services also get a first-party **PodDisruptionBudget** (`minAvailable: 1`) when `minReplicas >= 2`.
+HPA templates (`templates/hpa.yaml`) dùng `autoscaling/v2` — **cần** Metrics Server (API `metrics.k8s.io`) cho CPU. Request-rate (RPS) HPA **cần** Prometheus Adapter (API `external.metrics.k8s.io`), subchart `prometheus-adapter` (default `enabled: true`). Optional `autoscaling.behavior` is rendered when set. A first-party **PodDisruptionBudget** (`minAvailable: 1`) follows the active controller: HPA `minReplicas >= 2`, or fixed `replicas >= 2` only when HPA is disabled.
 
 **Metric policy (dual metrics — RPS + CPU; no memory):**
 
@@ -535,24 +535,26 @@ HPA desired replicas = **max** across configured metrics. Memory resource metric
 
 RPS uses External metric `http_requests_per_second` with label `service_name` (OTel). Ops detail: `docs/operations/request-metric-hpa.md`.
 
-**Default HPA inventory** (`components.*.autoscaling`):
+**Production HPA inventory** (`components.*.autoscaling` after `values-prod.yaml`):
 
 | Service | min | max | Metrics | Placement |
 |---|---:|---:|---|---|
-| `frontend` | 2 | 20 | CPU 80% / RPS **50** | Karpenter (spot-tolerant) |
+| `frontend` | 3 | 20 | CPU 65% / RPS **40** | Karpenter (spot-tolerant) |
 | `checkout` | 2 | 16 | CPU 70% / RPS **30** | Karpenter (spot-tolerant) |
 | `cart` | 2 | 12 | CPU 70% / RPS **100** | Karpenter (default) |
 | `product-catalog` | 2 | 12 | CPU 70% / RPS **100** | Karpenter (spot-tolerant) |
-| `product-reviews` | 1 | 6 | CPU 70% / RPS **10** | Karpenter (spot-tolerant) |
-| `currency` | 1 | 72 | CPU 70% / RPS **150** | Karpenter (spot-tolerant) |
-| `recommendation` | 1 | 6 | CPU 70% / RPS **15** | Karpenter (spot-tolerant) |
+| `product-reviews` | 2 | 6 | CPU 70% / RPS **10** | Karpenter (spot-tolerant) |
+| `currency` | 2 | 72 | CPU 70% / RPS **150** | Karpenter (spot-tolerant) |
+| `recommendation` | 2 | 6 | CPU 70% / RPS **15** | Karpenter (spot-tolerant) |
 | `frontend-proxy` | 2 | 10 | CPU 80% / RPS **200** | **Critical MNG** (needs MNG headroom at max) |
-| `quote` | 1 | 4 | CPU 70% | Karpenter (default) |
-| `shipping` | 1 | 4 | CPU 70% | Karpenter (default) |
+| `quote` | 2 | 4 | CPU 70% | Karpenter (default) |
+| `shipping` | 2 | 4 | CPU 70% | Karpenter (default) |
 
 **Locust distributed mode:** `load-generator` is the **master** (fixed replicas, default `0`; scale to `1` for tests; no HPA; **Critical MNG / system nodes**). `load-generator-worker` is the **worker pool** (CPU-only HPA, min 1 / max 8 when enabled; **stable scale-down** 300s stabilize / 50% per 60s; **Karpenter Spot**; **prefer pack on one node first** via soft worker podAffinity + topology-spread opt-out; hard storefront anti-affinity retained). Ramp users via `LOCUST_USERS` / Locust UI on the master; workers join `load-generator:5557`. See `docs/changes/2026-07-14-distributed-load-generator.md`, `docs/changes/2026-07-14-fix-locust-master-worker-discovery.md`, `docs/changes/2026-07-14-locust-master-critical-mng.md`, `docs/changes/2026-07-15-load-generator-worker-stable-scale-down.md`, and `docs/changes/2026-07-15-load-generator-worker-pack-one-node.md`.
 
-Hot-path money-flow HPAs (`frontend`, `checkout`, `cart`, `product-catalog`, `frontend-proxy`) use **`minReplicas: 2`** in base `values.yaml` (Directive #3 maintenance floor + first-party PDB). `currency` / `recommendation` / `product-reviews` remain min **1**. First-party PDBs render when `minReplicas >= 2`.
+Production keeps every Directive #3 request-path service at an HPA floor of at least two; frontend uses three. `product-reviews` is raised to two by `values-prod.yaml`. A first-party PDB renders only from the active controller: HPA `minReplicas >= 2`, or fixed `replicas >= 2` when HPA is disabled.
+
+Production request-path workloads also use zone and hostname `DoNotSchedule` spreads with `minDomains: 2`. Base/development spreading remains soft. This protects normal two-AZ maintenance but can deliberately leave pods Pending when one AZ cannot satisfy the contract.
 
 **Critical capacity note:** `frontend-proxy` scale-out still lands only on Critical MNG (small floor). Chart `maxReplicas` is **10**; if proxy pods go `Pending` under load, free Critical capacity or adjust MNG size in infra before further raises.
 
@@ -631,30 +633,30 @@ kubectl get ingress frontend-proxy-public -n techx-corp-prod \
 
 ### Metrics Server & HPA
 
-```bash
-# Metrics Server pod (release namespace)
+```cmd
+REM Metrics Server pod (release namespace)
 kubectl -n techx-corp-prod get deploy,pods -l app.kubernetes.io/name=metrics-server
 kubectl -n techx-corp-prod rollout status deploy/metrics-server --timeout=120s
 
-# API available (cluster-scoped)
+REM API available (cluster-scoped)
 kubectl get apiservice v1beta1.metrics.k8s.io
-kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes | head -c 200; echo
+kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes
 
-# Resource metrics (after ~15–30s scrape)
+REM Resource metrics (after about 15-30 seconds of scraping)
 kubectl top nodes
 kubectl top pods -n techx-corp-prod
 
-# Prometheus Adapter (request-rate External metrics)
+REM Prometheus Adapter (request-rate External metrics)
 kubectl -n techx-corp-prod get deploy,pods -l app.kubernetes.io/name=prometheus-adapter
-kubectl get apiservice | grep -E 'custom.metrics|external.metrics'
-kubectl get --raw /apis/external.metrics.k8s.io/v1beta1 | head -c 200; echo
+kubectl get apiservice | findstr /R "custom.metrics external.metrics"
+kubectl get --raw /apis/external.metrics.k8s.io/v1beta1
 
-# HPA + PDB for multi-replica autoscaled services
+REM HPA + PDB for multi-replica autoscaled services
 kubectl -n techx-corp-prod get hpa,pdb
 kubectl -n techx-corp-prod describe hpa frontend checkout cart product-catalog product-reviews currency recommendation frontend-proxy
 ```
 
-Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready (CPU); External RPS targets populate after traffic + Adapter Ready; `kubectl top` trả về CPU/memory; no memory HPA targets on base; eight request-path HPAs (`frontend`, `checkout`, `cart`, `product-catalog`, `product-reviews`, `currency`, `recommendation`, `frontend-proxy`) plus CPU-only `quote` / `shipping`; money-flow mins are 2, others min 1; `load-generator` master has no HPA; `load-generator-worker` has CPU HPA when enabled; first-party PDBs when `minReplicas >= 2`. See `docs/operations/request-metric-hpa.md`.
+Kỳ vọng: `TARGETS` không còn `<unknown>` sau khi Metrics Server Ready (CPU); External RPS targets populate after traffic + Adapter Ready; `kubectl top` trả về CPU/memory; no memory HPA targets on base; eight request-path HPAs plus CPU-only `quote` / `shipping`; production request-path floors are at least 2 (frontend 3); `load-generator` master has no HPA; `load-generator-worker` has CPU HPA when enabled; PDBs follow the active HPA/fixed replica controller. See `docs/operations/request-metric-hpa.md`.
 
 ### Smoke test
 
@@ -834,4 +836,4 @@ temporary `dryrun` audit and final policy Application bootstrap.
 - `templates/NOTES.txt` — post-install notes (port-forward, ALB, **Argo CD admin credential**)  
 - [operations/gitops-argocd.md](./operations/gitops-argocd.md) — GitOps runbook + UI access
 
-<!-- Change trail: @hungxqt - 2026-07-15 - Document load-generator-worker pack-one-node scheduling. -->
+<!-- Change trail: @hungxqt - 2026-07-15 - Document production HPA floors, active-controller PDBs, and hard spreading. -->
