@@ -42,8 +42,9 @@ function Assert-Match {
     }
 }
 
+# Money-path / storefront stateless floor: two Ready replicas + PDB + hard spread.
 $criticalServices = @(
-    "ad", "cart", "checkout", "currency", "email", "flagd", "frontend",
+    "ad", "cart", "checkout", "currency", "email", "frontend",
     "frontend-proxy", "image-provider", "payment", "product-catalog",
     "product-reviews", "quote", "recommendation", "shipping"
 )
@@ -75,6 +76,24 @@ foreach ($name in $criticalServices) {
     Write-Host "PASS $name"
 }
 
+# flagd: reviewed singleton on Critical MNG (system-*), not multi-replica HA.
+[array]$flagdDeployment = @(Get-Manifest -Kind "Deployment" -Name "flagd")
+if ($flagdDeployment.Count -ne 1) {
+    throw "flagd: expected exactly one Deployment, found $($flagdDeployment.Count)"
+}
+Assert-Match $flagdDeployment[0] "(?m)^  replicas: 1$" "flagd: fixed replica count must be 1 (singleton control plane)"
+Assert-Match $flagdDeployment[0] "(?m)^        workload-class: critical$" "flagd: must pin to Critical MNG (workload-class=critical / system-*)"
+if ($flagdDeployment[0] -match "(?m)^      topologySpreadConstraints:") {
+    throw "flagd: singleton must not set topologySpreadConstraints"
+}
+if ((Get-Manifest -Kind "PodDisruptionBudget" -Name "flagd").Count -ne 0) {
+    throw "flagd: do not render a multi-replica PDB for the flagd singleton"
+}
+Assert-Match $flagdDeployment[0] "(?ms)^  strategy:\s+rollingUpdate:\s+maxSurge: 1\s+maxUnavailable: 0\s+type: RollingUpdate" "flagd: unsafe rolling update strategy"
+Assert-Match $flagdDeployment[0] "(?m)^      terminationGracePeriodSeconds: 30$" "flagd: termination grace must be 30 seconds"
+Assert-Match $flagdDeployment[0] "(?ms)^          readinessProbe:.*?          lifecycle:\s+preStop:\s+sleep:\s+seconds: 10" "flagd: readiness and native preStop drain hook are required"
+Write-Host "PASS flagd (singleton on critical)"
+
 foreach ($name in @("kafka", "postgresql", "opensearch")) {
     [array]$statefulSet = @(Get-Manifest -Kind "StatefulSet" -Name $name)
     if ($statefulSet.Count -ne 1) {
@@ -105,3 +124,5 @@ if ($publicIngress.Count -ne 1) {
 Assert-Match $publicIngress[0] 'alb.ingress.kubernetes.io/scheme: "?internal"?' "Directive #1 regression: storefront origin ALB must remain internal"
 
 Write-Host "Directive #3 production manifest policy checks passed."
+
+# Change trail: @hungxqt - 2026-07-15 - flagd singleton on Critical MNG; exclude from 2-replica floor.

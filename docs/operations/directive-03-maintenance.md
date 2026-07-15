@@ -35,6 +35,9 @@ This is a release gate, not a reason to hide the residual risk.
 
 - Production minimum of two replicas for stateless services used by browse,
   cart and checkout.
+- `flagd` is an intentional singleton on Critical MNG (`workload-class=critical`,
+  `system-*`): not part of the two-replica money-path floor (low load; BTC HTTP
+  is authoritative; multi-replica emptyDir would split local UI state).
 - `PodDisruptionBudget` with `minAvailable: 1` for every enabled, multi-replica
   stateless Deployment (fixed replicas and HPA-backed replicas).
 - Readiness probes keep an unready replacement out of Service endpoints.
@@ -99,13 +102,15 @@ kubectl get events -n techx-corp-prod --sort-by=.lastTimestamp
 Proceed only if all of the following are true:
 
 - Argo CD is `Synced` and `Healthy` at the reviewed Git revision.
-- Every critical stateless Deployment has at least two Ready replicas.
-- Every rendered PDB shows `ALLOWED DISRUPTIONS >= 1` before the drain.
+- Every money-path / storefront critical stateless Deployment has at least two
+  Ready replicas (`flagd` is the reviewed singleton exception on Critical MNG).
+- Every multi-replica critical PDB shows `ALLOWED DISRUPTIONS >= 1` before the drain.
 - No critical pod is Pending, CrashLooping or NotReady.
 - The cluster has schedulable headroom for replacement pods.
-- Every critical two-replica Deployment is placed on two distinct nodes and
+- Every multi-replica critical Deployment is placed on two distinct nodes and
   across both configured zones; a Pending pod is a failed pre-flight, not a
-  reason to weaken the spread constraint during the window.
+  reason to weaken the spread constraint during the window. `flagd` is the
+  singleton exception (one Ready pod on Critical MNG).
 - Managed Valkey reports a healthy primary and replica in distinct AZs.
 - The chosen node does not host Kafka, PostgreSQL or OpenSearch.
 - Storefront and operational-access requirements from Directive #1 are still met.
@@ -242,3 +247,5 @@ into the change ticket/PR evidence pack and complete every applicable field.
 
 The directive is complete only after the mentor observes the controlled
 maintenance and confirms that all required SLOs stayed within threshold.
+
+<!-- Change trail: @hungxqt - 2026-07-15 - flagd singleton exception on Critical MNG for Directive #3. -->

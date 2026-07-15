@@ -112,9 +112,10 @@ components:
     schedulingRules: *directive03-hard-spread
 
   flagd:
-    # Reliability-only change: flag definitions and incident controls remain
-    # unchanged. Two replicas remove flagd as a single-pod/node dependency.
-    replicas: 2
+    # Singleton control plane on Critical MNG (system-* / workload-class=critical).
+    # Not on the Directive #3 two-replica money-path floor: load is tiny, BTC HTTP
+    # is authoritative for chaos keys, and multi-replica emptyDir splits local-* UI.
+    replicas: 1
     # Dual sources: local ConfigMap file + BTC central HTTP.
     # Merge order: later source wins on key clash — HTTP last so BTC always wins
     # for shared original keys (paymentFailure, cartFailure, …).
@@ -132,7 +133,13 @@ components:
       - "8016"
       - "--sources"
       - '[{"uri":"/etc/flagd/demo.flagd.json","provider":"file"},{"uri":"https://122.248.223.194.sslip.io/flags.json","provider":"http","authHeader":"Bearer 8de6246060a65f500bc44988467c5985b77d0808998284f9"}]'
-    schedulingRules: *directive03-hard-spread
+    # Pin Critical MNG only; clear spreads (singleton does not need multi-host HA).
+    schedulingRules:
+      nodeSelector:
+        workload-class: critical
+      affinity: {}
+      tolerations: []
+      topologySpreadConstraints: []
 
   frontend:
     autoscaling:
@@ -228,4 +235,4 @@ opentelemetry-collector:
           value: techx-corp-prod
           action: upsert
 
-# Change trail: @hungxqt - 2026-07-15 - Local flagd file/UI is local-* keys only.
+# Change trail: @hungxqt - 2026-07-15 - flagd singleton on Critical MNG (replicas 1).

@@ -35,9 +35,10 @@ Deployment: HPA services with `minReplicas >= 2` and fixed services with
 by Directive #3. Base/dev overlays may still use a floor of one to control cost.
 
 Critical placement normally opts out of default stateless spreading. The
-production overlay explicitly adds soft zone/hostname spreading to
-`frontend-proxy` and `flagd` so their two replicas prefer different failure
-domains without becoming Pending when one AZ lacks capacity.
+production overlay adds hard zone/hostname spreading to multi-replica critical
+workloads such as `frontend-proxy`. `flagd` stays a **singleton** on Critical
+MNG (`replicas: 1`, `workload-class=critical`, no topology spreads) so local
+file/UI state is not split across emptyDirs.
 
 ## Pod distribution (topology spread)
 
@@ -141,4 +142,4 @@ Topology spreads must not change A/B/C outcomes.
 * Cluster Autoscaler for Critical MNG (scale-out is a reviewed Terraform `desired_size` change only).
 * Descheduler for rebalancing already-running pods after new nodes appear.
 
-<!-- Change trail: @hungxqt - 2026-07-15 - load-generator-worker prefers packing on one node first. -->
+<!-- Change trail: @hungxqt - 2026-07-15 - flagd singleton on Critical MNG; no multi-replica spread. -->
