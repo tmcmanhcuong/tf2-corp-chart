@@ -113,7 +113,11 @@ components:
 
   frontend:
     autoscaling:
-      minReplicas: 2
+      # Keep enough warm capacity for the 200-user maintenance test and scale
+      # before SSR tail latency breaches the storefront p95 objective.
+      minReplicas: 3
+      targetCPUUtilizationPercentage: 65
+      targetRequestsPerSecond: 12
     schedulingRules: *directive03-hard-spread
 
   frontend-proxy:
