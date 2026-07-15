@@ -28,13 +28,23 @@ private S3 bucket into an `emptyDir` before the application starts.
 4. Merge/sync this chart only after the objects exist. The init container blocks
    startup on download, checksum, extraction, or marker validation failure.
 
+## Init container notes
+
+The AWS CLI fetcher runs with `readOnlyRootFilesystem: true`. It sets
+`HOME=/tmp` (and AWS config paths under `/tmp`) so credential cache writes go
+to the pod `tmp-dir` emptyDir rather than `/.aws` on the read-only root.
+
 ## Verification
 
-```powershell
-kubectl -n techx-corp-dev rollout status deployment/product-reviews --timeout=10m
-kubectl -n techx-corp-dev logs deployment/product-reviews -c fetch-ai-guardrail-model
-kubectl -n techx-corp-dev get pod -l opentelemetry.io/name=product-reviews
+```cmd
+kubectl -n techx-corp-prod rollout status deployment/product-reviews --timeout=10m
+kubectl -n techx-corp-prod logs deployment/product-reviews -c fetch-ai-guardrail-model
+kubectl -n techx-corp-prod get pod -l opentelemetry.io/name=product-reviews
 ```
+
+Dev namespace: replace `techx-corp-prod` with `techx-corp-dev`.
 
 Rollback the chart revision to restore the previous pod specification. Do not
 overwrite an existing revision path; publish a new revision and update `s3Uri`.
+
+<!-- Change trail: @hungxqt - 2026-07-15 - Document HOME=/tmp for RO-root AWS CLI init. -->

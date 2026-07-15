@@ -265,6 +265,15 @@ spec:
               value: {{ .modelDelivery.awsRegion | quote }}
             - name: AWS_EC2_METADATA_DISABLED
               value: "true"
+            # AWS CLI caches web-identity credentials under $HOME/.aws. The
+            # init container runs with readOnlyRootFilesystem; HOME must point
+            # at the writable emptyDir mounted at /tmp (default HOME is /).
+            - name: HOME
+              value: /tmp
+            - name: AWS_CONFIG_FILE
+              value: /tmp/.aws/config
+            - name: AWS_SHARED_CREDENTIALS_FILE
+              value: /tmp/.aws/credentials
           resources:
             {{- .modelDelivery.resources | toYaml | nindent 12 }}
           securityContext:
@@ -550,4 +559,4 @@ spec:
     matchLabels:
       {{- include "techx-corp.selectorLabels" . | nindent 6 }}
 {{- end }}
-{{/* Change trail: @hungxqt - 2026-07-14 - Honor component replicas 0 for Locust master idle scale. */}}
+{{/* Change trail: @hungxqt - 2026-07-15 - Point AI model fetch init HOME at /tmp for RO root. */}}
