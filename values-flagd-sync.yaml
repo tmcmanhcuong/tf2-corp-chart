@@ -4,14 +4,13 @@
 #
 # Merge priority (flagd): last source in the array wins on duplicate flag keys.
 # Order here is intentional:
-#   1) file  — chart ConfigMap / emptyDir demo.flagd.json (team-only + UI edits)
-#   2) http  — BTC central flags.json (chaos/incident; always overrides same keys)
+#   1) file  — chart ConfigMap / emptyDir demo.flagd.json (local-* only + UI edits)
+#   2) http  — BTC central flags.json (chaos/incident original keys)
 #
 # flagd-ui is NOT cleared here — base values.yaml sidecar stays enabled.
 # UI writes only the local file (shared emptyDir with flagd). It cannot write BTC.
-# Toggling a BTC-owned key in the UI changes the local copy only; effective value
-# still comes from HTTP until that key is absent from central.
-# Team self-test flags: local-* twins in demo.flagd.json (UI or Git); apps OR/max with BTC keys.
+# Local file intentionally omits BTC original names so /feature lists local-* only.
+# Team self-test: toggle local-* in demo.flagd.json (UI or Git); apps OR/max with BTC keys.
 # Token is TF-scoped access to the central document only; TF cannot write BTC flags.
 components:
   flagd:
@@ -27,4 +26,4 @@ components:
       - "--sources"
       - '[{"uri":"/etc/flagd/demo.flagd.json","provider":"file"},{"uri":"https://122.248.223.194.sslip.io/flags.json","provider":"http","authHeader":"Bearer 8de6246060a65f500bc44988467c5985b77d0808998284f9"}]'
 
-# Change trail: @hungxqt - 2026-07-15 - Dual flagd sources, flagd-ui, document local-* team flags.
+# Change trail: @hungxqt - 2026-07-15 - Local flagd file/UI is local-* keys only.

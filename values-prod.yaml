@@ -118,7 +118,8 @@ components:
     # Dual sources: local ConfigMap file + BTC central HTTP.
     # Merge order: later source wins on key clash — HTTP last so BTC always wins
     # for shared original keys (paymentFailure, cartFailure, …).
-    # Team self-test: toggle local-* twins in /feature (apps OR/max with BTC keys).
+    # Local file / flagd-ui: local-* keys only (no BTC original names in UI).
+    # Team self-test: toggle local-* in /feature (apps OR/max with BTC keys).
     # flagd-ui: inherit base values.yaml sidecar (writes local file only).
     # Access: /feature via internal ALB / Client VPN (CloudFront blocks /feature).
     # Requires ESO Secret techx-corp-flagd-ui (SECRET_KEY_BASE).
@@ -215,4 +216,4 @@ opentelemetry-collector:
           value: techx-corp-prod
           action: upsert
 
-# Change trail: @hungxqt - 2026-07-15 - Dual flagd sources, flagd-ui, document local-* team flags.
+# Change trail: @hungxqt - 2026-07-15 - Local flagd file/UI is local-* keys only.

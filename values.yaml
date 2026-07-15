@@ -1532,8 +1532,9 @@ components:
       limits:
         cpu: 100m
         memory: 128Mi
-    # Base: local file only (Compose / bare helm without BTC). Prod dual-sources
-    # (file + BTC HTTP, central wins on key clash) live in values-prod.yaml and
+    # Base: local file only (Compose / bare helm without BTC). File content is
+    # local-* team keys only (see flagd/demo.flagd.json); BTC originals come from
+    # prod HTTP source. Prod dual-sources live in values-prod.yaml and
     # values-flagd-sync.yaml. Keep initContainers + ConfigMap so the file path exists.
     command:
       - "/flagd-build"
@@ -2699,4 +2700,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-15 - Removed memory metric HPA targets from all autoscaled services.
+# Change trail: @hungxqt - 2026-07-15 - Local flagd file/UI is local-* keys only.
