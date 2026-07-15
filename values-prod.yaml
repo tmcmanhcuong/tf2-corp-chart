@@ -60,8 +60,25 @@ components:
       minReplicas: 2
     schedulingRules: *directive03-hard-spread
     envOverrides:
+      # Stable private DNS (Route53 CNAME → ElastiCache primary). TCP-only init
+      # proves reachability; the app must use TLS + AUTH (replication group has
+      # transit_encryption_enabled and auth_token). Without them the process
+      # hangs in StackExchange.Redis ConnectRetry and never binds :8080 →
+      # liveness connection refused / readiness timeout.
       - name: VALKEY_ADDR
         value: valkey-cart.techx.internal:6379
+      - name: VALKEY_TLS
+        value: "true"
+      # SslHost must match the ElastiCache certificate CN/SAN (AWS endpoint),
+      # not the private CNAME. Update if the replication group is recreated:
+      #   terraform -chdir=environments/production output -raw commerce_valkey_primary_endpoint
+      - name: VALKEY_TLS_HOST
+        value: master.techx-prod-tf2-cart.2bnsjq.use1.cache.amazonaws.com
+      - name: VALKEY_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: techx-corp-valkey-cart
+            key: VALKEY_PASSWORD
     # Production uses the Terraform-managed Multi-AZ Valkey endpoint. Keep the
     # bounded startup gate, but target stable private DNS instead of the removed
     # in-cluster singleton Service.
@@ -193,4 +210,4 @@ opentelemetry-collector:
           value: techx-corp-prod
           action: upsert
 
-# Change trail: @hungxqt - 2026-07-14 - Prod Locust master replicas=1 while active load testing.
+# Change trail: @hungxqt - 2026-07-15 - Cart managed Valkey TLS+AUTH env for ElastiCache cutover.

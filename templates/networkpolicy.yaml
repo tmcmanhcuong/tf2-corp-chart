@@ -389,10 +389,19 @@ spec:
         - protocol: TCP
           port: 8080
   egress:
+    # In-cluster singleton (dev) and/or managed ElastiCache (prod private DNS).
+    # When NetworkPolicy is enforced, cart must reach either the valkey-cart pod
+    # or VPC-private ElastiCache on 6379 (TLS+AUTH is app-level).
     - to:
         - podSelector:
             matchLabels:
               opentelemetry.io/name: valkey-cart
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
       ports:
         - protocol: TCP
           port: 6379
@@ -1484,4 +1493,4 @@ spec:
 
 {{- end }}{{/* end networkPolicy.enabled */}}
 
-# Change trail: @hungxqt - 2026-07-14 - Allow Locust worker master traffic and worker NP.
+# Change trail: @hungxqt - 2026-07-15 - Cart egress to VPC 10/8:6379 for managed Valkey.

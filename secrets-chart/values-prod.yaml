@@ -1,2 +1,9 @@
 namespace: techx-corp-prod
 remoteKeyPrefix: techx-corp/production
+
+# Terraform: module.commerce_ha → aws_secretsmanager_secret.valkey_auth
+# name = "${project_name}/valkey-cart" (project_name=techx-prod-tf2)
+valkeyCart:
+  enabled: true
+  remoteKey: techx-prod-tf2/valkey-cart
+# Change trail: @hungxqt - 2026-07-15 - Enable managed Valkey auth secret for production cart.
