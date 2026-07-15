@@ -7,10 +7,10 @@
 #   DISCORD_WEBHOOK_URL : webhook URL từ Discord Server Settings → Integrations → Webhooks
 #                         dạng: https://discord.com/api/webhooks/<id>/<token>
 #
-# Tạo secret trước khi deploy:
-#   kubectl create secret generic techx-corp-grafana-discord \
-#     --from-literal=webhook-url=https://discord.com/api/webhooks/<id>/<token> \
-#     -n techx-corp-prod
+# Secret được quản lý qua AWS Secrets Manager + ESO (secrets-chart):
+#   ASM path : techx-corp/production/grafana-discord → {"webhook-url":"<url>"}
+#   Bootstrap: DISCORD_WEBHOOK_URL=<url> ./scripts/bootstrap-asm-secrets.sh techx-corp/production
+#   K8s Secret techx-corp-grafana-discord được ESO tạo tự động — không dùng kubectl create secret.
 ---
 apiVersion: 1
 

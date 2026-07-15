@@ -2620,10 +2620,9 @@ grafana:
         name: techx-corp-opensearch
         key: password
     # Discord alert webhook — used by grafana/provisioning/alerting/contact-points.yaml
-    # Tao secret truoc khi deploy:
-    #   kubectl create secret generic techx-corp-grafana-discord \
-    #     --from-literal=webhook-url=https://discord.com/api/webhooks/<id>/<token> \
-    #     -n techx-corp-prod
+    # Secret quản lý qua AWS Secrets Manager + ESO (secrets-chart).
+    # ASM path: techx-corp/production/grafana-discord → {"webhook-url":"<url>"}
+    # K8s Secret techx-corp-grafana-discord được ESO tạo tự động.
     DISCORD_WEBHOOK_URL:
       secretKeyRef:
         name: techx-corp-grafana-discord
