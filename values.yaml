@@ -10,7 +10,7 @@
 #   Phase 2 — enforce: set enabled: true in dev; soak 24h, check OTel traces for errors.
 #   Phase 3 — promote: apply to prod after dev soak is clean.
 networkPolicy:
-  enabled: false   # flip to true after CNI audit (see docs above)
+  enabled: false # flip to true after CNI audit (see docs above)
 
 #
 # SEC-05: Sensitive credentials use secretKeyRef → ESO-synced Secrets.
@@ -120,6 +120,15 @@ default:
     capabilities:
       drop:
         - ALL
+  # Runtime-hardening baseline for every first-party init container.
+  # Components may override individual values under initContainers[].resources.
+  initContainerResources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -314,7 +323,7 @@ components:
         mountPath: /var/log/opentelemetry/dotnet
     initContainers:
       - name: wait-for-kafka
-        image: busybox:latest
+        image: busybox:1.37.0
         command:
           [
             "sh",
@@ -322,7 +331,7 @@ components:
             "until nc -z -v -w30 kafka 9092; do echo waiting for kafka; sleep 2; done;",
           ]
       - name: wait-for-postgresql
-        image: busybox:latest
+        image: busybox:1.37.0
         command:
           [
             "sh",
@@ -446,7 +455,7 @@ components:
         mountPath: /tmp
     initContainers:
       - name: wait-for-valkey-cart
-        image: busybox:latest
+        image: busybox:1.37.0
         command:
           [
             "sh",
@@ -518,7 +527,7 @@ components:
       behavior: *hpa-behavior-default
     initContainers:
       - name: wait-for-kafka
-        image: busybox:latest
+        image: busybox:1.37.0
         command:
           [
             "sh",
@@ -645,7 +654,7 @@ components:
         mountPath: /tmp
     initContainers:
       - name: wait-for-kafka
-        image: busybox:latest
+        image: busybox:1.37.0
         command:
           [
             "sh",
@@ -1256,7 +1265,7 @@ components:
       behavior: *hpa-behavior-default
     initContainers:
       - name: wait-for-postgresql
-        image: busybox:latest
+        image: busybox:1.37.0
         command:
           [
             "sh",
@@ -1343,7 +1352,7 @@ components:
         mountPath: /tmp
     initContainers:
       - name: wait-for-postgresql
-        image: busybox:latest
+        image: busybox:1.37.0
         command:
           [
             "sh",
@@ -1624,7 +1633,7 @@ components:
             mountPath: /tmp
     initContainers:
       - name: init-config
-        image: busybox
+        image: busybox:1.37.0
         command:
           [
             "sh",
@@ -2555,6 +2564,9 @@ prometheus:
 grafana:
   enabled: true
   fullnameOverride: grafana
+  # The persistent storage uses fsGroup 472; the root/CHOWN init container is unnecessary.
+  initChownData:
+    enabled: false
   deploymentStrategy:
     type: Recreate
   # Observability control plane → Critical MNG
@@ -2689,7 +2701,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: "sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))"
       # HTTP server metrics (frontend Next.js and other HTTP services)
       - seriesQuery: 'http_server_duration_milliseconds_count{service_name!=""}'
         resources:
@@ -2697,7 +2709,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: "sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))"
       # Alternate HTTP duration naming (seconds unit)
       - seriesQuery: 'http_server_request_duration_seconds_count{service_name!=""}'
         resources:
@@ -2705,7 +2717,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: "sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))"
       # Alternate HTTP duration naming (seconds unit) or spanmetrics fallback
       - seriesQuery: 'traces_span_metrics_calls_total{service_name!=""}'
         resources:
@@ -2713,7 +2725,7 @@ prometheus-adapter:
         name:
           matches: ".*"
           as: "http_requests_per_second"
-        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))'
+        metricsQuery: "sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (service_name) or (sum(<<.Series>>{<<.LabelMatchers>>} * 0) by (service_name))"
   resources:
     # kubectl top: 9m CPU, 38Mi mem. P99 mem: 45.1Mi. External metrics API for RPS HPA.
     requests:
@@ -2724,4 +2736,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-15 - Pack load-generator-worker pods onto one node first.
+# Change trail: @hungxqt - 2026-07-14 - Fix recommendation HPA unknown CPU; postgres capacity.

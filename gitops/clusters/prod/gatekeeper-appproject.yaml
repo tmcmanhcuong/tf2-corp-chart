@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: gatekeeper-policy
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Gatekeeper runtime-hardening policy for production
+  sourceRepos:
+    - https://github.com/tf2-team/tf2-corp-chart.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: gatekeeper-system
+  clusterResourceWhitelist:
+    - group: templates.gatekeeper.sh
+      kind: "*"
+    - group: constraints.gatekeeper.sh
+      kind: "*"

@@ -15,6 +15,9 @@
 
 # Argo CD prod bootstrap
 /gitops/clusters/prod/    @hungxqt
+/gitops/gatekeeper/       @hungxqt
+/gitops/clusters/prod/gatekeeper-*.yaml @hungxqt
+/docs/adr/SEC-07-runtime-hardening.md @hungxqt
 
 # Dev can be lighter; still owned for visibility
 /values-dev.yaml          @hungxqt
