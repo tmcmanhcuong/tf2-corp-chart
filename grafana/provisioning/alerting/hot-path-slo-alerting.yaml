@@ -133,7 +133,7 @@ groups:
           alert_type: error_rate
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts
 
       # ------------------------------------------------------------------ #
       # 2. P95 Latency > 1000ms                                             #
@@ -196,7 +196,7 @@ groups:
           alert_type: latency
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts
 
       # ------------------------------------------------------------------ #
       # 3. Pod Restart > 3 lần / 5 phút — hot path pods only               #
@@ -257,4 +257,4 @@ groups:
           alert_type: restart
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts

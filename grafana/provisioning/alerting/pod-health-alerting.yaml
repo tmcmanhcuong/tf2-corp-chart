@@ -86,7 +86,7 @@ groups:
           team: platform
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts
 
       # ------------------------------------------------------------------ #
       # 2. OOMKilled — container bị kernel kill do vượt memory limit        #
@@ -146,7 +146,7 @@ groups:
           team: platform
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts
 
       # ------------------------------------------------------------------ #
       # 3. Restart nhiều — non-hot-path, >10 lần/1h (early warning)        #
@@ -206,7 +206,7 @@ groups:
           team: platform
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts
 
       # ------------------------------------------------------------------ #
       # 4. Pod Not Ready >5m — loại trừ pod đang trong quá trình restart    #
@@ -277,7 +277,7 @@ groups:
           team: platform
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts
 
       # ------------------------------------------------------------------ #
       # 5. Pod Pending >10m                                                  #
@@ -335,7 +335,7 @@ groups:
           team: platform
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts
 
       # ------------------------------------------------------------------ #
       # 6. Pod Failed                                                        #
@@ -391,7 +391,7 @@ groups:
           team: platform
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts
 
       # ------------------------------------------------------------------ #
       # 7. Container Waiting Error                                           #
@@ -448,7 +448,7 @@ groups:
           team: platform
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts
 
       # ------------------------------------------------------------------ #
       # 8. Node Memory Pressure                                              #
@@ -505,7 +505,7 @@ groups:
           team: platform
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts
 
       # ------------------------------------------------------------------ #
       # 9. Node Disk Pressure                                                #
@@ -561,7 +561,7 @@ groups:
           team: platform
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts
 
       # ------------------------------------------------------------------ #
       # 10. Node Not Ready >5m                                               #
@@ -618,4 +618,4 @@ groups:
           team: platform
         isPaused: false
         notification_settings:
-          receiver: telegram-alerts
+          receiver: discord-alerts

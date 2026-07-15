@@ -2619,6 +2619,15 @@ grafana:
       secretKeyRef:
         name: techx-corp-opensearch
         key: password
+    # Discord alert webhook — used by grafana/provisioning/alerting/contact-points.yaml
+    # Tao secret truoc khi deploy:
+    #   kubectl create secret generic techx-corp-grafana-discord \
+    #     --from-literal=webhook-url=https://discord.com/api/webhooks/<id>/<token> \
+    #     -n techx-corp-prod
+    DISCORD_WEBHOOK_URL:
+      secretKeyRef:
+        name: techx-corp-grafana-discord
+        key: webhook-url
   plugins:
     - grafana-opensearch-datasource
   sidecar:

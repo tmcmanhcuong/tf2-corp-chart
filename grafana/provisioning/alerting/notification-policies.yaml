@@ -5,16 +5,15 @@
 #
 # Routing:
 #   - hot path alerts (alert_type label) → group by service_name + alert_type
-#     → error_rate/latency/restart của cùng 1 service không bị gộp chung
 #   - severity=critical  → repeat mỗi 30 phút
 #   - severity=warning   → repeat mỗi 1 giờ
-#   - default fallback   → telegram-alerts, repeat 4h
+#   - default fallback   → discord-alerts, repeat 4h
 ---
 apiVersion: 1
 
 policies:
   - orgId: 1
-    receiver: telegram-alerts
+    receiver: discord-alerts
     group_by:
       - namespace
       - alertname
@@ -23,9 +22,7 @@ policies:
     group_interval: 5m
     repeat_interval: 4h
     routes:
-      # Hot path: group theo service_name + alert_type để mỗi loại vấn đề
-      # (error_rate / latency / restart) của từng service là 1 message riêng
-      - receiver: telegram-alerts
+      - receiver: discord-alerts
         matchers:
           - alert_type =~ "error_rate|latency|restart"
         group_by:
@@ -37,7 +34,7 @@ policies:
         repeat_interval: 30m
         continue: false
 
-      - receiver: telegram-alerts
+      - receiver: discord-alerts
         matchers:
           - severity = critical
         group_by:
@@ -48,7 +45,7 @@ policies:
         repeat_interval: 30m
         continue: false
 
-      - receiver: telegram-alerts
+      - receiver: discord-alerts
         matchers:
           - severity = warning
         group_by:
