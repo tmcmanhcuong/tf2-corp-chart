@@ -259,6 +259,65 @@ Also remove any other `helm.sh/chart=opensearch-3.6.0` objects (old StatefulSet,
 NetworkPolicy, etc.) if present — only after confirming they are not the live
 first-party resources (`helm.sh/chart: techx-corp-*`).
 
+## Orphan cleanup: in-cluster kafka / valkey-cart after managed services (prod)
+
+Production overlays disable the in-cluster data plane when AWS managed services
+are in use:
+
+| Component | Prod values | Replacement |
+|---|---|---|
+| `components.kafka` | `enabled: false` | Amazon MSK (`techx-corp-msk` secret → `KAFKA_ADDR` / `KAFKA_TLS`) |
+| `components.valkey-cart` | `enabled: false` | ElastiCache Valkey |
+
+With **`prune: false`**, the old `Service` + `StatefulSet` stay on the cluster
+(often still labeled `argocd.argoproj.io/instance=techx-corp`) and keep the
+Application **OutOfSync** even though Git no longer renders them. AppProject
+orphaned ignore lists only the PVCs (`kafka-data-kafka-0`,
+`valkey-cart-data-valkey-cart-0`), not the Service/StatefulSet.
+
+**Do not** re-enable in-cluster kafka/valkey in prod to “fix” sync — that
+fights the MSK/ElastiCache cutover. Delete the leftovers once consumers are on
+MSK / managed Valkey.
+
+Identify (prod namespace example):
+
+```cmd
+kubectl -n techx-corp-prod get svc,sts kafka valkey-cart -o wide
+kubectl -n techx-corp-prod get pvc -l app.kubernetes.io/name=kafka
+kubectl -n techx-corp-prod get pvc -l app.kubernetes.io/name=valkey-cart
+```
+
+One-time cleanup (only after confirming apps use MSK / ElastiCache):
+
+```cmd
+REM Service + StatefulSet (stops Argo OutOfSync for these names)
+kubectl -n techx-corp-prod delete service kafka --ignore-not-found
+kubectl -n techx-corp-prod delete statefulset kafka --ignore-not-found
+kubectl -n techx-corp-prod delete service valkey-cart --ignore-not-found
+kubectl -n techx-corp-prod delete statefulset valkey-cart --ignore-not-found
+
+REM Optional: reclaim disk after STS is gone (PVC retention is Retain)
+REM kubectl -n techx-corp-prod delete pvc kafka-data-kafka-0 --ignore-not-found
+REM kubectl -n techx-corp-prod delete pvc valkey-cart-data-valkey-cart-0 --ignore-not-found
+```
+
+```sh
+# sh/bash
+kubectl -n techx-corp-prod delete service kafka statefulset kafka --ignore-not-found
+kubectl -n techx-corp-prod delete service valkey-cart statefulset valkey-cart --ignore-not-found
+# optional PVC reclaim after STS delete:
+# kubectl -n techx-corp-prod delete pvc kafka-data-kafka-0 valkey-cart-data-valkey-cart-0 --ignore-not-found
+```
+
+Then re-check:
+
+```cmd
+argocd app get techx-corp
+REM Expect: no longer OutOfSync solely for kafka / valkey-cart Service+StatefulSet
+```
+
+Do **not** enable Application `prune: true` only for this cleanup.
+
 ## Liên quan
 
 - Workspace plan: `docs/gitops-argocd.md`
@@ -267,4 +326,4 @@ first-party resources (`helm.sh/chart: techx-corp-*`).
 - Secrets GitOps: `docs/operations/external-secrets.md`, `gitops/clusters/*/secrets-application.yaml`
 - Root bootstrap: `gitops/bootstrap/{dev,prod}/`, `gitops/README.md`
 
-<!-- Change trail: @hungxqt - 2026-07-16 - Document root app-of-apps bootstrap ownership. -->
+<!-- Change trail: @hungxqt - 2026-07-16 - Document prod MSK/ElastiCache leftover kafka/valkey orphan cleanup. -->
