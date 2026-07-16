@@ -79,7 +79,8 @@ REM Prod: kubectl apply -f gitops\bootstrap\prod\
 Do **not** place root manifests under `gitops/clusters/*` (avoids self-management).
 Steady-state: add/change children in `gitops/clusters/{env}/` via Git only.
 
-6. Child Applications bật **auto-sync + self-heal** (`prune: false` cho secrets và root).
+6. Child Applications bật **auto-sync + self-heal**. App chart uses **`prune: true`**
+   (dev + prod). Secrets apps and root stay **`prune: false`**.
    Thứ tự wait: **root** → **secrets** → **app chart**. Prod also creates Gatekeeper
    controller Application (`gatekeeper`); policy stays manual until SEC-07 cutover.
 
@@ -210,12 +211,19 @@ Required reviewers / CODEOWNERS không chỉ `values-prod.yaml`, mà cả:
 
 ## Auto-sync (mặc định)
 
-**Dev và prod:** `automated.selfHeal: true`, `prune: false` trên Application
+**App chart (dev + prod):** `automated.selfHeal: true`, **`prune: true`**
 (`gitops/clusters/*/application.yaml`).
+
+**Secrets Applications and root app-of-apps:** `selfHeal: true`, **`prune: false`**
+(do not auto-delete ExternalSecrets / child Application CRs).
 
 - Git commit → Argo reconcile → auto-apply khi OutOfSync.
 - Live cluster drift bị self-heal (Git thắng).
-- Resource xóa khỏi Git **không** bị prune tự động (an toàn; bật prune sau Phase 7 nếu cần).
+- Resources removed from the **app chart** render are pruned automatically
+  (e.g. in-cluster `kafka` after MSK cutover). Confirm intended deletions in
+  `argocd app diff` before merge when removing components.
+- Secrets chart still requires manual cleanup for objects that need pruning;
+  never set secrets `prune: true` only to clear OutOfSync Secrets.
 - Tắt tạm: `argocd app set <APP> --sync-policy none` (hoặc sửa manifest / bỏ `automated`).
 
 Không bật `ServerSideApply` trong baseline v1.
@@ -228,9 +236,10 @@ Hành động: `argocd app wait` / health; sửa Git; sync lại; hoặc Git rev
 ## Orphan cleanup: OpenSearch subchart leftovers
 
 OpenSearch was migrated from the official Helm subchart (`opensearch-3.6.0`) to a
-first-party `components.opensearch` StatefulSet. With **`prune: false`**, Argo CD
-will **not** delete the old subchart objects. They remain labeled
-`argocd.argoproj.io/instance=<app>` and show as **OutOfSync / Orphaned**.
+first-party `components.opensearch` StatefulSet. Objects still labeled with the
+old subchart chart name may remain until pruned. With app chart **`prune: true`**,
+Argo deletes managed leftovers that are no longer rendered; one-time manual delete
+remains valid for objects that never carried the Application tracking label.
 
 Identify leftovers (labels `helm.sh/chart: opensearch-3.6.0`):
 
@@ -269,15 +278,15 @@ are in use:
 | `components.kafka` | `enabled: false` | Amazon MSK (`techx-corp-msk` secret → `KAFKA_ADDR` / `KAFKA_TLS`) |
 | `components.valkey-cart` | `enabled: false` | ElastiCache Valkey |
 
-With **`prune: false`**, the old `Service` + `StatefulSet` stay on the cluster
-(often still labeled `argocd.argoproj.io/instance=techx-corp`) and keep the
-Application **OutOfSync** even though Git no longer renders them. AppProject
-orphaned ignore lists only the PVCs (`kafka-data-kafka-0`,
-`valkey-cart-data-valkey-cart-0`), not the Service/StatefulSet.
+With app chart **`prune: true`**, Argo auto-deletes managed `Service` /
+`StatefulSet` objects that are no longer in the rendered manifest after the
+Application sync policy is updated and reconciled. AppProject orphaned ignore
+lists only the PVCs (`kafka-data-kafka-0`, `valkey-cart-data-valkey-cart-0`);
+PVCs may remain (StatefulSet retention Retain) and need optional manual reclaim.
 
 **Do not** re-enable in-cluster kafka/valkey in prod to “fix” sync — that
-fights the MSK/ElastiCache cutover. Delete the leftovers once consumers are on
-MSK / managed Valkey.
+fights the MSK/ElastiCache cutover. Prefer prune (or a one-time manual delete
+if prune is temporarily disabled).
 
 Identify (prod namespace example):
 
@@ -285,12 +294,15 @@ Identify (prod namespace example):
 kubectl -n techx-corp-prod get svc,sts kafka valkey-cart -o wide
 kubectl -n techx-corp-prod get pvc -l app.kubernetes.io/name=kafka
 kubectl -n techx-corp-prod get pvc -l app.kubernetes.io/name=valkey-cart
+argocd app diff techx-corp
+REM Expect: prune candidates for kafka / valkey-cart Service+StatefulSet when disabled in values-prod
 ```
 
-One-time cleanup (only after confirming apps use MSK / ElastiCache):
+After merge of `prune: true` on Application `techx-corp`, auto-sync removes
+managed leftovers. Manual delete remains valid for break-glass:
 
 ```cmd
-REM Service + StatefulSet (stops Argo OutOfSync for these names)
+REM Only if prune is off or objects lack the Argo tracking label
 kubectl -n techx-corp-prod delete service kafka --ignore-not-found
 kubectl -n techx-corp-prod delete statefulset kafka --ignore-not-found
 kubectl -n techx-corp-prod delete service valkey-cart --ignore-not-found
@@ -313,10 +325,11 @@ Then re-check:
 
 ```cmd
 argocd app get techx-corp
-REM Expect: no longer OutOfSync solely for kafka / valkey-cart Service+StatefulSet
+REM Expect: Synced; kafka / valkey-cart Service+StatefulSet gone when disabled in Git
 ```
 
-Do **not** enable Application `prune: true` only for this cleanup.
+Secrets Application stays **`prune: false`** — do not enable secrets prune to
+clear Secret OutOfSync (see `docs/operations/external-secrets.md`).
 
 ## Liên quan
 
@@ -326,4 +339,4 @@ Do **not** enable Application `prune: true` only for this cleanup.
 - Secrets GitOps: `docs/operations/external-secrets.md`, `gitops/clusters/*/secrets-application.yaml`
 - Root bootstrap: `gitops/bootstrap/{dev,prod}/`, `gitops/README.md`
 
-<!-- Change trail: @hungxqt - 2026-07-16 - Document prod MSK/ElastiCache leftover kafka/valkey orphan cleanup. -->
+<!-- Change trail: @hungxqt - 2026-07-16 - Document app-chart prune true; secrets/root stay prune false. -->
