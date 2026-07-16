@@ -63,7 +63,7 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 
 \* cart: readiness gRPC (Tier B timings); liveness **tcpSocket** (Tier B liveness timings).  
 † frontend: Tier B structure but **timeoutSeconds: 5** and liveness period 20 / fail 4 (~80s) because `GET /` is a full page.  
-‡ product-reviews / recommendation: Tier B structure but readiness **timeoutSeconds: 5** (RPC may stall under Python GIL / shared gRPC workers + modest CPU; unready pods make HPA CPU `<unknown>`).
+‡ product-reviews: readiness gRPC **timeoutSeconds: 5** + **startupProbe** (~2 min); liveness **tcpSocket** so saturated LLM worker pools do not restart live pods. recommendation: readiness **timeoutSeconds: 5** (shared-worker stall risk).
 
 ---
 
@@ -81,7 +81,7 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 | image-provider | http `GET /status` :8081 | same | 10 / 20 | 2 / 3 | 3 / 3 | 30s / 60s |
 | payment | grpc :8080 | grpc :8080 | 10 / 15 | 3 / 5 | 3 / 5 | 30s / 75s |
 | product-catalog | grpc :8080 | grpc :8080 | 10 / 15 | 3 / 5 | 3 / 5 | 30s / 75s |
-| product-reviews | grpc :3551 | grpc :3551 | 10 / 15 | **5** / 5 | 3 / 5 | 30s / 75s |
+| product-reviews | grpc :3551 (+ **startup** grpc) | **tcp :3551** | 10 / 20 (+ startup 5) | **5** / 3 (+ startup 5) | 3 / 5 (+ startup fail 24) | startup ~2m; then R 30s / L 100s |
 | quote | tcp :8080 | tcp :8080 | 10 / 15 | 3 / 5 | 3 / 5 | 30s / 75s |
 | recommendation | grpc :8080 | grpc :8080 | 10 / 15 | **5** / 5 | 3 / 5 | 30s / 75s |
 | shipping | tcp :8080 | tcp :8080 | 10 / 20 | 2 / 3 | 3 / 3 | 30s / 60s |
@@ -163,13 +163,17 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 * **Handler:** gRPC health SERVING.
 * **Thresholds:** Tier B (probe measures app, not DB boot).
 
-### product-reviews (Tier B‡ – Python)
+### product-reviews (Tier B‡ – Python + LLM)
 
 * **Port:** **3551** (not 8080).
-* **Handler:** gRPC health SERVING; initContainer waits for postgresql.
-* **Resources:** request **128Mi** / limit **256Mi** (raised from 96Mi/160Mi for OTEL+LLM headroom; P99 baseline ~80Mi).
-* **Thresholds:** Tier B liveness; readiness **timeoutSeconds: 5** (not 3) so a single health RPC under CPU throttle or busy `max_workers` is less likely to false-fail. Failure window still ~30s (`period 10 × fail 3`).
-* **Rejected:** tcp-only probe (loses gRPC health); readiness that checks Postgres/LLM (deps blips would NotReady the storefront AI path).
+* **Handler:** gRPC `Health/Check` returns SERVING; shares `ThreadPoolExecutor` with `AskProductAIAssistant` (long LLM holds). Init containers: S3 model fetch/extract + wait-for-postgresql.
+* **Resources:** request **250m/1Gi**, limit **1 CPU / 2Gi** (model + OTEL + LLM client headroom).
+* **Probes:**
+  * **startupProbe** gRPC :3551, period 5 / timeout 5 / fail 24 (~2 min) — post-init cold bind under CPU pressure must not race liveness.
+  * **readiness** gRPC :3551, period 10 / timeout **5** / fail 3 (~30s unready). Still uses gRPC so a fully saturated worker pool can shed load (NotReady) without taking the process down.
+  * **liveness tcpSocket** :3551, period 20 / timeout 3 / fail 5 (~100s) — same separation as cart: process alive if the port accepts TCP; do **not** restart when health RPCs queue behind LLM work (`health rpc did not complete within 5s` → former liveness kill / exit 137).
+* **App knob:** `GRPC_MAX_WORKERS` (default **32** in chart/platform) so health and short RPCs are less likely to starve when several AI calls are in flight.
+* **Rejected:** gRPC liveness under load (restarts thrash HPA); readiness that checks Postgres/LLM (dep blips would NotReady the storefront AI path); tcp-only readiness (loses intentional load-shed signal).
 
 ### quote (Tier B – PHP)
 
@@ -297,4 +301,4 @@ Chart global rollout default `progressDeadlineSeconds: 300` (5 minutes). Tier A�
 * `docs/backlogs/2026-07-08-rel-08-rollout-safety.md` — rollout + schema probe types
 * `UPGRADING.md` — historical REL-02 notes (handler types)
 
-<!-- Change trail: @hungxqt - 2026-07-14 - recommendation readiness timeout 5s (HPA CPU unknown). -->
+<!-- Change trail: @hungxqt - 2026-07-16 - product-reviews startupProbe + tcp liveness under LLM worker saturation. -->

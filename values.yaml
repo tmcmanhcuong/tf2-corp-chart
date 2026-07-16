@@ -1299,8 +1299,17 @@ components:
           memory: 512Mi
     useDefault:
       env: true
-    # Tier B† (Python gRPC on 3551): readiness timeout 5s for LLM/thread-pool
-    # RPC stalls under modest CPU; memory raised vs 96Mi/160Mi after probe EOF/timeout events.
+    # Tier B‡ (Python gRPC on 3551 + long LLM RPCs). See probe-thresholds.md.
+    # startupProbe: cover post-init cold bind under CPU pressure after model fetch.
+    # readiness: gRPC health (process can accept work; may fail when worker pool is full).
+    # liveness: tcpSocket so a saturated ThreadPool does not restart a live process
+    # (same pattern as cart vs failedReadinessProbe).
+    startupProbe:
+      grpc:
+        port: 3551
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 24
     readinessProbe:
       grpc:
         port: 3551
@@ -1308,10 +1317,10 @@ components:
       timeoutSeconds: 5
       failureThreshold: 3
     livenessProbe:
-      grpc:
+      tcpSocket:
         port: 3551
-      periodSeconds: 15
-      timeoutSeconds: 5
+      periodSeconds: 20
+      timeoutSeconds: 3
       failureThreshold: 5
     service:
       port: 3551
@@ -1329,6 +1338,9 @@ components:
         value: "8000"
       - name: LLM_BASE_URL
         value: http://$(LLM_HOST):$(LLM_PORT)/v1
+      # Shared with Health/Check; keep above concurrent AskProductAIAssistant depth.
+      - name: GRPC_MAX_WORKERS
+        value: "32"
       - name: PRODUCT_REVIEWS_PORT
         value: "3551"
       - name: PRODUCT_CATALOG_ADDR
@@ -2779,4 +2791,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-15 - Configure product-reviews extraction and bounded Karpenter observability.
+# Change trail: @hungxqt - 2026-07-16 - product-reviews startupProbe, tcp liveness, GRPC_MAX_WORKERS for LLM load.
