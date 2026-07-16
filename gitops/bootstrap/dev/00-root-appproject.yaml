@@ -29,4 +29,4 @@ spec:
       kind: AppProject
 
   clusterResourceWhitelist: []
-# Change trail: @hungxqt - 2026-07-16 - Root AppProject for dev app-of-apps bootstrap.
+# Change trail: @hungxqt - 2026-07-16 - Prefix 00 so AppProject applies before Application.

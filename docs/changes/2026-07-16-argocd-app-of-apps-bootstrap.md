@@ -43,10 +43,10 @@ Gatekeeper manifests existed under `gitops/clusters/prod/` but never appeared in
 ## Files Changed
 
 **Bootstrap (new):**
-* `gitops/bootstrap/prod/root-appproject.yaml` — `platform-root` project for argocd NS Application/AppProject.
-* `gitops/bootstrap/prod/root-application.yaml` — `root-prod` sources `gitops/clusters/prod`.
-* `gitops/bootstrap/dev/root-appproject.yaml` — `platform-root-dev`.
-* `gitops/bootstrap/dev/root-application.yaml` — `root-dev` sources `gitops/clusters/dev`.
+* `gitops/bootstrap/prod/00-root-appproject.yaml` — `platform-root` (00- prefix for apply order).
+* `gitops/bootstrap/prod/10-root-application.yaml` — `root-prod` sources `gitops/clusters/prod`.
+* `gitops/bootstrap/dev/00-root-appproject.yaml` — `platform-root-dev`.
+* `gitops/bootstrap/dev/10-root-application.yaml` — `root-dev` sources `gitops/clusters/dev`.
 
 **Gatekeeper children:**
 * `gitops/clusters/prod/gatekeeper-appproject.yaml` — Namespace + sourceRepos.
@@ -134,4 +134,11 @@ Expect `gatekeeper-policy` present without automated deny until cutover.
 3. Revert Git commit introducing bootstrap if desired.
 4. Child Applications remain; re-apply children manually only if required.
 
-<!-- Change trail: @hungxqt - 2026-07-16 - Record root app-of-apps bootstrap change. -->
+### Apply-order fix (same change)
+
+`root-application.yaml` sorts before `root-appproject.yaml` alphabetically, so
+`kubectl apply -f gitops/bootstrap/prod/` created the Application one second before
+the AppProject and left a sticky `InvalidSpecError`. Renamed to `00-` / `10-`
+prefixes so AppProject always applies first.
+
+<!-- Change trail: @hungxqt - 2026-07-16 - Fix bootstrap filename order for AppProject-first apply. -->

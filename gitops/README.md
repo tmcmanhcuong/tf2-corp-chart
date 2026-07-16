@@ -36,6 +36,11 @@ Apply **only** the root bootstrap path. Root self-heal then creates/updates chil
 Applications from `gitops/clusters/{env}/`. Do not rely on per-file `kubectl apply`
 for children in steady state.
 
+Filenames are ordered `00-root-appproject.yaml` then `10-root-application.yaml` so
+directory apply creates the AppProject before the Application (avoids
+`Application referencing project … which does not exist`). If that condition is
+stale after a race, hard-refresh the root Application.
+
 ```cmd
 cd /d techx-corp-chart
 
@@ -114,4 +119,4 @@ Enable automated policy only after every `status.totalViolations` is zero and
 production smoke/SLO checks pass. Retain the temporary output checksum as evidence.
 Roll back a false positive through the approved break-glass process; do not delete
 the templates or disable flagd.
-<!-- Change trail: @hungxqt - 2026-07-16 - Document root app-of-apps bootstrap path. -->
+<!-- Change trail: @hungxqt - 2026-07-16 - Note AppProject-before-Application bootstrap order. -->

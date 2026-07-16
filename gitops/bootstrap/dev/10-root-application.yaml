@@ -35,4 +35,4 @@ spec:
         duration: 5s
         factor: 2
         maxDuration: 3m
-# Change trail: @hungxqt - 2026-07-16 - Root Application reconciles dev clusters/* apps.
+# Change trail: @hungxqt - 2026-07-16 - Prefix 10 so Application applies after AppProject.
