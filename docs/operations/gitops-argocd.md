@@ -79,7 +79,8 @@ REM Prod: kubectl apply -f gitops\bootstrap\prod\
 Do **not** place root manifests under `gitops/clusters/*` (avoids self-management).
 Steady-state: add/change children in `gitops/clusters/{env}/` via Git only.
 
-6. Child Applications bật **auto-sync + self-heal** (`prune: false` cho secrets và root).
+6. Child Applications bật **auto-sync + self-heal**. App chart uses **`prune: true`**
+   (dev + prod). Secrets apps and root stay **`prune: false`**.
    Thứ tự wait: **root** → **secrets** → **app chart**. Prod also creates Gatekeeper
    controller Application (`gatekeeper`); policy stays manual until SEC-07 cutover.
 
@@ -210,12 +211,19 @@ Required reviewers / CODEOWNERS không chỉ `values-prod.yaml`, mà cả:
 
 ## Auto-sync (mặc định)
 
-**Dev và prod:** `automated.selfHeal: true`, `prune: false` trên Application
+**App chart (dev + prod):** `automated.selfHeal: true`, **`prune: true`**
 (`gitops/clusters/*/application.yaml`).
+
+**Secrets Applications and root app-of-apps:** `selfHeal: true`, **`prune: false`**
+(do not auto-delete ExternalSecrets / child Application CRs).
 
 - Git commit → Argo reconcile → auto-apply khi OutOfSync.
 - Live cluster drift bị self-heal (Git thắng).
-- Resource xóa khỏi Git **không** bị prune tự động (an toàn; bật prune sau Phase 7 nếu cần).
+- Resources removed from the **app chart** render are pruned automatically
+  (e.g. in-cluster `kafka` after MSK cutover). Confirm intended deletions in
+  `argocd app diff` before merge when removing components.
+- Secrets chart still requires manual cleanup for objects that need pruning;
+  never set secrets `prune: true` only to clear OutOfSync Secrets.
 - Tắt tạm: `argocd app set <APP> --sync-policy none` (hoặc sửa manifest / bỏ `automated`).
 
 Không bật `ServerSideApply` trong baseline v1.
@@ -267,4 +275,4 @@ first-party resources (`helm.sh/chart: techx-corp-*`).
 - Secrets GitOps: `docs/operations/external-secrets.md`, `gitops/clusters/*/secrets-application.yaml`
 - Root bootstrap: `gitops/bootstrap/{dev,prod}/`, `gitops/README.md`
 
-<!-- Change trail: @hungxqt - 2026-07-16 - Document root app-of-apps bootstrap ownership. -->
+<!-- Change trail: @hungxqt - 2026-07-16 - Document app-chart prune true; secrets/root stay prune false. -->
