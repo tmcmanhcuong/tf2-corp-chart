@@ -100,9 +100,37 @@ components:
         value: techx-prod-tf2-checkout-outbox
       - name: AWS_REGION
         value: us-east-1
+      - name: KAFKA_ADDR
+        valueFrom:
+          secretKeyRef:
+            name: techx-corp-msk
+            key: KAFKA_ADDR
+      - name: KAFKA_TLS
+        value: "true"
     # Kafka is no longer a startup dependency. The durable outbox worker retries
     # publication after the checkout pod is Ready.
     initContainers: []
+  
+  accounting:
+    envOverrides:
+      - name: KAFKA_ADDR
+        valueFrom:
+          secretKeyRef:
+            name: techx-corp-msk
+            key: KAFKA_ADDR
+      - name: KAFKA_TLS
+        value: "true"
+
+  fraud-detection:
+    envOverrides:
+      - name: KAFKA_ADDR
+        valueFrom:
+          secretKeyRef:
+            name: techx-corp-msk
+            key: KAFKA_ADDR
+      - name: KAFKA_TLS
+        value: "true"
+
   currency:
     autoscaling:
       minReplicas: 2
@@ -223,6 +251,11 @@ components:
   # replica in different AZs plus automatic failover. Development keeps the
   # in-cluster singleton for cost-efficient local testing.
   valkey-cart:
+    enabled: false
+
+  # Production Kafka state is provided by Amazon MSK in private subnets.
+  # Development keeps the in-cluster singleton for cost-efficient testing.
+  kafka:
     enabled: false
 
   load-generator-worker:

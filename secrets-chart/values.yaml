@@ -28,6 +28,8 @@ targets:
   opensearch: techx-corp-opensearch
   # Directive #3: managed ElastiCache Valkey auth (prod only; see values-prod.yaml)
   valkeyCart: techx-corp-valkey-cart
+  # Directive #8: Amazon MSK bootstrap brokers (prod only; see values-prod.yaml)
+  msk: techx-corp-msk
   # Grafana Discord alert webhook (ESO-managed, replaces kubectl create secret)
   grafanaDiscord: techx-corp-grafana-discord
 
@@ -36,5 +38,12 @@ targets:
 valkeyCart:
   enabled: false
   # Full ASM secret name (not under remoteKeyPrefix). Example prod: techx-prod-tf2/valkey-cart
+  remoteKey: ""
+
+# Amazon MSK bootstrap brokers TLS connection string (Terraform msk module).
+# Dev keeps in-cluster kafka without auth — leave enabled: false.
+msk:
+  enabled: false
+  # Full ASM secret name (not under remoteKeyPrefix). Example prod: techx-prod-tf2/msk-bootstrap
   remoteKey: ""
 # Change trail: @hungxqt - 2026-07-15 - Add optional managed Valkey cart auth ExternalSecret.
