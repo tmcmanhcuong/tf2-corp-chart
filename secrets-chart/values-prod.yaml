@@ -6,4 +6,10 @@ remoteKeyPrefix: techx-corp/production
 valkeyCart:
   enabled: true
   remoteKey: techx-prod-tf2/valkey-cart
+
+# Terraform: module.msk → aws_secretsmanager_secret.msk_bootstrap
+# name = "${project_name}/msk-bootstrap" (project_name=techx-prod-tf2)
+msk:
+  enabled: true
+  remoteKey: techx-prod-tf2/msk-bootstrap
 # Change trail: @hungxqt - 2026-07-15 - Enable managed Valkey auth secret for production cart.
