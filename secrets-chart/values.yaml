@@ -32,6 +32,8 @@ targets:
   msk: techx-corp-msk
   # Grafana Discord alert webhook (ESO-managed, replaces kubectl create secret)
   grafanaDiscord: techx-corp-grafana-discord
+  # AIOps inbound Grafana webhook auth secret
+  aiopsGrafanaWebhook: techx-corp-aiops-grafana-webhook
 
 # Managed cart Valkey auth token (Terraform commerce_ha module).
 # Dev keeps in-cluster valkey-cart without auth — leave enabled: false.
