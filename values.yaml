@@ -566,8 +566,8 @@ components:
     resources:
       # 50-user baseline: P99 CPU 3.96m, P99 memory 3.94Mi.
       requests:
-        cpu: 10m
-        memory: 8Mi
+        cpu: 30m
+        memory: 16Mi
       limits:
         cpu: 100m
         memory: 16Mi
@@ -2400,8 +2400,10 @@ jaeger:
     storage:
       type: memory
     extraEnv:
+      # Cap in-memory backend size so multi-service OTLP ingest cannot grow past the cgroup limit.
+      # 25000 traces under load exceeded 1536Mi (~6 min) and OOMKilled (exit 137 / CrashLoopBackOff).
       - name: MEMORY_MAX_TRACES
-        value: "25000"
+        value: "10000"
       - name: PROMETHEUS_ADDR
         value: prometheus:9090
       - name: OTEL_COLLECTOR_HOST
@@ -2413,13 +2415,14 @@ jaeger:
       - name: JAEGER_GRPC_PORT
         value: "4317"
     resources:
-      # 50-user baseline: P99 CPU 10.6m, P99 memory 417Mi. Memory backend needs growth headroom.
+      # In-memory storage under continuous OTLP: OOM at 1536Mi with 25k max_traces.
+      # Request kept moderate for Critical MNG packing on t4g.large; limit matches Prometheus headroom.
       requests:
-        cpu: 25m
-        memory: 768Mi
+        cpu: 50m
+        memory: 1Gi
       limits:
-        cpu: 300m
-        memory: 1.5Gi
+        cpu: 500m
+        memory: 3Gi
   userconfig:
     service:
       extensions: [jaeger_storage, jaeger_query, healthcheckv2]
@@ -2791,4 +2794,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-16 - product-reviews startupProbe, tcp liveness, GRPC_MAX_WORKERS for LLM load.
+# Change trail: @hungxqt - 2026-07-16 - Raise Jaeger memory and lower MEMORY_MAX_TRACES after OOMKilled CrashLoop.

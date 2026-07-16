@@ -197,19 +197,25 @@ If a prior revision was `deployed` and only an upgrade is pending, try `helm rol
 
 ### Bootstrap secrets Application (once per cluster)
 
-If the Application does not exist yet (pre-GitOps Helm-only install), apply the manifest then let auto-sync adopt release `techx-corp-secrets`:
+Preferred: apply the **root** app-of-apps once so `secrets-application.yaml` under
+`gitops/clusters/{env}/` is reconciled by Argo (same path as store + Gatekeeper apps).
 
 ```cmd
 REM Prod
-kubectl apply -f gitops/clusters/prod/secrets-application.yaml
+kubectl apply -f gitops\bootstrap\prod\
+argocd app wait root-prod --sync --health --timeout 300
 argocd app get techx-corp-secrets
 argocd app wait techx-corp-secrets --sync --health --timeout 300
 
 REM Dev
-kubectl apply -f gitops/clusters/dev/secrets-application.yaml
+kubectl apply -f gitops\bootstrap\dev\
+argocd app wait root-dev --sync --health --timeout 300
 argocd app get techx-corp-secrets-dev
 argocd app wait techx-corp-secrets-dev --sync --health --timeout 300
 ```
+
+Break-glass (pre-root only): `kubectl apply -f gitops/clusters/{env}/secrets-application.yaml`
+still works if the root Application is not installed yet.
 
 ### Ongoing mapping changes
 
@@ -225,6 +231,32 @@ kubectl -n techx-corp-prod get secret techx-corp-flagd-ui -o go-template="{{rang
 The key-name output must include both `SECRET_KEY_BASE` and `FLAGD_SYNC_TOKEN`. Stop the cutover if the `ExternalSecret` is not Ready or either key is absent.
 
 `creationPolicy: Orphan` — deleting ExternalSecret during experiments should not GC the K8s Secret (verify on pinned ESO version in dev).
+
+### Argo CD sync status (ESO-generated Secrets)
+
+Application `techx-corp-secrets` / `techx-corp-secrets-dev` must manage **only** `ExternalSecret` CRs. ESO creates the target Kubernetes `Secret`s.
+
+**Do not** enable `prune: true` on the secrets Application to “clear” OutOfSync Secrets — that can delete live credential Secrets.
+
+From chart `0.1.2`, every ExternalSecret `target` sets `template.engineVersion: v2` (with or without `template.data`). On ESO v0.14+, a present `template` means the operator **does not** copy ExternalSecret labels/annotations (including `argocd.argoproj.io/instance` and Helm metadata) onto the generated Secret. Empty `template.data` still materializes keys from `spec.data` / `dataFrom`.
+
+After Argo syncs the ExternalSecret change, ESO re-reconciles and drops previously copied tracking labels from managed fields. Expected result:
+
+```cmd
+kubectl get application -n argocd techx-corp-secrets -o jsonpath="{.status.sync.status} {.status.health.status}{'\n'}"
+REM expect: Synced Healthy
+
+kubectl -n techx-corp-prod get secret techx-corp-flagd-ui -o jsonpath="{.metadata.labels}{'\n'}"
+REM expect: reconcile.external-secrets.io/managed only (no argocd.argoproj.io/instance)
+```
+
+If a Secret still carries `argocd.argoproj.io/instance` after ExternalSecrets are Ready (stale labels not owned by ESO field manager), remove **only** the tracking label (not the Secret):
+
+```cmd
+kubectl -n techx-corp-prod label secret techx-corp-flagd-ui techx-corp-grafana-admin techx-corp-grafana-discord techx-corp-opensearch techx-corp-postgresql-admin techx-corp-product-reviews techx-corp-valkey-cart argocd.argoproj.io/instance-
+```
+
+Do not print Secret data while diagnosing sync status.
 
 ---
 
@@ -311,4 +343,4 @@ Repeat pattern for admin / Grafana / flagd-ui as needed. After admin rotation, u
 - Never restore a literal, superseded, or revoked credential to Git. If the replacement token is invalid, issue another replacement out-of-band and repeat the ordered GitOps cutover.
 - Local/demo only: `values-demo.yaml`
 
-<!-- Change trail: @hungxqt - 2026-07-15 - Document secrets-chart Argo Applications for auto-sync. -->
+<!-- Change trail: @hungxqt - 2026-07-16 - Document ESO target.template to prevent Argo OutOfSync on generated Secrets. -->
