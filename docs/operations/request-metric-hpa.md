@@ -24,16 +24,18 @@ HPA desired replicas = **max** across all configured metrics (RPS, CPU). Memory 
 
 | Service | min | max | RPS/pod target | Placement |
 |---------|----:|----:|---------------:|-----------|
-| `frontend-proxy` | 2 | 10 | 200 | Critical MNG (needs MNG headroom at max) |
-| `frontend` | 2 | 20 | 50 | spot-tolerant |
-| `product-catalog` | 2 | 12 | 100 | spot-tolerant |
-| `product-reviews` | 1 | 6 | 10 | spot-tolerant (LLM + Postgres; lower RPS/pod) |
-| `cart` | 2 | 12 | 100 | spot-tolerant |
-| `currency` | 1 | 72 | 150 | spot-tolerant (tiny CPU request amplifies %; max covers 412%/70% pin) |
-| `checkout` | 2 | 16 | 30 | spot-tolerant |
-| `recommendation` | 1 | 6 | 15 | spot-tolerant |
+| `frontend-proxy` | 2 | 10 | 300 | Critical MNG (needs MNG headroom at max) |
+| `frontend` | 2 | 20 | 80 | spot-tolerant |
+| `product-catalog` | 2 | 12 | 150 | spot-tolerant |
+| `product-reviews` | 1 | 6 | 20 | spot-tolerant (LLM + Postgres; lower RPS/pod) |
+| `cart` | 2 | 12 | 150 | spot-tolerant |
+| `currency` | 1 | 72 | 250 | spot-tolerant (tiny CPU request amplifies %; max covers 412%/70% pin) |
+| `checkout` | 2 | 16 | 50 | spot-tolerant |
+| `recommendation` | 1 | 6 | 25 | spot-tolerant |
 
 Targets are **starting points**, not SLOs. Raise if flapping; lower if latency climbs before CPU.
+
+**Shared HPA behavior** (`hpa-behavior-default`): scale-up stabilize **30s**, max of +2 pods or +50% per **30s**; scale-down stabilize **120s**, 50% per 60s. Dampens short RPS spikes vs the previous 0s / 100% / 15s scale-up and 60s scale-down.
 
 **Not request-scaled:** `load-generator`, Kafka consumers (`accounting`, `fraud-detection`), stateful data, `llm` (use concurrency/lag later).
 
@@ -108,7 +110,7 @@ Use Grafana APM / spanmetrics rate panels for total RPS.
 |---------|--------|--------|
 | External TARGET `<unknown>` | Adapter down, wrong series/labels, no traffic yet | Check adapter logs; inventory Prom series; confirm `service_name` |
 | Only CPU scales | RPS metric zero/missing | Fix adapter rules or instrumentation; CPU/mem still work |
-| Flapping replicas | Target too low / noisy rate | Raise RPS target; rely on scaleDown stabilization (60s) |
+| Flapping replicas | Target too low / noisy rate | Raise RPS target; rely on scaleDown stabilization (120s) |
 | `frontend-proxy` Pending | Critical MNG full | Free Critical capacity or raise MNG size in infra; chart `maxReplicas` is 10 — confirm multi-AZ Critical capacity before load tests |
 | Adapter Pending | Critical placement | Same as metrics-server; Critical floor capacity |
 
@@ -128,4 +130,4 @@ Optionally remove `targetRequestsPerSecond` from components. CPU HPA continues i
 * `docs/operations/workload-placement.md` — node contracts under scale-out
 * Chart: `templates/_objects.tpl` (`techx-corp.hpa`), `values.yaml` (`prometheus-adapter`, `components.*.autoscaling`)
 
-<!-- Change trail: @hungxqt - 2026-07-15 - Drop memory metric from request-metric HPA inventory. -->
+<!-- Change trail: @hungxqt - 2026-07-17 - Loosen RPS targets and dampen shared HPA scale behavior. -->

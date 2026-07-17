@@ -565,16 +565,18 @@ RPS uses External metric `http_requests_per_second` with label `service_name` (O
 
 | Service | min | max | Metrics | Placement |
 |---|---:|---:|---|---|
-| `frontend` | 3 | 20 | CPU 65% / RPS **40** | Karpenter (spot-tolerant) |
-| `checkout` | 2 | 16 | CPU 70% / RPS **30** | Karpenter (spot-tolerant) |
-| `cart` | 2 | 12 | CPU 70% / RPS **100** | Karpenter (default) |
-| `product-catalog` | 2 | 12 | CPU 70% / RPS **100** | Karpenter (spot-tolerant) |
-| `product-reviews` | 2 | 6 | CPU 70% / RPS **10** | Karpenter (spot-tolerant) |
-| `currency` | 2 | 72 | CPU 70% / RPS **150** | Karpenter (spot-tolerant) |
-| `recommendation` | 2 | 6 | CPU 70% / RPS **15** | Karpenter (spot-tolerant) |
-| `frontend-proxy` | 2 | 10 | CPU 80% / RPS **200** | **Critical MNG** (needs MNG headroom at max) |
+| `frontend` | 3 | 20 | CPU 65% / RPS **80** | Karpenter (spot-tolerant) |
+| `checkout` | 2 | 16 | CPU 70% / RPS **50** | Karpenter (spot-tolerant) |
+| `cart` | 2 | 12 | CPU 70% / RPS **150** | Karpenter (default) |
+| `product-catalog` | 2 | 12 | CPU 70% / RPS **150** | Karpenter (spot-tolerant) |
+| `product-reviews` | 2 | 6 | CPU 70% / RPS **20** | Karpenter (spot-tolerant) |
+| `currency` | 2 | 72 | CPU 70% / RPS **250** | Karpenter (spot-tolerant) |
+| `recommendation` | 2 | 6 | CPU 70% / RPS **25** | Karpenter (spot-tolerant) |
+| `frontend-proxy` | 2 | 10 | CPU 80% / RPS **300** | **Critical MNG** (needs MNG headroom at max) |
 | `quote` | 2 | 4 | CPU 70% | Karpenter (default) |
 | `shipping` | 2 | 4 | CPU 70% | Karpenter (default) |
+
+Shared request-path HPA behavior: scale-up stabilize **30s** (+2 pods or +50% per 30s); scale-down stabilize **120s** (50% per 60s).
 
 **Locust distributed mode:** `load-generator` is the **master** (fixed replicas, default `0`; scale to `1` for tests; no HPA; **Critical MNG / system nodes**). `load-generator-worker` is the **worker pool** (CPU-only HPA, min 1 / max 8 when enabled; **stable scale-down** 300s stabilize / 50% per 60s; **Karpenter Spot**; **prefer pack on one node first** via soft worker podAffinity + topology-spread opt-out; hard storefront anti-affinity retained). Ramp users via `LOCUST_USERS` / Locust UI on the master; workers join `load-generator:5557`. See `docs/changes/2026-07-14-distributed-load-generator.md`, `docs/changes/2026-07-14-fix-locust-master-worker-discovery.md`, `docs/changes/2026-07-14-locust-master-critical-mng.md`, `docs/changes/2026-07-15-load-generator-worker-stable-scale-down.md`, and `docs/changes/2026-07-15-load-generator-worker-pack-one-node.md`.
 
@@ -867,4 +869,4 @@ deny is approved).
 - `templates/NOTES.txt` — post-install notes (port-forward, ALB, **Argo CD admin credential**)  
 - [operations/gitops-argocd.md](./operations/gitops-argocd.md) — GitOps runbook + UI access
 
-<!-- Change trail: @hungxqt - 2026-07-16 - Document root app-of-apps bootstrap for child Applications. -->
+<!-- Change trail: @hungxqt - 2026-07-17 - Loosen request-metric HPA RPS targets and scale behavior. -->

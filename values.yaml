@@ -425,27 +425,29 @@ components:
     # Valkey remains singleton; cart pods are stateless clients.
     # Dual metrics: RPS primary; CPU 70% safety valve (HPA uses max).
     # behavior anchor is shared by all HPA-enabled services (must be defined before first alias).
+    # Loosened 2026-07-17: higher RPS targets + dampened scale-up (30s stabilize, 50%/30s)
+    # and longer scale-down stabilize (120s) to reduce RPS-noise thrash.
     # maxReplicas 12: load-test pin at 6 with CPU ~110%/70% → desired ~10; +headroom.
     autoscaling:
       enabled: true
       minReplicas: 2
       maxReplicas: 12
       targetCPUUtilizationPercentage: 70
-      # .NET service can easily handle 100 RPS per pod.
-      targetRequestsPerSecond: 100
+      # .NET service comfortable ~150 RPS/pod (raised from 100 to delay RPS scale-out).
+      targetRequestsPerSecond: 150
       behavior: &hpa-behavior-default
         scaleUp:
-          stabilizationWindowSeconds: 0
+          stabilizationWindowSeconds: 30
           policies:
             - type: Pods
               value: 2
-              periodSeconds: 15
+              periodSeconds: 30
             - type: Percent
-              value: 100
-              periodSeconds: 15
+              value: 50
+              periodSeconds: 30
           selectPolicy: Max
         scaleDown:
-          stabilizationWindowSeconds: 60
+          stabilizationWindowSeconds: 120
           policies:
             - type: Percent
               value: 50
@@ -522,8 +524,8 @@ components:
       minReplicas: 2
       maxReplicas: 16
       targetCPUUtilizationPercentage: 70
-      # Go service can handle 30 RPS orchestration easily.
-      targetRequestsPerSecond: 30
+      # Go orchestration: raised from 30 → 50 RPS/pod (less aggressive RPS scale-out).
+      targetRequestsPerSecond: 50
       behavior: *hpa-behavior-default
     initContainers:
       - name: wait-for-kafka
@@ -578,8 +580,8 @@ components:
       minReplicas: 1
       maxReplicas: 72
       targetCPUUtilizationPercentage: 70
-      # Native C++ gRPC easily handles 150 RPS.
-      targetRequestsPerSecond: 150
+      # Native C++ gRPC: raised from 150 → 250 RPS/pod (high RPS / low CPU path).
+      targetRequestsPerSecond: 250
       behavior: *hpa-behavior-default
 
   email:
@@ -737,7 +739,8 @@ components:
       minReplicas: 2
       maxReplicas: 20
       targetCPUUtilizationPercentage: 80
-      targetRequestsPerSecond: 50
+      # BFF/SSR: raised from 50 → 80 RPS/pod (spanmetrics can inflate metric RPS).
+      targetRequestsPerSecond: 80
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
@@ -873,8 +876,8 @@ components:
       minReplicas: 2
       maxReplicas: 10
       targetCPUUtilizationPercentage: 80
-      # Envoy handles massive connections, set target to 200 RPS.
-      targetRequestsPerSecond: 200
+      # Envoy edge: raised from 200 → 300 RPS/pod (delay Critical MNG scale-out).
+      targetRequestsPerSecond: 300
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
@@ -1260,8 +1263,8 @@ components:
       minReplicas: 2
       maxReplicas: 12
       targetCPUUtilizationPercentage: 70
-      # Go backend can handle 100 RPS.
-      targetRequestsPerSecond: 100
+      # Go backend: raised from 100 → 150 RPS/pod (hot browse path).
+      targetRequestsPerSecond: 150
       behavior: *hpa-behavior-default
     initContainers:
       - name: wait-for-postgresql
@@ -1379,7 +1382,8 @@ components:
       minReplicas: 1
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
-      targetRequestsPerSecond: 10
+      # LLM + Postgres path: raised from 10 → 20 RPS/pod (less early scale-out).
+      targetRequestsPerSecond: 20
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
@@ -1507,7 +1511,8 @@ components:
       minReplicas: 1
       maxReplicas: 6
       targetCPUUtilizationPercentage: 70
-      targetRequestsPerSecond: 15
+      # Python recs path: raised from 15 → 25 RPS/pod.
+      targetRequestsPerSecond: 25
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
       - name: tmp-dir
@@ -2810,4 +2815,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-16 - Raise Jaeger memory and lower MEMORY_MAX_TRACES after OOMKilled CrashLoop.
+# Change trail: @hungxqt - 2026-07-17 - Loosen request-metric HPA RPS targets and dampen scale behavior.
