@@ -12,4 +12,9 @@ valkeyCart:
 msk:
   enabled: true
   remoteKey: techx-prod-tf2/msk-bootstrap
+  scramRemoteKey: AmazonMSK_techx-prod-tf2_app
+
+rdsPostgresql:
+  enabled: true
+  remoteKey: techx-prod-tf2/rds-postgresql
 # Change trail: @hungxqt - 2026-07-15 - Enable managed Valkey auth secret for production cart.

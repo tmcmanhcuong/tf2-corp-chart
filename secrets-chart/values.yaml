@@ -48,4 +48,10 @@ msk:
   enabled: false
   # Full ASM secret name (not under remoteKeyPrefix). Example prod: techx-prod-tf2/msk-bootstrap
   remoteKey: ""
+  scramRemoteKey: ""
+
+rdsPostgresql:
+  enabled: false
+  # Full ASM secret containing endpoint metadata; credentials stay in postgresql-app.
+  remoteKey: ""
 # Change trail: @hungxqt - 2026-07-15 - Add optional managed Valkey cart auth ExternalSecret.
