@@ -1,0 +1,751 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "FinOps dashboard backed by the production CUR 2.0 Athena catalog. COH recommendation export is intentionally not required.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "panels": [],
+      "title": "Monthly Guardrail",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "finops-athena-cur"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 450
+              },
+              {
+                "color": "orange",
+                "value": 720
+              },
+              {
+                "color": "red",
+                "value": 900
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "__default",
+            "region": "__default",
+            "resultReuseEnabled": true,
+            "resultReuseMaxAgeInMinutes": 60
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "finops-athena-cur"
+          },
+          "format": 1,
+          "rawSQL": "SELECT SUM(CAST(line_item_unblended_cost AS double)) AS mtd_spend\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day",
+          "refId": "A",
+          "table": "${cur_table}"
+        }
+      ],
+      "title": "Month-to-date Spend",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "finops-athena-cur"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "id": 3,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "__default",
+            "region": "__default",
+            "resultReuseEnabled": true,
+            "resultReuseMaxAgeInMinutes": 60
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "finops-athena-cur"
+          },
+          "format": 1,
+          "rawSQL": "SELECT (SUM(CAST(line_item_unblended_cost AS double)) / 900.0) * 100.0 AS budget_used_percent\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day",
+          "refId": "A",
+          "table": "${cur_table}"
+        }
+      ],
+      "title": "Budget Used ($900)",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "finops-athena-cur"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 720
+              },
+              {
+                "color": "red",
+                "value": 900
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "__default",
+            "region": "__default",
+            "resultReuseEnabled": true,
+            "resultReuseMaxAgeInMinutes": 60
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "finops-athena-cur"
+          },
+          "format": 1,
+          "rawSQL": "SELECT (SUM(CAST(line_item_unblended_cost AS double)) / CAST(day_of_month(current_date) AS double)) * CAST(day(last_day_of_month(current_date)) AS double) AS projected_month_end\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day",
+          "refId": "A",
+          "table": "${cur_table}"
+        }
+      ],
+      "title": "Projected Month-end",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "finops-athena-cur"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 45
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "__default",
+            "region": "__default",
+            "resultReuseEnabled": true,
+            "resultReuseMaxAgeInMinutes": 60
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "finops-athena-cur"
+          },
+          "format": 1,
+          "rawSQL": "SELECT SUM(CAST(line_item_unblended_cost AS double)) AS today_spend\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE date(line_item_usage_start_date) = current_date",
+          "refId": "A",
+          "table": "${cur_table}"
+        }
+      ],
+      "title": "Today Spend ($45 guardrail)",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 6,
+      "panels": [],
+      "title": "Trend and Drivers",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "finops-athena-cur"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "mappings": [],
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "__default",
+            "region": "__default",
+            "resultReuseEnabled": true,
+            "resultReuseMaxAgeInMinutes": 60
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "finops-athena-cur"
+          },
+          "format": 0,
+          "rawSQL": "SELECT date_trunc('day', line_item_usage_start_date) AS time,\n       SUM(CAST(line_item_unblended_cost AS double)) AS daily_cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE $__timeFilter(line_item_usage_start_date)\nGROUP BY 1\nORDER BY 1",
+          "refId": "A",
+          "table": "${cur_table}"
+        }
+      ],
+      "title": "Daily Cost Trend",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "finops-athena-cur"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "unit": "currencyUSD"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "service"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 8,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "cost"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "__default",
+            "region": "__default",
+            "resultReuseEnabled": true,
+            "resultReuseMaxAgeInMinutes": 60
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "finops-athena-cur"
+          },
+          "format": 1,
+          "rawSQL": "SELECT product_servicecode AS service,\n       SUM(CAST(line_item_unblended_cost AS double)) AS cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE $__timeFilter(line_item_usage_start_date)\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 10",
+          "refId": "A",
+          "table": "${cur_table}"
+        }
+      ],
+      "title": "Top Services by Cost",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "finops-athena-cur"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "mappings": [],
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "__default",
+            "region": "__default",
+            "resultReuseEnabled": true,
+            "resultReuseMaxAgeInMinutes": 60
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "finops-athena-cur"
+          },
+          "format": 0,
+          "rawSQL": "WITH daily AS (\n  SELECT date_trunc('day', line_item_usage_start_date) AS day,\n         SUM(CAST(line_item_unblended_cost AS double)) AS daily_cost\n  FROM \"${cur_database}\".\"${cur_table}\"\n  WHERE line_item_usage_start_date >= date_trunc('month', current_date)\n    AND line_item_usage_start_date < current_date + interval '1' day\n  GROUP BY 1\n)\nSELECT day AS time,\n       SUM(daily_cost) OVER (ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_cost\nFROM daily\nORDER BY 1",
+          "refId": "A",
+          "table": "${cur_table}"
+        }
+      ],
+      "title": "Cumulative Monthly Spend",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "finops-athena-cur"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 45
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 10,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "daily_cost"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "__default",
+            "region": "__default",
+            "resultReuseEnabled": true,
+            "resultReuseMaxAgeInMinutes": 60
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "finops-athena-cur"
+          },
+          "format": 1,
+          "rawSQL": "SELECT date(line_item_usage_start_date) AS usage_date,\n       SUM(CAST(line_item_unblended_cost AS double)) AS daily_cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day\nGROUP BY 1\nHAVING SUM(CAST(line_item_unblended_cost AS double)) >= 45\nORDER BY 2 DESC",
+          "refId": "A",
+          "table": "${cur_table}"
+        }
+      ],
+      "title": "Daily Guardrail Breach Candidates ($45+)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "finops-athena-cur"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "mappings": [],
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "__default",
+            "region": "__default",
+            "resultReuseEnabled": true,
+            "resultReuseMaxAgeInMinutes": 60
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "finops-athena-cur"
+          },
+          "format": 0,
+          "rawSQL": "WITH ranked_services AS (\n  SELECT product_servicecode AS service,\n         SUM(CAST(line_item_unblended_cost AS double)) AS total_cost\n  FROM \"${cur_database}\".\"${cur_table}\"\n  WHERE $__timeFilter(line_item_usage_start_date)\n  GROUP BY 1\n  ORDER BY 2 DESC\n  LIMIT 5\n)\nSELECT date_trunc('day', c.line_item_usage_start_date) AS time,\n       c.product_servicecode AS service,\n       SUM(CAST(c.line_item_unblended_cost AS double)) AS daily_cost\nFROM \"${cur_database}\".\"${cur_table}\" c\nJOIN ranked_services r ON c.product_servicecode = r.service\nWHERE $__timeFilter(c.line_item_usage_start_date)\nGROUP BY 1, 2\nORDER BY 1, 2",
+          "refId": "A",
+          "table": "${cur_table}"
+        }
+      ],
+      "title": "Daily Cost by Top 5 Services",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "1h",
+  "schemaVersion": 39,
+  "tags": [
+    "finops",
+    "cur",
+    "athena",
+    "production"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "finops_cur",
+          "value": "finops_cur"
+        },
+        "hide": 2,
+        "label": "CUR database",
+        "name": "cur_database",
+        "query": "finops_cur",
+        "skipUrlSync": false,
+        "type": "constant"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "finops_watch_cur",
+          "value": "finops_watch_cur"
+        },
+        "description": "Update this if the Glue crawler creates a different CUR table name.",
+        "label": "CUR table",
+        "name": "cur_table",
+        "query": "finops_watch_cur",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FinOps CUR Cost Overview",
+  "uid": "finops-cur-cost-overview",
+  "version": 1,
+  "weekStart": ""
+}

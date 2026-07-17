@@ -291,6 +291,11 @@ prometheus:
     nodeSelector:
       workload-class: critical
 
+grafana:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::493499579600:role/techx-prod-tf2-grafana-athena
+
 opentelemetry-collector:
   config:
     processors:
