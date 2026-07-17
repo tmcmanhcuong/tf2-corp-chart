@@ -111,7 +111,7 @@ groups:
                   operator: {type: and}
                   query: {params: [threshold]}
                   reducer: {type: last, params: []}
-        noDataState: Error
+        noDataState: Alerting
         execErrState: Error
         for: 5m
         keepFiringFor: 5m
@@ -252,7 +252,7 @@ groups:
                   operator: {type: and}
                   query: {params: [threshold]}
                   reducer: {type: last, params: []}
-        noDataState: Error
+        noDataState: Alerting
         execErrState: Error
         for: 10m
         keepFiringFor: 5m
