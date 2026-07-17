@@ -726,13 +726,13 @@
       {
         "current": {
           "selected": true,
-          "text": "finops_watch_cur",
-          "value": "finops_watch_cur"
+          "text": "data",
+          "value": "data"
         },
         "description": "Update this if the Glue crawler creates a different CUR table name.",
         "label": "CUR table",
         "name": "cur_table",
-        "query": "finops_watch_cur",
+        "query": "data",
         "skipUrlSync": false,
         "type": "textbox"
       }
