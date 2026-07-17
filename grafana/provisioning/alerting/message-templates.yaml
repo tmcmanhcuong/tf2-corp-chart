@@ -48,7 +48,7 @@ templates:
       {{ if .GeneratorURL }}Rule: {{ .GeneratorURL }}{{ end }}
       {{ if .Annotations.runbook_url }}Runbook: {{ .Annotations.runbook_url }}{{ end }}
 
-      _Do not paste secrets, webhook URLs, payment data, customer PII, or raw logs into Discord._
+
       ---
       {{ end }}
       {{- end }}
