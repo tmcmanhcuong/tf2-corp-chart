@@ -14,6 +14,15 @@ externalSecrets:
   enabled: true
   namespace: techx-corp-prod
 
+grafana:
+  grafana.ini:
+    server:
+      # Alert links are generated outside an HTTP request, so the base
+      # values.yaml macro can fall back to localhost. Pin prod to the private
+      # operator URL used through Client VPN / internal ALB.
+      root_url: "https://internal.hungtran.id.vn/grafana"
+      serve_from_sub_path: true
+
 default:
   # MANDATE-05: prune historical ReplicaSets so old non-compliant pod templates leave Gatekeeper audit scope.
   revisionHistoryLimit: 0
