@@ -3,14 +3,18 @@
 #
 # Grafana provisioning — Contact Points
 #
-# Required env var — inject vào values.yaml grafana.envValueFrom:
+# Required env vars — inject vào values.yaml grafana.envValueFrom / grafana.env:
 #   DISCORD_WEBHOOK_URL : webhook URL từ Discord Server Settings → Integrations → Webhooks
 #                         dạng: https://discord.com/api/webhooks/<id>/<token>
+#   AIOPS_GRAFANA_WEBHOOK_SECRET : shared secret sent to AIOps as X-AIOps-Grafana-Secret
+#   AIOPS_GRAFANA_WEBHOOK_URL    : in-cluster AIOps webhook URL
 #
 # Secret được quản lý qua AWS Secrets Manager + ESO (secrets-chart):
 #   ASM path : techx-corp/production/grafana-discord → {"webhook-url":"<url>"}
+#   ASM path : techx-corp/production/aiops-grafana-webhook → {"AIOPS_GRAFANA_WEBHOOK_SECRET":"<secret>"}
 #   Bootstrap: DISCORD_WEBHOOK_URL=<url> ./scripts/bootstrap-asm-secrets.sh techx-corp/production
-#   K8s Secret techx-corp-grafana-discord được ESO tạo tự động — không dùng kubectl create secret.
+#   Bootstrap: AIOPS_GRAFANA_WEBHOOK_SECRET="$(openssl rand -hex 32)" ./scripts/bootstrap-asm-secrets.sh techx-corp/production
+#   K8s Secret techx-corp-grafana-discord / techx-corp-aiops-grafana-webhook được ESO tạo tự động.
 ---
 apiVersion: 1
 
@@ -25,4 +29,13 @@ contactPoints:
           message: '{{ template "techx.discord.message" . }}'
           # Do not mention @everyone by default. Use a dedicated on-call role only after approval.
           use_discord_username: false
+        disableResolveMessage: false
+      - uid: aiops-webhook-receiver
+        type: webhook
+        settings:
+          url: "${AIOPS_GRAFANA_WEBHOOK_URL}"
+          httpMethod: POST
+          httpHeaderName1: X-AIOps-Grafana-Secret
+          httpHeaderValue1: "${AIOPS_GRAFANA_WEBHOOK_SECRET}"
+          maxAlerts: 20
         disableResolveMessage: false
