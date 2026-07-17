@@ -105,12 +105,12 @@
             "uid": "finops-athena-cur"
           },
           "format": 1,
-          "rawSQL": "SELECT SUM(CAST(line_item_unblended_cost AS double)) AS mtd_spend\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day",
+          "rawSQL": "SELECT SUM(CAST(line_item_unblended_cost AS double)) AS mtd_usage_cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_line_item_type = 'Usage'\n  AND line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day",
           "refId": "A",
           "table": "${cur_table}"
         }
       ],
-      "title": "Month-to-date Spend",
+      "title": "Month-to-date Usage Cost",
       "type": "stat"
     },
     {
@@ -184,7 +184,7 @@
             "uid": "finops-athena-cur"
           },
           "format": 1,
-          "rawSQL": "SELECT (SUM(CAST(line_item_unblended_cost AS double)) / 900.0) * 100.0 AS budget_used_percent\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day",
+          "rawSQL": "SELECT (SUM(CAST(line_item_unblended_cost AS double)) / 900.0) * 100.0 AS budget_used_percent\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_line_item_type = 'Usage'\n  AND line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day",
           "refId": "A",
           "table": "${cur_table}"
         }
@@ -258,12 +258,12 @@
             "uid": "finops-athena-cur"
           },
           "format": 1,
-          "rawSQL": "SELECT (SUM(CAST(line_item_unblended_cost AS double)) / CAST(day_of_month(current_date) AS double)) * CAST(day(last_day_of_month(current_date)) AS double) AS projected_month_end\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day",
+          "rawSQL": "SELECT (SUM(CAST(line_item_unblended_cost AS double)) / CAST(day_of_month(current_date) AS double)) * CAST(day(last_day_of_month(current_date)) AS double) AS projected_month_end_usage_cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_line_item_type = 'Usage'\n  AND line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day",
           "refId": "A",
           "table": "${cur_table}"
         }
       ],
-      "title": "Projected Month-end",
+      "title": "Projected Month-end Usage Cost",
       "type": "stat"
     },
     {
@@ -328,12 +328,12 @@
             "uid": "finops-athena-cur"
           },
           "format": 1,
-          "rawSQL": "SELECT SUM(CAST(line_item_unblended_cost AS double)) AS today_spend\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE date(line_item_usage_start_date) = current_date",
+          "rawSQL": "SELECT SUM(CAST(line_item_unblended_cost AS double)) AS today_usage_cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_line_item_type = 'Usage'\n  AND date(line_item_usage_start_date) = current_date",
           "refId": "A",
           "table": "${cur_table}"
         }
       ],
-      "title": "Today Spend ($45 guardrail)",
+      "title": "Today Usage Cost ($45 guardrail)",
       "type": "stat"
     },
     {
@@ -407,12 +407,12 @@
             "uid": "finops-athena-cur"
           },
           "format": 0,
-          "rawSQL": "SELECT date_trunc('day', line_item_usage_start_date) AS time,\n       SUM(CAST(line_item_unblended_cost AS double)) AS daily_cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE $__timeFilter(line_item_usage_start_date)\nGROUP BY 1\nORDER BY 1",
+          "rawSQL": "SELECT date_trunc('day', line_item_usage_start_date) AS time,\n       SUM(CAST(line_item_unblended_cost AS double)) AS daily_usage_cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_line_item_type = 'Usage'\n  AND $__timeFilter(line_item_usage_start_date)\nGROUP BY 1\nORDER BY 1",
           "refId": "A",
           "table": "${cur_table}"
         }
       ],
-      "title": "Daily Cost Trend",
+      "title": "Daily Usage Cost Trend",
       "type": "timeseries"
     },
     {
@@ -484,12 +484,12 @@
             "uid": "finops-athena-cur"
           },
           "format": 1,
-          "rawSQL": "SELECT product_servicecode AS service,\n       SUM(CAST(line_item_unblended_cost AS double)) AS cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE $__timeFilter(line_item_usage_start_date)\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 10",
+          "rawSQL": "SELECT product_servicecode AS service,\n       SUM(CAST(line_item_unblended_cost AS double)) AS usage_cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_line_item_type = 'Usage'\n  AND $__timeFilter(line_item_usage_start_date)\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 10",
           "refId": "A",
           "table": "${cur_table}"
         }
       ],
-      "title": "Top Services by Cost",
+      "title": "Top Services by Usage Cost",
       "type": "table"
     },
     {
@@ -549,12 +549,12 @@
             "uid": "finops-athena-cur"
           },
           "format": 0,
-          "rawSQL": "WITH daily AS (\n  SELECT date_trunc('day', line_item_usage_start_date) AS day,\n         SUM(CAST(line_item_unblended_cost AS double)) AS daily_cost\n  FROM \"${cur_database}\".\"${cur_table}\"\n  WHERE line_item_usage_start_date >= date_trunc('month', current_date)\n    AND line_item_usage_start_date < current_date + interval '1' day\n  GROUP BY 1\n)\nSELECT day AS time,\n       SUM(daily_cost) OVER (ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_cost\nFROM daily\nORDER BY 1",
+          "rawSQL": "WITH daily AS (\n  SELECT date_trunc('day', line_item_usage_start_date) AS day,\n         SUM(CAST(line_item_unblended_cost AS double)) AS daily_usage_cost\n  FROM \"${cur_database}\".\"${cur_table}\"\n  WHERE line_item_line_item_type = 'Usage'\n    AND line_item_usage_start_date >= date_trunc('month', current_date)\n    AND line_item_usage_start_date < current_date + interval '1' day\n  GROUP BY 1\n)\nSELECT day AS time,\n       SUM(daily_usage_cost) OVER (ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_usage_cost\nFROM daily\nORDER BY 1",
           "refId": "A",
           "table": "${cur_table}"
         }
       ],
-      "title": "Cumulative Monthly Spend",
+      "title": "Cumulative Monthly Usage Cost",
       "type": "timeseries"
     },
     {
@@ -608,7 +608,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "daily_cost"
+            "displayName": "daily_usage_cost"
           }
         ]
       },
@@ -626,7 +626,7 @@
             "uid": "finops-athena-cur"
           },
           "format": 1,
-          "rawSQL": "SELECT date(line_item_usage_start_date) AS usage_date,\n       SUM(CAST(line_item_unblended_cost AS double)) AS daily_cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day\nGROUP BY 1\nHAVING SUM(CAST(line_item_unblended_cost AS double)) >= 45\nORDER BY 2 DESC",
+          "rawSQL": "SELECT date(line_item_usage_start_date) AS usage_date,\n       SUM(CAST(line_item_unblended_cost AS double)) AS daily_usage_cost\nFROM \"${cur_database}\".\"${cur_table}\"\nWHERE line_item_line_item_type = 'Usage'\n  AND line_item_usage_start_date >= date_trunc('month', current_date)\n  AND line_item_usage_start_date < current_date + interval '1' day\nGROUP BY 1\nHAVING SUM(CAST(line_item_unblended_cost AS double)) >= 45\nORDER BY 2 DESC",
           "refId": "A",
           "table": "${cur_table}"
         }
@@ -691,12 +691,12 @@
             "uid": "finops-athena-cur"
           },
           "format": 0,
-          "rawSQL": "WITH ranked_services AS (\n  SELECT product_servicecode AS service,\n         SUM(CAST(line_item_unblended_cost AS double)) AS total_cost\n  FROM \"${cur_database}\".\"${cur_table}\"\n  WHERE $__timeFilter(line_item_usage_start_date)\n  GROUP BY 1\n  ORDER BY 2 DESC\n  LIMIT 5\n)\nSELECT date_trunc('day', c.line_item_usage_start_date) AS time,\n       c.product_servicecode AS service,\n       SUM(CAST(c.line_item_unblended_cost AS double)) AS daily_cost\nFROM \"${cur_database}\".\"${cur_table}\" c\nJOIN ranked_services r ON c.product_servicecode = r.service\nWHERE $__timeFilter(c.line_item_usage_start_date)\nGROUP BY 1, 2\nORDER BY 1, 2",
+          "rawSQL": "WITH ranked_services AS (\n  SELECT product_servicecode AS service,\n         SUM(CAST(line_item_unblended_cost AS double)) AS total_usage_cost\n  FROM \"${cur_database}\".\"${cur_table}\"\n  WHERE line_item_line_item_type = 'Usage'\n    AND $__timeFilter(line_item_usage_start_date)\n  GROUP BY 1\n  ORDER BY 2 DESC\n  LIMIT 5\n)\nSELECT date_trunc('day', c.line_item_usage_start_date) AS time,\n       c.product_servicecode AS service,\n       SUM(CAST(c.line_item_unblended_cost AS double)) AS daily_usage_cost\nFROM \"${cur_database}\".\"${cur_table}\" c\nJOIN ranked_services r ON c.product_servicecode = r.service\nWHERE c.line_item_line_item_type = 'Usage'\n  AND $__timeFilter(c.line_item_usage_start_date)\nGROUP BY 1, 2\nORDER BY 1, 2",
           "refId": "A",
           "table": "${cur_table}"
         }
       ],
-      "title": "Daily Cost by Top 5 Services",
+      "title": "Daily Usage Cost by Top 5 Services",
       "type": "timeseries"
     }
   ],
