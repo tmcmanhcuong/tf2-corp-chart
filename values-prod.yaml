@@ -20,6 +20,7 @@ grafana:
       # Alert links are generated outside an HTTP request, so the base
       # values.yaml macro can fall back to localhost. Pin prod to the private
       # operator URL used through Client VPN / internal ALB.
+      domain: "internal.hungtran.id.vn"
       root_url: "https://internal.hungtran.id.vn/grafana"
       serve_from_sub_path: true
 
