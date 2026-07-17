@@ -8,7 +8,7 @@
 # Namespace    : techx-corp-prod
 #
 # Thresholds:
-#   Error rate  > 1%     (5m window)  → warning  [guard: traffic > 1 rps]
+#   Error rate  > 1%     (5m window)  → warning
 #   P95 latency > 1000ms (5m window)  → warning
 #   Pod restart > 3      (5m window)  → critical
 #
@@ -27,12 +27,12 @@ groups:
 
       # ------------------------------------------------------------------ #
       # 1. Error Rate > 1%                                                   #
-      #    Dùng Math expression để combine traffic guard + error rate:       #
-      #    chỉ fire khi total_rate > 1 rps VÀ error_rate > 1%              #
+      #    total_rate is kept for Discord context only.                     #
+      #    Do not gate by RPS: one timeout in 5m is still user-impacting.   #
       # ------------------------------------------------------------------ #
       - uid: hotpath-error-rate-001
         title: HotPathHighErrorRate
-        condition: combined
+        condition: threshold
         data:
           - refId: total_rate
             relativeTimeRange:
@@ -86,26 +86,16 @@ groups:
               intervalMs: 1000
               maxDataPoints: 43200
               refId: error_rate
-          # Math: fire chỉ khi CẢ HAI điều kiện đều true (value > 0)
-          # total_rate > 1  →  (total_rate - 1) > 0
-          # error_rate > 1% →  (error_rate - 1) > 0
-          # combined = (total_rate - 1) * (error_rate - 1): dương khi cả 2 vượt ngưỡng
-          - refId: combined
-            datasourceUid: __expr__
-            model:
-              type: math
-              refId: combined
-              expression: "($total_rate > 1) * ($error_rate > 1)"
           - refId: threshold
             datasourceUid: __expr__
             model:
               type: threshold
               refId: threshold
-              expression: combined
+              expression: error_rate
               conditions:
                 - evaluator:
                     type: gt
-                    params: [0]
+                    params: [1]
                   operator:
                     type: and
                   query:
@@ -121,15 +111,18 @@ groups:
           summary: "{{ $labels.service_name }} error rate > 1%"
           description: >-
             Service <b>{{ $labels.service_name }}</b> error rate:
-            <b>{{ $values.error_rate.Value | printf "%.2f" }}%</b> (ngưỡng: 1%, window: 5m).
+            <b>{{ $values.error_rate.Value | printf "%.2f" }}%</b> with traffic
+            <b>{{ $values.total_rate.Value | printf "%.2f" }} rps</b>
+            (threshold: error_rate > 1%, window: 5m).
           discord_description: >-
             Service {{ $labels.service_name }} error rate is {{ $values.error_rate.Value | printf "%.2f" }}%
-            (threshold: 1%, window: 5m, for: 2m).
+            with traffic {{ $values.total_rate.Value | printf "%.2f" }} rps
+            (threshold: error_rate > 1%, window: 5m, for: 2m).
           impact: >-
             User-visible flows can fail, especially cart, checkout, payment, product lookup, or shipping calls.
           action: >-
-            Open the Webstore SLO dashboard, check the affected service error panel, then inspect Jaeger traces
-            and OpenSearch logs for the same service before changing code or scaling.
+            Open the service-scoped APM dashboard first, compare with the Webstore SLO dashboard,
+            then inspect Jaeger traces and OpenSearch logs for the same service before changing code or scaling.
           dashboard_url: "https://internal.hungtran.id.vn/grafana/d/febljk0a32qyoa?orgId=1&var-deployment_environment_name=production&var-service_namespace=techx-corp-prod&var-service_name={{ $labels.service_name }}"
           slo_dashboard_url: "https://internal.hungtran.id.vn/grafana/d/webstore-perf-slo-res?orgId=1"
           runbook_url: "https://github.com/tf2-team/tf2-corp-chart/blob/main/docs/operations/request-metric-hpa.md"
@@ -150,7 +143,7 @@ groups:
       # ------------------------------------------------------------------ #
       - uid: hotpath-p95-latency-002
         title: HotPathHighP95Latency
-        condition: latency_guard
+        condition: threshold
         data:
           - refId: p95_ms
             relativeTimeRange:
@@ -174,41 +167,16 @@ groups:
               intervalMs: 1000
               maxDataPoints: 43200
               refId: p95_ms
-          - refId: p95_traffic_rate
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: webstore-metrics
-            model:
-              editorMode: code
-              expr: |
-                sum by (service_name) (
-                  rate(
-                    traces_span_metrics_duration_milliseconds_count{
-                      service_name=~"frontend|frontend-proxy|cart|checkout|currency|product-catalog|product-reviews|quote|recommendation|shipping"
-                    }[5m]
-                  )
-                )
-              instant: true
-              intervalMs: 1000
-              maxDataPoints: 43200
-              refId: p95_traffic_rate
-          - refId: latency_guard
-            datasourceUid: __expr__
-            model:
-              type: math
-              refId: latency_guard
-              expression: "($p95_traffic_rate > 1) * ($p95_ms > 1000)"
           - refId: threshold
             datasourceUid: __expr__
             model:
               type: threshold
               refId: threshold
-              expression: latency_guard
+              expression: p95_ms
               conditions:
                 - evaluator:
                     type: gt
-                    params: [0]
+                    params: [1000]
                   operator:
                     type: and
                   query:
@@ -231,7 +199,7 @@ groups:
           impact: >-
             Users can experience slow page load, cart update, recommendation, shipping quote, or checkout flow.
           action: >-
-            Open the service-scoped APM dashboard, confirm traffic volume, inspect Jaeger traces for the affected
+            Open the service-scoped APM dashboard, inspect Jaeger traces for the affected
             service, then compare pod CPU/memory and recent rollout state.
           dashboard_url: "https://internal.hungtran.id.vn/grafana/d/febljk0a32qyoa?orgId=1&var-deployment_environment_name=production&var-service_namespace=techx-corp-prod&var-service_name={{ $labels.service_name }}"
           slo_dashboard_url: "https://internal.hungtran.id.vn/grafana/d/webstore-perf-slo-res?orgId=1"
