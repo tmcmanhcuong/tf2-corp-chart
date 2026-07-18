@@ -18,7 +18,7 @@ spec:
 
   source:
     repoURL: https://github.com/tf2-team/tf2-corp-chart.git
-    targetRevision: main
+    targetRevision: feat/directive-08-managed-data
     path: .
     helm:
       valueFiles:

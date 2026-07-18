@@ -10,6 +10,16 @@
     {{- $config := set . "serviceAccount" $.Values.serviceAccount }}
     {{- $config := set . "observability" $.Values.observability }}
     {{- $config := set . "defaultValues" $.Values.default }}
+    {{- $skipPg := false }}
+    {{- if hasKey $.Values.components "postgresql" }}
+    {{-   $pg := index $.Values.components "postgresql" }}
+    {{-   if hasKey $pg "enabled" }}
+    {{-     if not $pg.enabled }}
+    {{-       $skipPg = true }}
+    {{-     end }}
+    {{-   end }}
+    {{- end }}
+    {{- $_ := set . "skipPgInit" $skipPg }}
 
     {{- if $config.enabled -}}
         {{- include "techx-corp.deployment" $config -}}
