@@ -9,6 +9,7 @@ pwsh scripts/verify-runtime-hardening.ps1
 kubectl kustomize gitops/runtime-hardening/base
 kubectl kustomize gitops/runtime-hardening/overlays/audit
 kubectl kustomize gitops/runtime-hardening/overlays/enforce
+kubectl kustomize gitops/runtime-hardening/overlays/enforce-clusterwide
 ```
 
 Native admission tests require a disposable Kubernetes cluster and `yq` v4:
@@ -22,8 +23,9 @@ bindings and creates a temporary valid Pod for the UPDATE denial case.
 
 ## Phase 2: audit alongside Gatekeeper
 
-The production Application initially sources the audit overlay. Gatekeeper stays
-at `deny` so there is no admission gap.
+The audit overlay has no namespace selector and therefore observes every
+namespace. Gatekeeper stays at `deny` for its current non-system scope so there
+is no admission gap.
 
 ```powershell
 argocd app sync runtime-hardening
@@ -44,6 +46,10 @@ Every VAP must report its current `observedGeneration` with no
 warning/audit output. VAP audit evaluates new admission requests; the inventory
 script is the required check for objects that already exist.
 
+The inventory script excludes no namespace by default. A non-empty
+`-ExcludedNamespaces` value is break-glass evidence only and must record owner,
+reason, expiry, and Platform Security approval.
+
 After changing bindings, poll the live binding list and allow admission cache
 propagation before collecting evidence. An immediately following request can
 briefly observe the previous binding action.
@@ -55,7 +61,9 @@ is nonzero, or storefront/private operations/flagd/SLO checks are incomplete.
 
 Use a reviewed PR to change `runtime-hardening-application.yaml` from
 `overlays/audit` to `overlays/enforce`, then sync and verify all binding actions
-are exactly `Deny`.
+are exactly `Deny`. This migration overlay temporarily excludes `kube-system`,
+`kube-public`, `kube-node-lease`, and `gatekeeper-system`; do not remove those
+selectors in the same change that moves Gatekeeper to `dryrun`.
 
 Temporarily move the three Gatekeeper Constraints to `dryrun` during the evidence
 window so the denial source is unambiguous:
@@ -82,6 +90,18 @@ Invalid output must name `ValidatingAdmissionPolicy` and the runtime-hardening
 policy/binding. It must not name the Gatekeeper webhook. Re-run inventory, Argo
 health, endpoint smoke tests, flagd behavior, and SLO checks before retirement.
 
+## System namespace audit and final cluster-wide enforcement
+
+Before selecting `overlays/enforce-clusterwide`, render and observe the
+full-cluster audit overlay and run inventory with no exclusions. The final
+overlay contains exactly three `[Deny]` bindings and no `namespaceSelector`.
+
+Do not promote while `kube-system` add-ons still violate policy. Remediate the
+add-on configuration or approve a workload/service-account-specific exception;
+an entire namespace is not an acceptable final exception. Keep
+`gatekeeper-system` outside Deny until Gatekeeper is retired and the namespace
+is deleted.
+
 ## Phase 4: retire Gatekeeper
 
 Retirement requires a change window and an approved backup of exact Gatekeeper
@@ -99,8 +119,12 @@ Cleanup order is mandatory because the Gatekeeper webhook is fail-closed:
 6. Delete Gatekeeper CRDs only after all custom resources are gone.
 7. Delete `gatekeeper-system`.
 8. Remove Gatekeeper source files and child manifests from Git; sync root-prod.
-9. Remove the temporary `gatekeeper-system` namespace exclusion from VAP bindings.
-10. Run final inventory, native denial demo, Argo health, and regressions.
+9. Confirm literal full-cluster inventory is zero, or all specific exceptions
+   have signed approval.
+10. Change the runtime-hardening Application path to
+    `gitops/runtime-hardening/overlays/enforce-clusterwide`.
+11. Confirm exactly three live `[Deny]` bindings and no `namespaceSelector`.
+12. Run final inventory, native denial demo, Argo health, and regressions.
 
 Never delete the Gatekeeper Service/controller while its fail-closed webhook
 configuration still exists. Removing a YAML child from Git is insufficient by
