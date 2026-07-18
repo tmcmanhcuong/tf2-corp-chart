@@ -49,6 +49,12 @@ default:
         topologyKey: kubernetes.io/hostname
         whenUnsatisfiable: DoNotSchedule
 
+# Directive #8: RDS managed PostgreSQL is active in production.
+# This flag instructs the deployment template to skip wait-for-postgresql
+# init containers (the in-cluster postgresql service no longer exists).
+rdsPostgresql:
+  enabled: true
+
 components:
   # DIRECTIVE #3: keep at least two Ready instances for every stateless service
   # on the synchronous browse -> cart -> checkout path. HPA services use a
