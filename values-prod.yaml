@@ -62,8 +62,9 @@ mem0:
   serviceAccount:
     name: mem0
     roleArn: "arn:aws:iam::493499579600:role/techx-prod-tf2-mem0-model-read"
+  # K8s Secret *names* only (RFC 1123). ASM ARN/name lives in secrets-chart mem0.masterRemoteKey.
   runtimeSecretName: techx-corp-mem0
-  masterSecretName: rds!db-012e983a-9341-49cf-8a12-5928f016905d
+  masterSecretName: techx-corp-mem0-rds-master
   modelDelivery:
     enabled: true
     awsRegion: us-east-1
@@ -444,4 +445,4 @@ opentelemetry-collector:
           value: techx-corp-prod
           action: upsert
 
-# Change trail: @hungxqt - 2026-07-18 - Prod Mem0 uses global image tag; FastEmbed s3Prefix tracks promote.
+# Change trail: @hungxqt - 2026-07-18 - Fix mem0 masterSecretName to K8s name, not ASM rds!db id.
