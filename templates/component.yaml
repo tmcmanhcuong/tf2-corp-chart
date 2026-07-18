@@ -10,6 +10,7 @@
     {{- $config := set . "serviceAccount" $.Values.serviceAccount }}
     {{- $config := set . "observability" $.Values.observability }}
     {{- $config := set . "defaultValues" $.Values.default }}
+    {{- $config := set . "rdsPostgresql" $.Values.rdsPostgresql }}
 
     {{- if $config.enabled -}}
         {{- include "techx-corp.deployment" $config -}}

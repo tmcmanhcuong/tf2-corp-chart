@@ -307,7 +307,7 @@ spec:
               mountPath: /tmp
         {{- end }}
         {{- range $initContainer := .initContainers }}
-        {{- if not (and (eq $initContainer.name "wait-for-postgresql") $.Values.rdsPostgresql.enabled) }}
+        {{- if not (and (eq $initContainer.name "wait-for-postgresql") .rdsPostgresql.enabled) }}
         {{- $mergedSecurityContext := mergeOverwrite (dict) (default dict $.defaultValues.initContainerSecurityContext) (default dict $initContainer.securityContext) }}
         {{- $mergedResources := mergeOverwrite (dict) (default dict $.defaultValues.initContainerResources) (default dict $initContainer.resources) }}
         {{- $c := mergeOverwrite (dict) $initContainer }}
