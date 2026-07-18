@@ -444,4 +444,4 @@ opentelemetry-collector:
           value: techx-corp-prod
           action: upsert
 
-# Change trail: @hungxqt - 2026-07-18 - Prod Mem0 uses global image tag; FastEmbed s3Prefix tracks promote.
+# Change trail: @hungxqt - 2026-07-17 - Raise frontend prod RPS HPA target to 80 (less aggressive).
