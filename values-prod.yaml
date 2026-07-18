@@ -161,6 +161,8 @@ components:
         valueFrom: *msk-sasl-username
       - name: KAFKA_SASL_PASSWORD
         valueFrom: *msk-sasl-password
+      - name: REDIS_ADDR
+        value: valkey-cart.techx.internal:6379
     initContainers: []
 
   currency:
