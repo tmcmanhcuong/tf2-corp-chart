@@ -4,6 +4,7 @@
 {{- $_ := required "mem0.image.tag is required when Mem0 is enabled" $mem0.image.tag }}
 {{- $_ := required "mem0.rds.host is required when Mem0 is enabled" $mem0.rds.host }}
 {{- $_ := required "mem0.rds.masterSecretArn is required when Mem0 is enabled" $mem0.rds.masterSecretArn }}
+{{- $_ := required "mem0.runtimeSecretArn is required when Mem0 is enabled" $mem0.runtimeSecretArn }}
 {{- $_ := required "mem0.serviceAccount.roleArn is required when Mem0 is enabled" $mem0.serviceAccount.roleArn }}
 ---
 apiVersion: v1
@@ -38,6 +39,27 @@ spec:
   dataFrom:
     - extract:
         key: {{ $mem0.rds.masterSecretArn | quote }}
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: {{ $mem0.runtimeSecretName }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: {{ .Values.externalSecrets.secretStoreName }}
+    kind: ClusterSecretStore
+  target:
+    name: {{ $mem0.runtimeSecretName }}
+    creationPolicy: Orphan
+    template:
+      engineVersion: v2
+  dataFrom:
+    - extract:
+        key: {{ $mem0.runtimeSecretArn | quote }}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -99,6 +121,8 @@ metadata:
   name: mem0
   labels:
     {{- include "techx-corp.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   replicas: 1
   selector:

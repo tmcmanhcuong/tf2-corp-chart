@@ -152,6 +152,7 @@ mem0:
     port: 5432
     database: mem0
     masterSecretArn: ""
+  runtimeSecretArn: ""
   serviceAccount:
     name: mem0
     roleArn: ""

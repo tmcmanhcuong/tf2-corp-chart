@@ -59,6 +59,7 @@ mem0:
     port: 5432
     database: mem0
     masterSecretArn: "arn:aws:secretsmanager:us-east-1:493499579600:secret:rds!db-380876ae-6adf-417d-8234-395538d8a904-w6oiGn"
+  runtimeSecretArn: "arn:aws:secretsmanager:us-east-1:493499579600:secret:techx-corp/production/mem0-kD4v9a"
   serviceAccount:
     name: mem0
     roleArn: "arn:aws:iam::493499579600:role/techx-prod-tf2-mem0-model-read"
