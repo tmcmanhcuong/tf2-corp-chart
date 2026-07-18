@@ -258,7 +258,6 @@ components:
     autoscaling:
       minReplicas: 2
     schedulingRules: *directive03-hard-spread
-    initContainers: []
   product-reviews:
     autoscaling:
       minReplicas: 2
