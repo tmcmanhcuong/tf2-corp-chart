@@ -306,10 +306,9 @@ spec:
             - name: tmp-dir
               mountPath: /tmp
         {{- end }}
+        {{- $skipPgInit := .skipPgInit }}
         {{- range $initContainer := .initContainers }}
-        {{- $isPgInit := eq $initContainer.name "wait-for-postgresql" }}
-        {{- $isPgDisabled := eq (toString (default true (default dict $.Values.components.postgresql).enabled)) "false" }}
-        {{- if not (and $isPgInit $isPgDisabled) }}
+        {{- if not (and (eq $initContainer.name "wait-for-postgresql") $skipPgInit) }}
         {{- $mergedSecurityContext := mergeOverwrite (dict) (default dict $.defaultValues.initContainerSecurityContext) (default dict $initContainer.securityContext) }}
         {{- $mergedResources := mergeOverwrite (dict) (default dict $.defaultValues.initContainerResources) (default dict $initContainer.resources) }}
         {{- $c := mergeOverwrite (dict) $initContainer }}
