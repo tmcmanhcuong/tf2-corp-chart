@@ -1266,15 +1266,7 @@ components:
       # Go backend: raised from 100 → 150 RPS/pod (hot browse path).
       targetRequestsPerSecond: 150
       behavior: *hpa-behavior-default
-    initContainers:
-      - name: wait-for-postgresql
-        image: busybox:1.37.0
-        command:
-          [
-            "sh",
-            "-c",
-            "until nc -z -v -w30 postgresql 5432; do echo waiting for postgresql; sleep 2; done;",
-          ]
+    initContainers: []
 
   product-reviews:
     enabled: true
