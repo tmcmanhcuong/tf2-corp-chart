@@ -1,12 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$KubeContext,
-    [string[]]$ExcludedNamespaces = @(
-        "kube-system",
-        "kube-public",
-        "kube-node-lease",
-        "gatekeeper-system"
-    )
+    [string[]]$ExcludedNamespaces = @()
 )
 
 $ErrorActionPreference = "Stop"

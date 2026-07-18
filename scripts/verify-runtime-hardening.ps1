@@ -105,6 +105,7 @@ try {
     Assert-Count $auditText "(?m)^  - Warn$" 3 "Audit overlay Warn actions"
     Assert-Count $auditText "(?m)^  - Audit$" 3 "Audit overlay Audit actions"
     Assert-Count $auditText "(?m)^  - Deny$" 0 "Audit overlay Deny actions"
+    Assert-Count $auditText "namespaceSelector:" 0 "Audit overlay namespace exclusions"
 
     $enforceText = (& kubectl kustomize gitops/runtime-hardening/overlays/enforce) -join "`n"
     Assert-LastExitCode "VAP enforce overlay render"
@@ -112,7 +113,24 @@ try {
     Assert-Count $enforceText "(?m)^  - Deny$" 3 "Enforce overlay Deny actions"
     Assert-Count $enforceText "(?m)^  - Warn$" 0 "Enforce overlay Warn actions"
     Assert-Count $enforceText "(?m)^  - Audit$" 0 "Enforce overlay Audit actions"
-    Write-Output "PASS VAP base/audit/enforce render contracts"
+    Assert-Count $enforceText "namespaceSelector:" 3 "Migration enforce namespace selectors"
+    foreach ($temporaryNamespace in @(
+        "kube-system",
+        "kube-public",
+        "kube-node-lease",
+        "gatekeeper-system"
+    )) {
+        Assert-Count $enforceText "(?m)^\s+- $([regex]::Escape($temporaryNamespace))$" 3 "Migration exclusion $temporaryNamespace"
+    }
+
+    $clusterwideText = (& kubectl kustomize gitops/runtime-hardening/overlays/enforce-clusterwide) -join "`n"
+    Assert-LastExitCode "VAP cluster-wide enforce overlay render"
+    Assert-Count $clusterwideText "(?m)^kind: ValidatingAdmissionPolicyBinding$" 3 "Cluster-wide enforce bindings"
+    Assert-Count $clusterwideText "(?m)^  - Deny$" 3 "Cluster-wide enforce Deny actions"
+    Assert-Count $clusterwideText "(?m)^  - Warn$" 0 "Cluster-wide enforce Warn actions"
+    Assert-Count $clusterwideText "(?m)^  - Audit$" 0 "Cluster-wide enforce Audit actions"
+    Assert-Count $clusterwideText "namespaceSelector:" 0 "Cluster-wide enforce namespace exclusions"
+    Write-Output "PASS VAP base/audit/enforce/enforce-clusterwide render contracts"
 
     if (-not $KubeContext) {
         Write-Output "SKIP native admission tests: pass -KubeContext for a disposable Kubernetes cluster."

@@ -1,10 +1,10 @@
 # ADR SEC-07: Native Kubernetes runtime-hardening admission
 
-- Status: Phase 1 verified; production audit cutover pending
+- Status: Phase 1-2 complete; VAP enforce active; cluster-wide system audit pending
 - Date: 2026-07-18
 - Owners: Platform Security and Platform Engineering
 - Target cluster: `techx-tf2-prod`, Kubernetes `v1.36.2`
-- Cutover commit: Pending
+- Cutover commit: `7605191c5367985fa091580c84a4c076fcd6462c`
 
 ## Context
 
@@ -37,12 +37,14 @@ Pod, Deployment, StatefulSet, DaemonSet, ReplicaSet, ReplicationController, Job,
 and CronJob. Security and image checks include containers, init containers, and
 ephemeral containers when present.
 
-The production Argo Application initially points to the audit overlay with
-`[Warn, Audit]`. A reviewed PR changes only the Application path to the enforce
-overlay with `[Deny]` after inventory and regression gates pass. System namespaces
-and the temporary `gatekeeper-system` migration namespace are excluded. The
-Gatekeeper exclusion must be removed after retirement; any later exception needs
-an owner, reason, expiry, and Platform Security approval.
+The production Argo Application currently points to the migration enforce
+overlay with three `[Deny]` bindings. That overlay temporarily excludes
+`kube-system`, `kube-public`, `kube-node-lease`, and `gatekeeper-system`. The
+audit overlay is cluster-wide and the final `enforce-clusterwide` overlay has no
+namespace selector. Promotion to the final overlay requires a literal
+full-cluster inventory gate. Any necessary exception must target a specific
+workload/service account and record owner, reason, expiry, and Platform Security
+approval; a namespace-wide final exception is not accepted.
 
 ## Migration safety
 
@@ -55,6 +57,8 @@ an owner, reason, expiry, and Platform Security approval.
    valid manifest is admitted.
 4. Remove the Gatekeeper webhook before its Service/controller, prove VAP still
    denies, then remove Gatekeeper policy resources, workloads, CRDs, and namespace.
+5. Remediate or explicitly approve system workload exceptions, require a clean
+   full-cluster inventory, then promote to `enforce-clusterwide`.
 
 There must never be a point where both VAP and Gatekeeper are non-enforcing.
 Existing workloads are not killed by a binding action change; rollout remains
@@ -76,11 +80,13 @@ blocked whenever application health or SLO evidence is not clean.
 |---|---|---|
 | Legacy Gatekeeper baseline | PASS - three deny constraints, zero violations | 2026-07-17 |
 | VAP base/audit/enforce render | PASS locally | 2026-07-18 |
+| VAP enforce-clusterwide render | PASS locally - three Deny bindings, no namespace selector | 2026-07-18 |
 | EKS 1.36 server-side dry-run of three policies | PASS | 2026-07-18 |
-| Full live inventory | PASS - 135 objects, 191 containers, zero violations | 2026-07-18 |
+| Non-system live inventory | PASS - 171 objects, 231 containers, zero violations | 2026-07-18 |
+| Literal full-cluster inventory | FAIL - 264 violations across 217 workload objects | 2026-07-18 |
 | Native fixture suite on disposable cluster | PASS - valid Pod/Deployment/Job/CronJob admitted; invalid root, UID 0, capability, image, resources, CREATE and UPDATE denied | Minikube v1.35.1; 2026-07-18 |
 | Audit overlay behavior on disposable cluster | PASS - invalid root admitted with native VAP warning after binding cache propagation | Minikube v1.35.1; 2026-07-18 |
-| VAP audit conditions and warning observation | Pending Phase 2 | Pending |
+| VAP audit conditions and warning observation | PASS - Phase 2 completed; audit bindings retired after enforce promotion | 2026-07-18 |
 | VAP deny CREATE/UPDATE mentor demo | Pending Phase 3 | Pending |
 | Gatekeeper retirement inventory | Pending Phase 4 | Pending |
 | Storefront/private ops/flagd/SLO regression | Pending each production phase | Pending |
