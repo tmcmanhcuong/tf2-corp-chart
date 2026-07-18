@@ -30,6 +30,8 @@ mem0:
   enabled: true
   runtimeRemoteKey: techx-corp/production/mem0
   # Prefer full ARN from: terraform output mem0_postgresql_master_user_secret_arn
-  # Name form is OK once IAM lists that secret's full ARN.
-  masterRemoteKey: "rds!db-012e983a-9341-49cf-8a12-5928f016905d"
-# Change trail: @hungxqt - 2026-07-18 - Mem0 master ES username/password only; document ESO ARN IAM.
+  # MUST be the Mem0 instance secret (master user mem0_admin), NOT commerce
+  # techx-prod-tf2-postgresql (postgres_admin / rds!db-012e983a-...).
+  # Current Mem0 RDS: techx-prod-tf2-mem0-postgres → rds!db-380876ae-...
+  masterRemoteKey: "rds!db-380876ae-6adf-417d-8234-395538d8a904"
+# Change trail: @hungxqt - 2026-07-19 - Point Mem0 master ES at mem0 RDS secret, not commerce postgres.
