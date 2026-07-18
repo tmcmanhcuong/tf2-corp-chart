@@ -10,7 +10,7 @@
     {{- $config := set . "serviceAccount" $.Values.serviceAccount }}
     {{- $config := set . "observability" $.Values.observability }}
     {{- $config := set . "defaultValues" $.Values.default }}
-    {{- $config := set . "skipPgInit" (not (default dict $.Values.components.postgresql).enabled) }}
+    {{- $_ := set . "skipPgInit" (not (default dict $.Values.components.postgresql).enabled) }}
 
     {{- if $config.enabled -}}
         {{- include "techx-corp.deployment" $config -}}
