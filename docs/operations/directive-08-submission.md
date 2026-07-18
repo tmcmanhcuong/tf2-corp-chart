@@ -4,7 +4,7 @@
 
 ---
 
-## 1. Bằng chứng 3 Store đang chạy trên Managed Service (Không còn Pod Data tự host)
+## 1. Evidence of 3 Managed Service Stores (No Self-hosted Data Pods Remaining)
 
 ### 1.1 PostgreSQL → AWS RDS
 | Item | Value |
@@ -13,11 +13,11 @@
 | Engine | PostgreSQL 16 |
 | Instance | `db.t3.micro` (Single-AZ) |
 | Encryption at rest | KMS CMK |
-| TLS in-transit | `sslmode=require` bắt buộc trên tất cả microservices |
+| TLS in-transit | Forced `sslmode=require` across all microservices |
 | Secret | `techx-corp/production/postgresql-app` (Secrets Manager / ESO) |
-| In-cluster pod | **Đã xóa / disable hoàn toàn (`postgresql-0` is gone)** |
+| In-cluster pod | **Fully disabled/removed (`postgresql-0` is gone)** |
 
-**Apps trỏ vào RDS:** `product-catalog`, `product-reviews`, `accounting`, `mem0`
+**Apps pointing to RDS:** `product-catalog`, `product-reviews`, `accounting`, `mem0`
 
 ---
 
@@ -30,9 +30,9 @@
 | Encryption at rest | KMS CMK |
 | TLS in-transit | Enabled + Auth Token (`VALKEY_PASSWORD`) |
 | Secret | `techx-corp-valkey-cart` (Secrets Manager / ESO) |
-| In-cluster pod | **Đã xóa / disable hoàn toàn (`valkey-cart-0` is gone)** |
+| In-cluster pod | **Fully disabled/removed (`valkey-cart-0` is gone)** |
 
-**Apps trỏ vào ElastiCache:** `cart`, `fraud-detection`
+**Apps pointing to ElastiCache:** `cart`, `fraud-detection`
 
 ---
 
@@ -44,13 +44,13 @@
 | Brokers | 2x `kafka.m5.large` |
 | Encryption at rest | KMS CMK |
 | SCRAM Secret | `AmazonMSK_techx-prod-tf2_app` (Secrets Manager) |
-| In-cluster pod | **Đã xóa / disable hoàn toàn (`kafka-0` is gone)** |
+| In-cluster pod | **Fully disabled/removed (`kafka-0` is gone)** |
 
-**Apps trỏ vào MSK:** `checkout`, `accounting`, `fraud-detection`
+**Apps pointing to MSK:** `checkout`, `accounting`, `fraud-detection`
 
 ---
 
-## 2. Data Parity (Đồng bộ & Kiểm tra Dữ liệu)
+## 2. Data Parity (Synchronization & Verification)
 
 ### 2.1 PostgreSQL — Row Count Verification
 
@@ -62,33 +62,33 @@
 | `accounting` | `orderitem` | 0 | 0 | 0 | ✅ PARITY MATCH |
 | `accounting` | `shipping` | 0 | 0 | 0 | ✅ PARITY MATCH |
 
-**Phương pháp:** `pg_dump -Fc` từ in-cluster pod → `pg_restore` vào RDS PostgreSQL.  
-Tất cả 50 reviews và 10 products gốc đều giữ nguyên ID, checksum và foreign key integrity.
+**Method:** Executed `pg_dump -Fc` from the in-cluster pod → `pg_restore` into the RDS PostgreSQL.  
+All 50 reviews and 10 catalog products preserved their IDs, checksums, and foreign key integrity.
 
 ### 2.2 Kafka / MSK — Topic & Partition Parity
 - **Topics created on MSK:** `orders`, `orders-approved`, `orders-cancelled`.
-- **Outbox Pattern:** `checkout` lưu đơn hàng vào DynamoDB Outbox trước khi publish sang MSK, đảm bảo 0 đơn hàng bị thất lạc trong quá trình cutover.
-- **Verification:** `checkout` đã ghi thành công messages sang MSK (`Successful to write message`), `accounting` và `fraud-detection` đã consume messages bình thường.
+- **Outbox Pattern:** `checkout` persists orders into DynamoDB Outbox before publishing to MSK, guaranteeing 0 order loss during the cutover window.
+- **Verification:** `checkout` successfully writes messages to MSK (`Successful to write message`), and `accounting` + `fraud-detection` consume events normally.
 
 ### 2.3 ElastiCache Valkey
-- `cart` service và `fraud-detection` (velocity check) đã kết nối tới Valkey cluster với SSL + Auth token.
-- Cart Success rate trên Grafana đạt **100.000%**.
+- `cart` service and `fraud-detection` (velocity check) successfully connect to the Valkey cluster via SSL + Auth token.
+- Cart Success Rate on Grafana is maintained at **100.000%**.
 
 ### 2.4 SLO Audit & Trace Evidence during Migration (17:05 - 18:05 ICT)
-Để chứng minh việc di trú dữ liệu PostgreSQL sang RDS hoàn toàn **không gây downtime** hoặc suy giảm SLO của khách hàng, các minh chứng sau được ghi nhận:
+To prove that the PostgreSQL data migration to RDS caused **zero downtime** and did not impact client SLOs, the following evidence has been compiled:
 
 #### 📊 Prometheus SLO Metrics Audit:
-* **Lọc lỗi HTTP 5xx:** Lệnh truy vấn dưới đây trả về **0 mẫu lỗi** (`Empty Set`):
+* **HTTP 5xx Errors Filter:** The PromQL query below returned **0 error samples** (`Empty Set`):
   ```promql
   sum(rate(http_server_request_duration_seconds_count{status=~'5..'}[5m]))
   ```
 * **Traffic Volume & Success Rate:**
-  - **17:05 ICT:** `0.941 req/s` (HTTP 2xx) | Lỗi 5xx: **0** | SLO: **`100.000%`**
-  - **17:50 ICT:** `3.108 req/s` (HTTP 2xx) | Lỗi 5xx: **0** | SLO: **`100.000%`**
-  - **18:05 ICT:** `2.465 req/s` (HTTP 2xx) | Lỗi 5xx: **0** | SLO: **`100.000%`**
+  - **17:05 ICT:** `0.941 req/s` (HTTP 2xx) | 5xx Errors: **0** | SLO: **`100.000%`**
+  - **17:50 ICT:** `3.108 req/s` (HTTP 2xx) | 5xx Errors: **0** | SLO: **`100.000%`**
+  - **18:05 ICT:** `2.465 req/s` (HTTP 2xx) | 5xx Errors: **0** | SLO: **`100.000%`**
 
 #### 📋 Checkout Microservice Transaction Trace Log:
-Logs giao dịch đặt hàng thực tế chạy song song ổn định tại thời điểm di trú database:
+Active and successful transactional orders running concurrently during the database migration window:
 ```json
 {"time":"2026-07-18T16:09:14.816Z","level":"INFO","msg":"[PlaceOrder]","user_id":"057ff768-82c3-11f1-9725-f67806f64899","user_currency":"USD"}
 {"time":"2026-07-18T16:09:14.838Z","level":"INFO","msg":"payment went through","transaction_id":"222b5d43-417e-4418-923d-d724a4532bc5"}
@@ -100,38 +100,38 @@ Logs giao dịch đặt hàng thực tế chạy song song ổn định tại th
 
 ## 3. Security & Compliance Verification
 
-1. **Private Endpoints**: RDS, ElastiCache Valkey, và MSK đều nằm trong Private Subnets, chỉ cho phép Inbound Security Group từ EKS Worker Nodes.
+1. **Private Endpoints**: RDS, ElastiCache Valkey, and MSK are deployed in Private Subnets, allowing only inbound security group access from EKS Worker Nodes.
 2. **Encryption in Transit**:
-   - PostgreSQL: `sslmode=require` trên DSN connection strings.
-   - Valkey: TLS in-transit + AUTH token password từ AWS Secrets Manager (`techx-corp-valkey-cart`).
+   - PostgreSQL: `sslmode=require` on DSN connection strings.
+   - Valkey: TLS in-transit + AUTH token password from AWS Secrets Manager (`techx-corp-valkey-cart`).
    - MSK: TLS port 9096 + SCRAM-SHA-512 SASL authentication.
-3. **Encryption at Rest**: Tất cả storage volumes của RDS, ElastiCache, và MSK đều được mã hóa bằng AWS KMS Customer Managed Keys.
-4. **Secret Management**: Không có bất kỳ credential/password nào để ở dạng plaintext trong values hoặc env vars; 100% inject qua External Secrets Operator (ESO) và Kubernetes Secrets.
+3. **Encryption at Rest**: All storage volumes of RDS, ElastiCache, and MSK are encrypted using AWS KMS Customer Managed Keys.
+4. **Secret Management**: No credentials or passwords are stored in plaintext within values or env vars; 100% injected via External Secrets Operator (ESO) and Kubernetes Secrets.
 
 ---
 
 ## 4. Cost Optimization & Right-Sizing
 
-- **RDS PostgreSQL:** Sử dụng `db.t3.micro` Single-AZ cho môi trường capstone để tối ưu chi phí trong ngân sách ~$300/tuần/TF.
-- **ElastiCache Valkey:** Sử dụng `cache.t4g.micro` Single-AZ Graviton2 instance.
-- **MSK Cluster:** 2-broker `kafka.m5.large` cluster nằm trong private subnets.
+- **RDS PostgreSQL:** Uses `db.t3.micro` Single-AZ to optimize costs within the ~$300/week/TF capstone budget.
+- **ElastiCache Valkey:** Uses `cache.t4g.micro` Single-AZ Graviton2 instance.
+- **MSK Cluster:** Uses 2-broker `kafka.m5.large` cluster inside private subnets.
 
 ---
 
 ## 5. Rollback Plan
 
 ### 5.1 Rollback PostgreSQL → In-cluster Pod
-1. Đổi `components.postgresql.enabled: true` trong `values-prod.yaml`.
-2. Chạy `pg_dump` từ RDS và `pg_restore` về lại pod in-cluster.
-3. Cập nhật connection string về internal DNS `postgresql:5432`.
+1. Re-enable postgresql component: Set `components.postgresql.enabled: true` in `values-prod.yaml`.
+2. Dump schema/data from RDS PostgreSQL and restore to the local in-cluster pod.
+3. Update connection string back to the internal DNS `postgresql:5432`.
 
 ### 5.2 Rollback Valkey / Kafka
-1. Bật lại component `valkey-cart` / `kafka` trong Helm values-prod.
-2. Trỏ env var `REDIS_ADDR` và `KAFKA_ADDR` về lại service internal ClusterIP.
+1. Re-enable components: Set `valkey-cart` / `kafka` to `enabled: true` in Helm values-prod.yaml.
+2. Revert env vars `REDIS_ADDR` and `KAFKA_ADDR` back to the internal ClusterIP services.
 
 ---
 
-## 6. Trạng thái GitOps & Branch Merge
-- Repository `tf2-corp-platform`: Nhánh `feat/directive-08-managed-data` đã merge vào `main` (commit `86f5f7c`).
-- Repository `tf2-corp-chart`: Nhánh `feat/directive-08-managed-data` đã merge vào `main` (commit `1d147e8`).
+## 6. GitOps & Branch Merge Status
+- Repository `tf2-corp-platform`: Nhánh `feat/directive-08-managed-data` merged to `main` (commit `86f5f7c`).
+- Repository `tf2-corp-chart`: Nhánh `feat/directive-08-managed-data` merged to `main` (commit `7605191` via PR #124).
 - Argo CD Application `techx-corp` & `techx-corp-secrets`: `targetRevision: main`, `Sync Status: Synced`, `Health: Healthy`.
