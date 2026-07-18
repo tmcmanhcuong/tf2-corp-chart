@@ -50,6 +50,22 @@ The inventory script excludes no namespace by default. A non-empty
 `-ExcludedNamespaces` value is break-glass evidence only and must record owner,
 reason, expiry, and Platform Security approval.
 
+The script validates every supported controller, ReplicaSet, Job, and live Pod.
+It follows Kubernetes `ownerReferences` by UID and groups duplicate findings by
+the root owner, container, and rule. Owned Pods and ReplicaSets are not skipped:
+they remain part of the compliance result so an old ReplicaSet, mutated Pod, or
+incomplete rollout cannot be hidden by a clean current template. Inventory
+failure output distinguishes:
+
+- raw violations across all checked objects;
+- distinct violating objects and running Pods;
+- owner-level remediation groups;
+- runtime drift groups, where a child object violates but its root template does
+  not.
+
+Use remediation groups to plan fixes, but require raw violations and runtime
+drift to reach zero before final cluster-wide acceptance.
+
 After changing bindings, poll the live binding list and allow admission cache
 propagation before collecting evidence. An immediately following request can
 briefly observe the previous binding action.

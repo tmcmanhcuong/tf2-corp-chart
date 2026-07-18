@@ -83,7 +83,7 @@ blocked whenever application health or SLO evidence is not clean.
 | VAP enforce-clusterwide render | PASS locally - three Deny bindings, no namespace selector | 2026-07-18 |
 | EKS 1.36 server-side dry-run of three policies | PASS | 2026-07-18 |
 | Non-system live inventory | PASS - 171 objects, 231 containers, zero violations | 2026-07-18 |
-| Literal full-cluster inventory | FAIL - 264 violations across 217 workload objects | 2026-07-18 |
+| Literal full-cluster inventory | FAIL - 264 raw violations across 39 violating objects; 53 root-owner remediation groups, 26 violating running Pods, zero runtime-drift groups; 218 workload objects checked in the latest run (checked count varies during rollouts) | 2026-07-18 |
 | Native fixture suite on disposable cluster | PASS - valid Pod/Deployment/Job/CronJob admitted; invalid root, UID 0, capability, image, resources, CREATE and UPDATE denied | Minikube v1.35.1; 2026-07-18 |
 | Audit overlay behavior on disposable cluster | PASS - invalid root admitted with native VAP warning after binding cache propagation | Minikube v1.35.1; 2026-07-18 |
 | VAP audit conditions and warning observation | PASS - Phase 2 completed; audit bindings retired after enforce promotion | 2026-07-18 |
