@@ -255,6 +255,18 @@ components:
     autoscaling:
       minReplicas: 2
     schedulingRules: *directive03-hard-spread
+  postgresql:
+    command:
+      - docker-entrypoint.sh
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=4
+      - -c
+      - max_wal_senders=4
 
   # Locust distributed: keep master up while active load testing (base values idle at 0).
   # Scale back to 0 when tests stop to save Spot capacity.
