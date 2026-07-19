@@ -123,8 +123,6 @@ components:
         image: busybox:1.37.0
         command: ["sh", "-c", "until nc -z -v -w5 valkey-cart.techx.internal 6379; do echo waiting for managed Valkey; sleep 2; done;"]
   checkout:
-    imageOverride:
-      tag: "sha-033949b"
     autoscaling:
       minReplicas: 2
     schedulingRules: *directive03-hard-spread
@@ -160,8 +158,6 @@ components:
     initContainers: []
   
   accounting:
-    imageOverride:
-      tag: "sha-59fb903"
     envOverrides:
       - name: KAFKA_ADDR
         valueFrom:
@@ -365,8 +361,6 @@ components:
         service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
 
   load-generator-worker:
-    imageOverride:
-      repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp/load-generator
     envOverrides:
       - name: LOCUST_EXCLUDE_TAGS
         value: ai
@@ -445,4 +439,4 @@ opentelemetry-collector:
           value: techx-corp-prod
           action: upsert
 
-# Change trail: @hungxqt - 2026-07-18 - Fix mem0 masterSecretName to K8s name, not ASM rds!db id.
+# Change trail: @hungxqt - 2026-07-19 - Remove per-service imageOverride pins; use global default.image only.
