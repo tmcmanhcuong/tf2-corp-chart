@@ -62,7 +62,11 @@
 | `accounting` | `orderitem` | 0 | 0 | 0 | ✅ PARITY MATCH |
 | `accounting` | `shipping` | 0 | 0 | 0 | ✅ PARITY MATCH |
 
-**Method:** Executed `pg_dump -Fc` from the in-cluster pod → `pg_restore` into the RDS PostgreSQL.  
+**Method & Migration Tools:**
+1. **AWS Network Transit Service:** Provisioned a temporary AWS Network Load Balancer (NLB) service named `postgresql-migration-lb` configured inside the private subnets. This NLB exposed the internal K8s PostgreSQL cluster pod port `5432` securely to the migration runner client.
+2. **Data Extraction & Restoration Utility:** Executed `pg_dump -Fc` from the migration runner via the NLB endpoint to dump the schema and table data from the in-cluster PostgreSQL pod, followed by `pg_restore` targeting the new AWS RDS PostgreSQL Instance (Engine v16.3).
+3. **Data Parity Checks:** Validated row counts of the migrated tables (`catalog.products`, `reviews.productreviews`) between source and destination using the automated `pg-parity` Kubernetes verification job.
+
 All 50 reviews and 10 catalog products preserved their IDs, checksums, and foreign key integrity.
 
 ### 2.2 Kafka / MSK — Topic & Partition Parity
