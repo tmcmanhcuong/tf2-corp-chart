@@ -14,10 +14,9 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: gatekeeper-system
+  # Phase 4 retirement gate: keep controller changes manual during the
+  # fail-closed webhook removal window. Root-prod still owns this Application.
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true
     retry:
