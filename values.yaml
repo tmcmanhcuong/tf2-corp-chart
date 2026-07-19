@@ -259,8 +259,11 @@ components:
   #   useDefault:
   ## Use default environment variables
   #     env: true
-  ## Override Image repository and Tag. Tag will use appVersion as default.
-  ## Component's name will be applied to end of this value.
+  ## Image overrides (optional):
+  ##   imageOverride.repository + optional tag — full image path (third-party images).
+  ##   imageOverride.name — ECR service segment only; keeps default.image.repository/tag
+  ##     (use when K8s component name ≠ bake/ECR service name, e.g. load-generator-worker).
+  ##   imageOverride.tag alone — pin tag while keeping default repository + component name.
   #   imageOverride: {}
   ## Optional service definitions to apply
   #   service:
@@ -1125,8 +1128,10 @@ components:
     replicas: 0
     useDefault:
       env: true
+    # Same Locust image as load-generator master. ECR catalog has only "load-generator"
+    # (no load-generator-worker repo). name remaps the path segment; project + tag stay global.
     imageOverride:
-      repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-corp/load-generator
+      name: load-generator
     # Workers on Karpenter Spot: pack onto one node first (cost), keep off storefront nodes.
     # Affinity fully replaces default; restate preferred Spot capacity-type here.
     # topologySpreadConstraints: [] opts out of default soft multi-node/AZ spreads.
@@ -2902,4 +2907,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-18 - Mem0 defaults inherit global image tag; FastEmbed uses s3Prefix+tag.
+# Change trail: @hungxqt - 2026-07-19 - load-generator-worker uses imageOverride.name=load-generator (not hardcoded techx-corp path).

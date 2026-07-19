@@ -119,11 +119,14 @@ spec:
       {{- end }}
       containers:
         - name: {{ .name }}
-          {{- /* Default: REGISTRY/PROJECT/SERVICE:VERSION  |  Override: repository:tag as given */ -}}
+          {{- /* Default: REGISTRY/PROJECT/SERVICE:VERSION
+               Full override: imageOverride.repository (+ optional tag)
+               Service rename only: imageOverride.name keeps default.image.repository/tag
+               (e.g. load-generator-worker → …/load-generator:<global-tag>) */ -}}
           {{- if ((.imageOverride).repository) }}
           image: '{{ .imageOverride.repository }}:{{ ((.imageOverride).tag) | default (default .Chart.AppVersion .defaultValues.image.tag) }}'
           {{- else }}
-          image: '{{ .defaultValues.image.repository }}/{{ .name }}:{{ ((.imageOverride).tag) | default (default .Chart.AppVersion .defaultValues.image.tag) }}'
+          image: '{{ .defaultValues.image.repository }}/{{ ((.imageOverride).name) | default .name }}:{{ ((.imageOverride).tag) | default (default .Chart.AppVersion .defaultValues.image.tag) }}'
           {{- end }}
           imagePullPolicy: {{ ((.imageOverride).pullPolicy) | default .defaultValues.image.pullPolicy }}
           {{- if .command }}
@@ -206,7 +209,7 @@ spec:
           {{- if ((.imageOverride).repository) }}
           image: '{{ .imageOverride.repository }}:{{ ((.imageOverride).tag) | default (default .Chart.AppVersion .defaultValues.image.tag) }}'
           {{- else }}
-          image: '{{ .defaultValues.image.repository }}/{{ .name }}:{{ ((.imageOverride).tag) | default (default .Chart.AppVersion .defaultValues.image.tag) }}'
+          image: '{{ .defaultValues.image.repository }}/{{ ((.imageOverride).name) | default .name }}:{{ ((.imageOverride).tag) | default (default .Chart.AppVersion .defaultValues.image.tag) }}'
           {{- end }}
           imagePullPolicy: {{ ((.imageOverride).pullPolicy) | default .defaultValues.image.pullPolicy }}
           {{- if .command }}
@@ -589,4 +592,4 @@ spec:
     matchLabels:
       {{- include "techx-corp.selectorLabels" . | nindent 6 }}
 {{- end }}
-{{/* Change trail: @hungxqt - 2026-07-16 - StatefulSet serviceName required; match live opensearch after 0.48.7 apply. */}}
+{{/* Change trail: @hungxqt - 2026-07-19 - Support imageOverride.name for service-segment remap without full repository pin. */}}
