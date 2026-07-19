@@ -1,13 +1,18 @@
 # Cluster-wide system exception candidates
 
 - Date: 2026-07-19
-- Status: Pending Platform Security approval
+- Status: Resource prerequisites complete; pending Platform Security approval
 - Scope: production `kube-system` workloads that require kernel or low-port
   privileges and cannot satisfy the generic non-root/drop-all rule.
 
 These are candidate exceptions, not active policy exclusions. An exception may
 be activated only after resource remediation is deployed, the full inventory is
 rerun, and Platform Security signs the exact identity and rule set.
+
+The resource prerequisite and full inventory rerun completed on 2026-07-19.
+The inventory has zero resource, image, and runtime-drift groups. The remaining
+190 raw findings are the security-context behaviors listed below. Approval is
+still required before any exception becomes active.
 
 | Workload | Service account | Required exception | Reason | Owner | Expiry | Approval |
 |---|---|---|---|---|---|---|
@@ -21,3 +26,6 @@ rerun, and Platform Security signs the exact identity and rule set.
 Final policy matching must include namespace, workload identity, service account,
 and stable vendor labels. It must not exclude all of `kube-system`. New workloads
 or label/service-account drift must remain denied.
+
+The exact live identities, per-rule scope, and required negative tests are in
+[`08-system-exception-approval-packet.md`](08-system-exception-approval-packet.md).
