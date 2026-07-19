@@ -26,3 +26,6 @@ still required before any exception becomes active.
 Final policy matching must include namespace, workload identity, service account,
 and stable vendor labels. It must not exclude all of `kube-system`. New workloads
 or label/service-account drift must remain denied.
+
+The exact live identities, per-rule scope, and required negative tests are in
+[`08-system-exception-approval-packet.md`](08-system-exception-approval-packet.md).
