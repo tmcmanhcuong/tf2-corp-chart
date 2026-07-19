@@ -1485,8 +1485,8 @@ components:
             "until nc -z -v -w30 postgresql 5432; do echo waiting for postgresql; sleep 2; done;",
           ]
 
-  # Enable in an environment overlay only after its ExternalSecret contains
-  # OPENAI_API_KEY.
+  # Enable in an environment overlay after its provider and IRSA configuration
+  # have been applied.
   shopping-copilot:
     enabled: false
     serviceAccount:
