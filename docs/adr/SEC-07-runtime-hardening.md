@@ -97,6 +97,7 @@ blocked whenever application health or SLO evidence is not clean.
 | Phase 3B system resource remediation | PASS - VPC CNI, CoreDNS, kube-proxy, EBS CSI, Karpenter, and AWS Load Balancer Controller rolled out with complete requests/limits; zero resource, image, or runtime-drift groups remain ([evidence](evidence/sec-07/07-system-resources-rollout-proof.md)) | 2026-07-19 |
 | Phase 3B post-remediation full inventory | EXPECTED EXCEPTIONS ONLY - 190 raw security-context findings across 33 objects and 33 root-owner groups; 25 running Pods; zero resource, image, or runtime-drift groups | 2026-07-19 |
 | Phase 3B exact system exceptions | READY FOR APPROVAL - six workload/service-account candidates documented; no namespace-wide exception and no candidate is active ([candidates](evidence/sec-07/06-system-exception-candidates.md)) | Pending Platform Security approval |
+| Phase 3B exception implementation test | PASS PRE-APPROVAL - all six exact workload and Pod profiles admitted on disposable Kubernetes v1.35.1; wrong owner, service account, stable label, capability set, image, resources, and container set denied ([evidence](evidence/sec-07/09-system-exception-preapproval-test.md)) | 2026-07-19 |
 
 Historical Gatekeeper screenshots remain under `docs/adr/evidence/sec-07/` as
 pre-migration evidence. Final acceptance must capture VAP denial output naming
