@@ -296,6 +296,14 @@ components:
     modelDelivery:
       s3Uri: s3://techx-prod-tf2-ai-models-493499579600/protectai/deberta-v3-base-prompt-injection-v2/89b085cd330414d3e7d9dd787870f315957e1e9f/artifacts/c6197e30a2dd6dd6ce7488cc775c7ae3f10b21df29192c085992f75befeedc50/model.tar.gz
     initContainers: []
+  shopping-copilot:
+    # The promoted platform image and IRSA policy are ready for Bedrock Nova.
+    enabled: true
+    serviceAccount:
+      annotations:
+        eks.amazonaws.com/role-arn: arn:aws:iam::493499579600:role/techx-prod-tf2-shopping-copilot-model-read
+    modelDelivery:
+      s3Uri: s3://techx-prod-tf2-ai-models-493499579600/protectai/deberta-v3-base-prompt-injection-v2/89b085cd330414d3e7d9dd787870f315957e1e9f/artifacts/c6197e30a2dd6dd6ce7488cc775c7ae3f10b21df29192c085992f75befeedc50/model.tar.gz
   quote:
     autoscaling:
       minReplicas: 2
