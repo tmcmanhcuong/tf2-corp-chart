@@ -278,6 +278,9 @@
         "product-reviews": {
           "$ref": "#/definitions/Component"
         },
+        "shopping-copilot": {
+          "$ref": "#/definitions/Component"
+        },
         "quote": {
           "$ref": "#/definitions/Component"
         },

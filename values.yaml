@@ -797,6 +797,8 @@ components:
         value: product-catalog:8080
       - name: PRODUCT_REVIEWS_ADDR
         value: product-reviews:3551
+      - name: SHOPPING_COPILOT_ADDR
+        value: shopping-copilot:3552
       - name: RECOMMENDATION_ADDR
         value: recommendation:8080
       - name: SHIPPING_ADDR
@@ -1482,6 +1484,93 @@ components:
             "-c",
             "until nc -z -v -w30 postgresql 5432; do echo waiting for postgresql; sleep 2; done;",
           ]
+
+  # Enable in an environment overlay only after its ExternalSecret contains
+  # OPENAI_API_KEY.
+  shopping-copilot:
+    enabled: false
+    serviceAccount:
+      create: true
+      name: shopping-copilot
+      annotations:
+        eks.amazonaws.com/role-arn: arn:aws:iam::493499579600:role/techx-dev-tf2-shopping-copilot-model-read
+    modelDelivery:
+      enabled: true
+      awsRegion: us-east-1
+      fetcherImage: public.ecr.aws/aws-cli/aws-cli:2.27.49
+      extractorImage: busybox:1.37.0
+      s3Uri: s3://techx-dev-tf2-ai-models-493499579600/protectai/deberta-v3-base-prompt-injection-v2/89b085cd330414d3e7d9dd787870f315957e1e9f/model.tar.gz
+      mountPath: /models/huggingface
+      cacheSizeLimit: 2Gi
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    useDefault:
+      env: true
+    startupProbe:
+      grpc:
+        port: 3552
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 24
+    readinessProbe:
+      grpc:
+        port: 3552
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: 3552
+      periodSeconds: 20
+      timeoutSeconds: 3
+      failureThreshold: 5
+    service:
+      port: 3552
+    env:
+      - name: SHOPPING_COPILOT_PORT
+        value: "3552"
+      - name: OPENAI_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: techx-corp-shopping-copilot
+            key: OPENAI_API_KEY
+      - name: LLM_MODEL
+        value: techx-llm
+      - name: LLM_BASE_URL
+        value: http://llm:8000/v1
+      - name: PRODUCT_CATALOG_ADDR
+        value: product-catalog:8080
+      - name: PRODUCT_REVIEWS_ADDR
+        value: product-reviews:3551
+      - name: CART_ADDR
+        value: cart:8080
+      - name: VALKEY_ADDR
+        value: valkey-cart:6379
+      - name: GRPC_MAX_WORKERS
+        value: "16"
+      - name: PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION
+        value: python
+      - name: OTEL_PYTHON_LOG_CORRELATION
+        value: "true"
+      - name: OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT
+        value: "false"
+      - name: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: http://$(OTEL_COLLECTOR_NAME):4317
+    resources:
+      requests:
+        cpu: 250m
+        memory: 1Gi
+      limits:
+        cpu: "1"
+        memory: 2Gi
+    mountedEmptyDirs:
+      - name: tmp-dir
+        mountPath: /tmp
 
   quote:
     enabled: true
