@@ -930,7 +930,7 @@ spec:
           port: 4317
         - protocol: TCP
           port: 4318
-    # Guardrail artifact S3 download and Groq HTTPS requests.
+    # Guardrail artifact S3 download and Bedrock Runtime HTTPS requests.
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
