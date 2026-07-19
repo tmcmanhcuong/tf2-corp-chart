@@ -53,16 +53,16 @@
 ## Test results
 
 | Users | Duration | Average RPS | Flow | Requests | Failures | p95 | p99 | Nodes min/max | Pods min/max | Result |
-|---:|---:|---:|---|---:|---:|---:|---:|---:|---|
-| 200 | 20m | TODO | Browse | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| 200 | 20m | TODO | Cart | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| 200 | 20m | TODO | Checkout | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| 300 | 20m | TODO | Browse | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| 300 | 20m | TODO | Cart | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| 300 | 20m | TODO | Checkout | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| 400 | 20m | TODO | Browse | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| 400 | 20m | TODO | Cart | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| 400 | 20m | TODO | Checkout | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+|---:|---:|---:|---|---:|---:|---:|---:|---|---|---|
+| 200 | 11m12s | 39.27 | Browse | 12,638 | 0 | 25 ms | 190 ms | 7/7 | 49/52 | Passed latency budget; test later aborted due to Email OOM |
+| 200 | 11m12s | 39.27 | Cart | 4,874 | 0 | 14 ms | 47 ms | 7/7 | 49/52 | Passed latency budget before abort |
+| 200 | 11m12s | 39.27 | Checkout | 1,615 | 0 | 1,600 ms | 4,700 ms | 7/7 | 49/52 | Failed latency budget; test aborted |
+| 300 | 20m | TODO | Browse | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
+| 300 | 20m | TODO | Cart | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
+| 300 | 20m | TODO | Checkout | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
+| 400 | 20m | TODO | Browse | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
+| 400 | 20m | TODO | Cart | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
+| 400 | 20m | TODO | Checkout | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
 
 ## Breakpoint
 
