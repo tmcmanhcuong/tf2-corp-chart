@@ -867,6 +867,7 @@
             "pointSize": 5,
             "showPoints": "never",
             "spanNulls": false,
+            "axisSoftMax": 330,
             "thresholdsStyle": { "mode": "line" }
           },
           "thresholds": {
@@ -912,6 +913,7 @@
             "pointSize": 5,
             "showPoints": "never",
             "spanNulls": false,
+            "axisSoftMax": 770,
             "thresholdsStyle": { "mode": "line" }
           },
           "thresholds": {
@@ -957,6 +959,7 @@
             "pointSize": 5,
             "showPoints": "never",
             "spanNulls": false,
+            "axisSoftMax": 330,
             "thresholdsStyle": { "mode": "line" }
           },
           "thresholds": {
@@ -1002,6 +1005,7 @@
             "pointSize": 5,
             "showPoints": "never",
             "spanNulls": false,
+            "axisSoftMax": 770,
             "thresholdsStyle": { "mode": "line" }
           },
           "thresholds": {
@@ -1047,6 +1051,7 @@
             "pointSize": 5,
             "showPoints": "never",
             "spanNulls": false,
+            "axisSoftMax": 550,
             "thresholdsStyle": { "mode": "line" }
           },
           "thresholds": {
@@ -1092,6 +1097,7 @@
             "pointSize": 5,
             "showPoints": "never",
             "spanNulls": false,
+            "axisSoftMax": 1100,
             "thresholdsStyle": { "mode": "line" }
           },
           "thresholds": {
