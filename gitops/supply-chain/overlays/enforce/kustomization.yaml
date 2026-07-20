@@ -4,19 +4,23 @@ kind: Kustomization
 resources:
   - ../../base
 
-patchesStrategicMerge:
-  - service-account-patch.yaml
-
-helmCharts:
-  - name: policy-controller
-    repo: https://sigstore.github.io/helm-charts
-    version: 0.9.0
-    releaseName: policy-controller
-    namespace: cosign-system
-    valuesInline:
-      webhook:
-        webhookFailPolicy: Fail
-      policy-controller:
-        serviceAccount:
-          create: true
-          name: policy-controller
+patches:
+  - path: service-account-patch.yaml
+  - target:
+      group: admissionregistration.k8s.io
+      version: v1
+      kind: MutatingWebhookConfiguration
+      name: policy.sigstore.dev
+    patch: |-
+      - op: replace
+        path: /webhooks/0/failurePolicy
+        value: Fail
+  - target:
+      group: admissionregistration.k8s.io
+      version: v1
+      kind: ValidatingWebhookConfiguration
+      name: policy.sigstore.dev
+    patch: |-
+      - op: replace
+        path: /webhooks/0/failurePolicy
+        value: Fail

@@ -28,9 +28,9 @@ Tài liệu báo cáo chứng cứ nghiệm thu Mandate 10 - Chuỗi cung ứng 
     ```
 *   **Kết quả thực tế từ K8s API Server:**
     ```text
-    Error from server (Forbidden): error when creating "tests/mandate10/test-scenario-2-vap-tag-blocked.yaml": 
-    pods "test-vap-tag-blocked" is forbidden: ValidatingAdmissionPolicy 'runtime-hardening-pod.techx.io' 
-    with binding 'runtime-hardening-pod-enforce.techx.io' denied request: 
+    Error from server (Forbidden): error when creating "tests/mandate10/test-scenario-2-vap-tag-blocked.yaml":
+    pods "test-vap-tag-blocked" is forbidden: ValidatingAdmissionPolicy 'runtime-hardening-pod.techx.io'
+    with binding 'runtime-hardening-pod-enforce.techx.io' denied request:
     Container images must use a SHA-256 digest (kube-system supports fixed tags); latest and untagged images are forbidden.
     ```
 
@@ -41,9 +41,9 @@ Tài liệu báo cáo chứng cứ nghiệm thu Mandate 10 - Chuỗi cung ứng 
     ```
 *   **Kết quả thực tế từ Sigstore Admission Controller:**
     ```text
-    Error from server (Forbidden): error when creating "tests/mandate10/test-scenario-3-unsigned-digest-blocked.yaml": 
-    admission webhook "policy.sigstore.dev" denied the request: 
-    validation failed for image 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp/payment@sha256:e66264b9... 
+    Error from server (Forbidden): error when creating "tests/mandate10/test-scenario-3-unsigned-digest-blocked.yaml":
+    admission webhook "policy.sigstore.dev" denied the request:
+    validation failed for image 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp/payment@sha256:e66264b9...
     against policy 'ecr-signature-policy': no matching signatures found for authority 'key' using KMS awskms:///alias/tf2-cosign-signing-key
     ```
 

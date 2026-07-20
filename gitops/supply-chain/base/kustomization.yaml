@@ -12,8 +12,7 @@ helmCharts:
     namespace: cosign-system
     valuesInline:
       webhook:
-        webhookFailPolicy: Ignore
-      policy-controller:
         serviceAccount:
           create: true
           name: policy-controller
+        failurePolicy: Ignore
