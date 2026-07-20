@@ -16,6 +16,23 @@ helm upgrade --install techx-corp ./ -n techx-corp-prod --create-namespace \
   -f values-public-alb.yaml -f values-prod.yaml
 ```
 
+## AIOps Runtime
+
+The AIOps workload is disabled in base values. After publishing the image,
+enable `values-aiops.yaml` and set `aiops.image.repository` and
+`aiops.image.tag` for the published artifact. The opt-in workload includes an
+internal Service, readiness/liveness probes, Prometheus scrape annotations,
+read-only Kubernetes RBAC, and a persistent volume for incident and audit
+state. It intentionally runs one replica with a non-overlapping rollout because
+the current store is SQLite.
+
+Sensitive `AIOPS_*` values must come from a Kubernetes Secret referenced by
+`aiops.existingSecret`. The default policy remains `dry-run`; switching to live
+remediation is a separate operational approval. The AIOps overlay also injects
+the shared webhook secret into Grafana and provisions a dual notification route:
+the existing email receiver plus the internal AIOps webhook for warning,
+critical, SEV1, and SEV2 alerts.
+
 ## ALB-Backed Public Ingress for frontend-proxy
 
 An opt-in public ALB-backed Ingress is available to expose the storefront while securing administrative/telemetry interfaces.
