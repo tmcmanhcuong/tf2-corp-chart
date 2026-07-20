@@ -533,7 +533,7 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[2m])) by (container)",
+          "expr": "max(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[2m])) by (container)",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -545,7 +545,7 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "quantile_over_time(0.95, sum(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[2m])) by (container)[$__range:1m])",
+          "expr": "quantile_over_time(0.95, max(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[2m])) by (container)[$__range:1m])",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -557,7 +557,7 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "quantile_over_time(0.99, sum(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[2m])) by (container)[$__range:1m])",
+          "expr": "quantile_over_time(0.99, max(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[2m])) by (container)[$__range:1m])",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -569,7 +569,7 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "sum(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"}) by (container)",
+          "expr": "max(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"}) by (container)",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -581,7 +581,7 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "quantile_over_time(0.95, sum(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"}) by (container)[$__range:1m])",
+          "expr": "quantile_over_time(0.95, max(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"}) by (container)[$__range:1m])",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -593,7 +593,7 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "quantile_over_time(0.99, sum(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"}) by (container)[$__range:1m])",
+          "expr": "quantile_over_time(0.99, max(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"}) by (container)[$__range:1m])",
           "format": "table",
           "instant": true,
           "legendFormat": "",
