@@ -37,6 +37,11 @@
             },
             "tag": {
               "type": "string"
+            },
+            "digest": {
+              "type": "string",
+              "description": "Immutable mem0 image digest pin from service-digest promote.",
+              "pattern": "^sha256:[0-9a-f]{64}$"
             }
           }
         },
@@ -532,14 +537,31 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean" },
-            "awsRegion": { "type": "string" },
-            "fetcherImage": { "type": "string" },
-            "extractorImage": { "type": "string" },
-            "s3Uri": { "type": "string", "pattern": "^s3://" },
-            "mountPath": { "type": "string" },
-            "cacheSizeLimit": { "type": "string" },
-            "resources": { "$ref": "#/definitions/ContainerResources" }
+            "enabled": {
+              "type": "boolean"
+            },
+            "awsRegion": {
+              "type": "string"
+            },
+            "fetcherImage": {
+              "type": "string"
+            },
+            "extractorImage": {
+              "type": "string"
+            },
+            "s3Uri": {
+              "type": "string",
+              "pattern": "^s3://"
+            },
+            "mountPath": {
+              "type": "string"
+            },
+            "cacheSizeLimit": {
+              "type": "string"
+            },
+            "resources": {
+              "$ref": "#/definitions/ContainerResources"
+            }
           }
         },
         "livenessProbe": {
@@ -629,18 +651,6 @@
         "additionalVolumes": {
           "type": "array"
         },
-        "stateful": {
-          "type": "boolean"
-        },
-        "terminationGracePeriodSeconds": {
-          "type": "integer"
-        },
-        "volumeClaimTemplates": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        },
         "pdb": {
           "type": "object",
           "additionalProperties": false,
@@ -661,6 +671,14 @@
         },
         "autoscaling": {
           "$ref": "#/definitions/Autoscaling"
+        },
+        "sidecarImageDigests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "description": "Map of sidecar container name to image digest. Used for flagd-ui without replacing sidecarContainers."
         }
       },
       "required": [
@@ -886,7 +904,7 @@
         },
         "name": {
           "type": "string",
-          "description": "ECR service path segment override (imageOverride only). Keeps default.image.repository and tag; renames …/<component> to …/<name>."
+          "description": "ECR service path segment override (imageOverride only). Keeps default.image.repository and tag; renames \u2026/<component> to \u2026/<name>."
         },
         "tag": {
           "type": "string"
@@ -897,6 +915,11 @@
         "pullSecrets": {
           "type": "array",
           "items": {}
+        },
+        "digest": {
+          "type": "string",
+          "description": "Immutable image digest pin (sha256:\u2026). When set, templates render image@digest instead of :tag. Written under service-digest/ by platform CI.",
+          "pattern": "^sha256:[0-9a-f]{64}$"
         }
       },
       "title": "Image"
@@ -1155,7 +1178,10 @@
               }
             },
             "port": {
-              "type": ["integer", "string"]
+              "type": [
+                "integer",
+                "string"
+              ]
             }
           }
         },
@@ -1167,7 +1193,10 @@
           "additionalProperties": false,
           "properties": {
             "port": {
-              "type": ["integer", "string"]
+              "type": [
+                "integer",
+                "string"
+              ]
             },
             "service": {
               "type": "string"
@@ -1185,7 +1214,10 @@
               "type": "string"
             },
             "port": {
-              "type": ["integer", "string"]
+              "type": [
+                "integer",
+                "string"
+              ]
             }
           }
         },
@@ -1231,17 +1263,26 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["RollingUpdate", "Recreate"]
+              "enum": [
+                "RollingUpdate",
+                "Recreate"
+              ]
             },
             "rollingUpdate": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "maxUnavailable": {
-                  "type": ["integer", "string"]
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
                 },
                 "maxSurge": {
-                  "type": ["integer", "string"]
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
                 }
               }
             }
@@ -1329,8 +1370,12 @@
         },
         "targetRequestsPerSecond": {
           "oneOf": [
-            { "type": "number" },
-            { "type": "string" }
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
           ],
           "description": "Target average requests/second per pod (HPA External metric AverageValue). Requires prometheus-adapter."
         },
@@ -1375,13 +1420,19 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["Localhost", "RuntimeDefault", "Unconfined"]
+              "enum": [
+                "Localhost",
+                "RuntimeDefault",
+                "Unconfined"
+              ]
             },
             "localhostProfile": {
               "type": "string"
             }
           },
-          "required": ["type"]
+          "required": [
+            "type"
+          ]
         }
       }
     },
@@ -1431,13 +1482,19 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["Localhost", "RuntimeDefault", "Unconfined"]
+              "enum": [
+                "Localhost",
+                "RuntimeDefault",
+                "Unconfined"
+              ]
             },
             "localhostProfile": {
               "type": "string"
             }
           },
-          "required": ["type"]
+          "required": [
+            "type"
+          ]
         }
       }
     }
