@@ -111,13 +111,49 @@
 - Add `05-grafana-resources.png` for node count, pod count, CPU, and memory over the same window.
 - Rename `locust_stats-aborted.csv` to `locust_stats.csv`; Run 200-02 was completed, not aborted.
 
+### Run 300-01 - Invalid due to Load Generator Worker scale-down
+
+- Evidence: `docs/evidence/mandate-16/tail-latency/300-users-run-01`
+- Warm-up started: 2026-07-20T12:51:03+07:00
+- Measurement started: 2026-07-20T12:55:16+07:00
+- Measurement ended: 2026-07-20T13:18:12+07:00
+- Recorded measurement window: 22m56s
+- Status: Invalid; rerun required
+
+#### Invalidity reason
+
+- Locust reached 300 users at approximately 12:50 and held that load only until approximately 13:05.
+- During the measurement window, HPA scaled the Load Generator Worker Deployment from 5 to 4 and then from 4 to 3 replicas because its CPU metric fell below target.
+- When one worker was removed, the displayed Locust load dropped from 300 to 225 users and remained at 225 until the end.
+- The run therefore did not maintain 300 users for the required 15–30 minute measurement period and cannot be used as the official 300-user baseline.
+- The corrected `300-users-run-01/locust_stats.csv` was downloaded after the run and is distinct from the Run 200-02 CSV. However, it aggregates the mixed 300/225-user period and therefore must not be treated as an official 300-user result.
+
+#### Diagnostic observations only
+
+- The Locust screenshot recorded one Checkout HTTP 500 and one Product Reviews HTTP 500.
+- Both failures occurred around 13:01 and correlate with a Karpenter `Underutilized` eviction that replaced an Email pod during the same window.
+- The corrected mixed-load CSV contains 72,077 requests, 2 failures, a 0.0028% overall failure rate, and 48.89 average RPS.
+- Mixed-load core-flow values were: Browse 31,875 requests, 0 failures, p95/p99 18/82 ms; Cart 11,940 requests, 0 failures, p95/p99 30/96 ms; Checkout 3,928 requests, 1 failure, p95/p99 120/200 ms.
+- Email remained free of OOM: start memory was 59Mi and 52Mi; end memory was 58Mi and 51Mi, with zero container restarts.
+- HPA scaled Cart from 2 to 5 replicas, Checkout from 2 to 5 replicas, and Load Generator Worker from 1 up to 5 before scaling it back to 3.
+- Node count changed from 6 to 9 and ready pod count changed from 49 to 63. Grafana observed transient peaks of 17 nodes and 78 pods during node churn.
+- Three unrelated `runtime-hardening-inventory` Jobs were in `Error` state at the end and should be investigated separately.
+- Grafana rolling maxima stayed below the proposed budgets during the mixed 300/225-user window: Browse p95/p99 9.8/62.7 ms, Cart 62.4/124 ms, and Checkout 161/270 ms. These are diagnostic values only, not an accepted 300-user baseline.
+
+#### Required correction before Run 300-02
+
+- Disable or temporarily remove HPA for `load-generator-worker` during the controlled benchmark.
+- Pin a fixed worker replica count before starting Locust and keep it unchanged for the entire run.
+- Verify the Locust UI shows exactly 300 users throughout the full measurement window.
+- Download a new CSV after Run 300-02 and verify its timestamp and content before adding results.
+
 ### Planned load levels
 
 | Users | Duration | Total Avg RPS | Flow | Requests | Failures | p95 | p99 | Nodes start/end | Pods start/end | Result |
 |---:|---:|---:|---|---:|---:|---:|---:|---|---|---|
-| 300 | 20m | TODO | Browse | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
-| 300 | 20m | TODO | Cart | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
-| 300 | 20m | TODO | Checkout | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
+| 300 | 20m | TODO | Browse | TODO | TODO | TODO | TODO | TODO | TODO | Run 300-01 invalid; rerun required |
+| 300 | 20m | TODO | Cart | TODO | TODO | TODO | TODO | TODO | TODO | Run 300-01 invalid; rerun required |
+| 300 | 20m | TODO | Checkout | TODO | TODO | TODO | TODO | TODO | TODO | Run 300-01 invalid; rerun required |
 | 400 | 20m | TODO | Browse | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
 | 400 | 20m | TODO | Cart | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
 | 400 | 20m | TODO | Checkout | TODO | TODO | TODO | TODO | TODO | TODO | Not executed |
@@ -129,8 +165,9 @@
 - Run 200-01 cannot be used as a confirmed capacity breakpoint because its Checkout latency violation occurred while both Email replicas were repeatedly OOMKilled.
 - After Email recovery, Run 200-02 passed all proposed p95 and p99 budgets at 200 users and 42.31 average RPS.
 - Run 200-02 had a 0.0116% failure rate correlated with a short Spot replacement event; it did not show sustained latency degradation.
+- Run 300-01 did not establish a breakpoint because Load Generator Worker HPA reduced the actual load from 300 to 225 users during measurement.
 - Confirmed latency breakpoint: Not reached yet.
-- Next load level: 300 users under the same workload, warm-up, measurement, and evidence procedure.
+- Next load level: Rerun 300 users with a fixed Load Generator Worker replica count, then use the same workload, warm-up, measurement, and evidence procedure.
 
 ## Approval
 

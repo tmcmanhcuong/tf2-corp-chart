@@ -378,6 +378,12 @@ components:
     envOverrides:
       - name: LOCUST_EXCLUDE_TAGS
         value: ai
+    # MANDATE-16 controlled benchmark: keep the load source stable.
+    # Revert to minReplicas: 1 / maxReplicas: 8 after the benchmark series.
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 3
 
 # Explicit production APM resource context (same as values.yaml defaults).
 # Ensures prod overlay does not inherit a future base-values drift unintentionally.
