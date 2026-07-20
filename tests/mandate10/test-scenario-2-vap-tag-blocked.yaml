@@ -1,0 +1,26 @@
+# Test Scenario 2: Native VAP Gate (Tag-based Image Blocked)
+# Expected result: API server rejects admission with VAP error "Container images must use a SHA-256 digest".
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-vap-tag-blocked
+  namespace: techx-corp-prod
+spec:
+  containers:
+    - name: app
+      image: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp/payment:latest
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL

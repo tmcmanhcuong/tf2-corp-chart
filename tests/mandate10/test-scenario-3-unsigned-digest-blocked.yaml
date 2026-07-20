@@ -1,0 +1,26 @@
+# Test Scenario 3: Sigstore Policy-Controller Gate (Unsigned Digest Image Blocked)
+# Expected result: Passes VAP format check (has @sha256 digest format), but Sigstore policy-controller rejects admission because Cosign signature is missing or signed by unauthorized KMS key.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-unsigned-digest-blocked
+  namespace: techx-corp-prod
+spec:
+  containers:
+    - name: app
+      image: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp/payment@sha256:e66264b98777e47d92963461a3b5f06eac6328f6d37dee5027a42fe2484d720d
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
