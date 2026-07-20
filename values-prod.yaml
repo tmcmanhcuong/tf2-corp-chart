@@ -34,7 +34,7 @@ default:
   image:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp
     # Replace with currently running tag before cutover (e.g. sha-a1b2c3d or v1.2.3).
-    tag: "sha-bd3c049"
+    tag: "sha-c31bbe3"
   # Production replicas must occupy distinct hosts and, where capacity exists,
   # both configured AZs. minDomains=2 prevents a one-zone placement from being
   # treated as balanced. Karpenter can add the missing stateless capacity.
@@ -96,6 +96,8 @@ components:
   cart:
     autoscaling:
       minReplicas: 2
+    pdb:
+      maxUnavailable: 1
     schedulingRules: *directive03-hard-spread
     envOverrides:
       # Stable private DNS (Route53 CNAME → ElastiCache primary). TCP-only init
@@ -127,6 +129,8 @@ components:
   checkout:
     autoscaling:
       minReplicas: 2
+    pdb:
+      maxUnavailable: 1
     schedulingRules: *directive03-hard-spread
     serviceAccount:
       create: true
@@ -296,6 +300,14 @@ components:
     modelDelivery:
       s3Uri: s3://techx-prod-tf2-ai-models-493499579600/protectai/deberta-v3-base-prompt-injection-v2/89b085cd330414d3e7d9dd787870f315957e1e9f/artifacts/c6197e30a2dd6dd6ce7488cc775c7ae3f10b21df29192c085992f75befeedc50/model.tar.gz
     initContainers: []
+  shopping-copilot:
+    # The promoted platform image and IRSA policy are ready for Bedrock Nova.
+    enabled: true
+    serviceAccount:
+      annotations:
+        eks.amazonaws.com/role-arn: arn:aws:iam::493499579600:role/techx-prod-tf2-shopping-copilot-model-read
+    modelDelivery:
+      s3Uri: s3://techx-prod-tf2-ai-models-493499579600/protectai/deberta-v3-base-prompt-injection-v2/89b085cd330414d3e7d9dd787870f315957e1e9f/artifacts/c6197e30a2dd6dd6ce7488cc775c7ae3f10b21df29192c085992f75befeedc50/model.tar.gz
   quote:
     autoscaling:
       minReplicas: 2

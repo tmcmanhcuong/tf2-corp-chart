@@ -278,6 +278,9 @@
         "product-reviews": {
           "$ref": "#/definitions/Component"
         },
+        "shopping-copilot": {
+          "$ref": "#/definitions/Component"
+        },
         "quote": {
           "$ref": "#/definitions/Component"
         },
@@ -518,6 +521,24 @@
           "type": "array",
           "items": {
             "type": "object"
+          }
+        },
+        "pdb": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minAvailable": {
+              "type": [
+                "integer",
+                "string"
+              ]
+            },
+            "maxUnavailable": {
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
           }
         },
         "autoscaling": {
