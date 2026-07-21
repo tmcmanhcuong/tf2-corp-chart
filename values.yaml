@@ -1930,7 +1930,7 @@ components:
       periodSeconds: 20
       timeoutSeconds: 3
       failureThreshold: 3
-    replicas: 2
+    replicas: 1
     ports:
       - name: rpc
         value: 8013
