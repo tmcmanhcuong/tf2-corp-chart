@@ -821,13 +821,13 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
-      # Guaranteed QoS (request = limit) for critical path stability
+      # Burstable QoS: cpu limit set to 100m, memory limit set to 64Mi to prevent OOMKills under peak load
       requests:
-        cpu: 10m
-        memory: 16Mi
+        cpu: 20m
+        memory: 32Mi
       limits:
-        cpu: 10m
-        memory: 16Mi
+        cpu: 100m
+        memory: 64Mi
     # High-RPS / low-CPU gRPC (native C++): RPS is the primary capacity signal; CPU often never hits 70%.
     # maxReplicas 72: load-test pin at 12 with CPU ~412%/70% → desired ~71 (tiny 10m request amplifies %).
     autoscaling:
