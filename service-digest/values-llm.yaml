@@ -1,7 +1,6 @@
 # Managed by tf2-corp-platform secure delivery pipeline.
-# Emergency recovery: pin the last known-good immutable digest while sha-39aaa22 is unhealthy.
-# Change trail: @MinhKhoa2209 - 2026-07-22 - Mandate 10 P0 recovery.
+# Change trail: @hungxqt - 2026-07-20 - Selective service digest promote into service-digest/.
 components:
   llm:
     imageOverride:
-      digest: "sha256:3703b4e024eb3f814e503f64837268c07e98846f52015d883e251250682fe215"
+      digest: "sha256:4bd60c1255b905d49f094ce72942ffc5b1049a101a7faf6435b347ec9a3dbbc7"
