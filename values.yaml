@@ -765,13 +765,13 @@ components:
       - name: GOMEMLIMIT
         value: 100MiB
     resources:
-      # Burstable QoS: cpu limit set to 200m to prevent gRPC probe timeouts under peak load
+      # Guaranteed QoS (request = limit) for critical path stability
       requests:
-        cpu: 30m
-        memory: 64Mi
+        cpu: 10m
+        memory: 32Mi
       limits:
-        cpu: 200m
-        memory: 128Mi
+        cpu: 10m
+        memory: 32Mi
     # Dual metrics: expensive orchestration → lower RPS target; CPU safety valve.
     # maxReplicas 16: load-test pin at 6 with CPU ~148%/70% → desired ~13; +headroom.
     autoscaling:
@@ -821,13 +821,13 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
-      # Burstable QoS: cpu limit set to 100m, memory limit set to 64Mi to prevent OOMKills under peak load
+      # Guaranteed QoS (request = limit) for critical path stability
       requests:
-        cpu: 20m
-        memory: 32Mi
+        cpu: 10m
+        memory: 16Mi
       limits:
-        cpu: 100m
-        memory: 64Mi
+        cpu: 10m
+        memory: 16Mi
     # High-RPS / low-CPU gRPC (native C++): RPS is the primary capacity signal; CPU often never hits 70%.
     # maxReplicas 72: load-test pin at 12 with CPU ~412%/70% → desired ~71 (tiny 10m request amplifies %).
     autoscaling:

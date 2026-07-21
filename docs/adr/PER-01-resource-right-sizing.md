@@ -41,12 +41,12 @@ We right-sized CPU and Memory resource configurations across all 30 microservice
 The following resource configurations were applied to `values.yaml`:
 
 ### 1. Application Microservices (Purchase Path & Business Logic)
-- **`checkout` (Go):** `requests: 30m / 64Mi`, `limits: 200m / 128Mi` (P99: 5.1m CPU, 27.47Mi Memory - limits.cpu raised to 200m to prevent gRPC probe timeouts during orchestration under load).
+- **`checkout` (Go):** `requests: 10m / 32Mi`, `limits: 10m / 32Mi` (P99: 5.1m CPU, 27.47Mi Memory - Guaranteed QoS).
 - **`cart` (.NET):** `requests: 15m / 96Mi`, `limits: 15m / 96Mi` (P99: 8.3m CPU, 75.96Mi Memory - Guaranteed QoS).
 - **`payment` (Node.js):** `requests: 10m / 160Mi`, `limits: 100m / 160Mi` (P99: 5.3m CPU, 122.78Mi Memory - limits.cpu raised to 100m for Node.js V8 boot probe safety).
 - **`frontend-proxy` (Envoy):** `requests: 30m / 48Mi`, `limits: 30m / 48Mi` (P99: 17.5m CPU, 30.20Mi Memory - Guaranteed QoS).
 - **`product-catalog` (Go):** `requests: 20m / 32Mi`, `limits: 20m / 32Mi` (P99: 9.2m CPU, 19.51Mi Memory - Guaranteed QoS).
-- **`currency` (C++):** `requests: 20m / 32Mi`, `limits: 100m / 64Mi` (P99: 2.8m CPU, 12.98Mi Memory - limits.memory raised to 64Mi to prevent OOMKills under 200 users load).
+- **`currency` (C++):** `requests: 10m / 16Mi`, `limits: 10m / 16Mi` (P99: 2.8m CPU, 12.98Mi Memory - Guaranteed QoS).
 - **`quote` (PHP):** `requests: 10m / 32Mi`, `limits: 10m / 32Mi` (P99: 1.0m CPU, 25.57Mi Memory - Guaranteed QoS).
 - **`shipping` (Rust):** `requests: 10m / 16Mi`, `limits: 10m / 16Mi` (P99: 0.8m CPU, 6.94Mi Memory - Guaranteed QoS).
 - **`flagd` (OpenFeature daemon):** `requests: 10m / 64Mi`, `limits: 100m / 128Mi` (P99: 9.2m CPU, 46.92Mi Memory - Memory limit set to 128Mi for GOMEMLIMIT 100MiB safety and limits.cpu raised to 100m for gRPC probe safety under load).
