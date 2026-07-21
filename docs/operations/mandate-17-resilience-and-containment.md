@@ -7,17 +7,25 @@ The code PR leaves production at `networkPolicy.enabled=false` and
 egress isolation, and chaos in one change window. Storefront exposure,
 operational ingress, and the flagd source/provider contract are out of scope.
 
+Current handoff baseline after Person 1 is chart `eaaf946`, frontend
+`sha-ba6dd5b`, with Argo CD `Synced/Healthy`. Person 2 changes must be rebased
+on that revision and must not change the frontend image or fallback contract.
+
 ## Traffic matrix
 
 | Source | Destination | Port | Purpose |
 |---|---|---:|---|
-| ALB addresses in production VPC | frontend-proxy | 8080 | Public storefront target |
+| Internal ALB subnets `10.0.10.0/24`, `10.0.11.0/24` | frontend-proxy | 8080 | Storefront target; verified from live ELBv2 subnet IDs |
 | frontend-proxy | frontend and approved operator UIs | Service port | Routing |
 | frontend | browse/cart/checkout dependencies | Declared gRPC port | Money path |
 | checkout, accounting, fraud-detection | MSK in production VPC | 9092 | Durable events |
 | cart, fraud-detection | Valkey in production VPC | 6379 | Cart/fraud state |
 | product-catalog, product-reviews, accounting | PostgreSQL in production VPC | 5432 | Application data |
 | first-party workloads | OTel collector | 4317/4318 | Telemetry |
+| OTel collector | Jaeger, Prometheus, OpenSearch | 4317, 9090, 9200 | Trace/metric/log export |
+| OTel collector, metrics-server | Kubernetes API/kubelets in VPC | 443, 10250 | Kubernetes attributes and resource metrics |
+| Prometheus adapter, kube-state-metrics, inventory job | Kubernetes API | 443 | Metrics discovery and compliance inventory |
+| Prometheus | kube-state-metrics, OTel, Karpenter | 8080/8081, 8888, 8080 | Scrape targets |
 | all selected pods | CoreDNS in kube-system | UDP/TCP 53 | DNS only |
 | approved callers | egress-proxy | 10000 | HTTPS CONNECT |
 | egress-proxy | approved AWS/Groq hostnames | 443 | Allowlisted external API |
@@ -26,6 +34,21 @@ operational ingress, and the flagd source/provider contract are out of scope.
 No application pod receives direct `0.0.0.0/0`. The single internet CIDR rule
 belongs to the proxy, whose virtual-host table limits CONNECT destinations.
 Flagd is deliberately not proxy-injected.
+
+Proxy and attacker images are pinned to immutable multi-architecture manifest
+digests. Full enforcement is rejected by JSON Schema when the proxy digest is
+missing.
+
+## Pre-activation blockers
+
+- Do not start C1 while CoreDNS replicas are co-located in one AZ/node; DNS is
+  a money-path dependency for the AZ-loss test.
+- Before C2, prove the Grafana Athena/Discord outbound path through an approved
+  proxy configuration or document a reviewed operational exception. The
+  current subchart does not receive proxy environment variables, so C2 would
+  otherwise break those external integrations.
+- Capture the positive traffic matrix and node headroom before activating the
+  two proxy replicas. Do not compensate by widening an application rule.
 
 ## Rollout gates
 
@@ -41,6 +64,17 @@ change at this gate.
 Merge the Chart code with the production values still set to false/false.
 Argo CD must remain `Synced/Healthy`. Render tests and Mandate 5 verification
 must pass.
+
+Local verification from a clean checkout:
+
+```powershell
+helm dependency build .
+helm lint . -f values.yaml -f values-public-alb.yaml -f values-prod.yaml
+./tests/mandate17/verify-rendered-manifests.ps1
+./scripts/mandate17-inventory.ps1
+./scripts/verify-directive-03.ps1
+./scripts/verify-runtime-hardening.ps1
+```
 
 ### 3. Ingress-only activation
 
@@ -65,8 +99,11 @@ $ctx = "arn:aws:eks:us-east-1:493499579600:cluster/techx-tf2-prod"
 ```
 
 DNS must pass. Same-namespace service, Kubernetes API, proxy, RDS, MSK,
-Valkey, and arbitrary internet attempts must fail. The script always removes
-its Deployment and ServiceAccount.
+Valkey, a cross-namespace operational service, and arbitrary internet attempts
+must fail. The script requires a PolicyEndpoint for every NetworkPolicy and
+coverage for every running pod, then waits until the attacker pod itself is in
+PolicyEndpoint coverage before executing probes. It always removes its
+Deployment and ServiceAccount.
 
 ## Rollback
 

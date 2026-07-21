@@ -21,6 +21,10 @@ runtimeHardeningInventory:
 networkPolicy:
   enabled: false
   enforceEgress: false
+  # Internal storefront ALB live subnets (verified 2026-07-21 via ELBv2/EC2).
+  albIngressCidrs:
+    - 10.0.10.0/24
+    - 10.0.11.0/24
 
 egressProxy:
   enabled: false

@@ -11,9 +11,6 @@ Docs: docs/operations/network-policy.md
 {{- if and $enforceEgress (not .Values.egressProxy.enabled) }}
 {{- fail "networkPolicy.enforceEgress=true requires egressProxy.enabled=true" }}
 {{- end }}
-{{- if and $enforceEgress (not .Values.egressProxy.enabled) }}
-{{- fail "networkPolicy.enforceEgress=true requires egressProxy.enabled=true" }}
-{{- end }}
 
 {{/* ── 1. DEFAULT DENY ─────────────────────────────────────────────── */}}
 ---
@@ -49,6 +46,9 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
       ports:
         - protocol: UDP
           port: 53
@@ -83,6 +83,184 @@ spec:
           port: 4318
         - protocol: TCP
           port: 9092  # kafkametrics scrape
+
+{{/* Observability/control-plane pods are selected by the namespace-wide deny. */}}
+{{- if and $enforceEgress (index .Values "opentelemetry-collector" "enabled") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: otel-collector-egress
+  labels:
+    {{- include "techx-corp.labels" $relCtx | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: otel-collector
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: jaeger
+      ports:
+        - { protocol: TCP, port: 4317 }
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - { protocol: TCP, port: 9090 }
+    - to:
+        - podSelector:
+            matchLabels:
+              opentelemetry.io/name: opensearch
+      ports:
+        - { protocol: TCP, port: 9200 }
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: otel-collector
+      ports:
+        - { protocol: TCP, port: 4318 }
+    # Kubernetes attributes, cluster metrics and kubelet metrics presets.
+    - to:
+        - ipBlock:
+            cidr: {{ $vpcCidr }}
+      ports:
+        - { protocol: TCP, port: 443 }
+        - { protocol: TCP, port: 10250 }
+{{- end }}
+
+{{- if (index .Values "metrics-server" "enabled") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: metrics-server
+  labels:
+    {{- include "techx-corp.labels" $relCtx | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: metrics-server
+  policyTypes:
+    - Ingress
+{{- if $enforceEgress }}
+    - Egress
+{{- end }}
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: {{ $vpcCidr }}
+      ports:
+        - { protocol: TCP, port: 10250 }
+{{- if $enforceEgress }}
+  egress:
+    - to:
+        - ipBlock:
+            cidr: {{ $vpcCidr }}
+      ports:
+        - { protocol: TCP, port: 443 }
+        - { protocol: TCP, port: 10250 }
+{{- end }}
+{{- end }}
+
+{{- if (index .Values "prometheus-adapter" "enabled") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus-adapter
+  labels:
+    {{- include "techx-corp.labels" $relCtx | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-adapter
+  policyTypes:
+    - Ingress
+{{- if $enforceEgress }}
+    - Egress
+{{- end }}
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: {{ $vpcCidr }}
+      ports:
+        - { protocol: TCP, port: 6443 }
+{{- if $enforceEgress }}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - { protocol: TCP, port: 9090 }
+    - to:
+        - ipBlock:
+            cidr: {{ $vpcCidr }}
+      ports:
+        - { protocol: TCP, port: 443 }
+{{- end }}
+{{- end }}
+
+{{- if (index .Values "prometheus" "kube-state-metrics" "enabled") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kube-state-metrics
+  labels:
+    {{- include "techx-corp.labels" $relCtx | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kube-state-metrics
+  policyTypes:
+    - Ingress
+{{- if $enforceEgress }}
+    - Egress
+{{- end }}
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - { protocol: TCP, port: 8080 }
+        - { protocol: TCP, port: 8081 }
+{{- if $enforceEgress }}
+  egress:
+    - to:
+        - ipBlock:
+            cidr: {{ $vpcCidr }}
+      ports:
+        - { protocol: TCP, port: 443 }
+{{- end }}
+{{- end }}
+
+{{- if $enforceEgress }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: runtime-hardening-inventory
+  labels:
+    {{- include "techx-corp.labels" $relCtx | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: runtime-hardening-inventory
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: {{ $vpcCidr }}
+      ports:
+        - { protocol: TCP, port: 443 }
+{{- end }}
 
 {{/* ── 4. FRONTEND-PROXY ────────────────────────────────────────────── */}}
 {{- if (index .Values.components "frontend-proxy").enabled }}
@@ -1666,6 +1844,28 @@ spec:
         - { protocol: TCP, port: 8888 }
         - { protocol: TCP, port: 9090 }
         - { protocol: TCP, port: 9464 }
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kube-state-metrics
+      ports:
+        - { protocol: TCP, port: 8080 }
+        - { protocol: TCP, port: 8081 }
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: otel-collector
+      ports:
+        - { protocol: TCP, port: 8888 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: karpenter
+      ports:
+        - { protocol: TCP, port: 8080 }
     # Kubernetes discovery and kubelet scrape stay inside the production VPC.
     - to:
         - ipBlock:
