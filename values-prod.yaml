@@ -17,9 +17,11 @@ externalSecrets:
 runtimeHardeningInventory:
   enabled: true
 
-# Mandate 17 activation is intentionally split into later, reversible PRs.
+# Mandate 17 — Phase 1: ingress-only enforcement (enforceEgress: false).
+# Egress isolation requires egressProxy.enabled: true and a 24h dev soak first.
+# Rollout: dev soak (ingress-only) → verify OTel traces clean → promote egress.
 networkPolicy:
-  enabled: false
+  enabled: true
   enforceEgress: false
   # Internal storefront ALB live subnets (verified 2026-07-21 via ELBv2/EC2).
   albIngressCidrs:
@@ -177,6 +179,12 @@ components:
     initContainers: []
   
   accounting:
+    # SEC-03: dedicated SA — isolates financial event processing identity from
+    # other workloads. No IRSA role needed today; add ARN here if MSK IAM auth
+    # or S3 archival is introduced later.
+    serviceAccount:
+      create: true
+      name: accounting
     envOverrides:
       - name: KAFKA_ADDR
         valueFrom:
@@ -192,6 +200,11 @@ components:
     initContainers: []
 
   fraud-detection:
+    # SEC-03: dedicated SA — fraud detection handles financial risk signals;
+    # separate identity limits blast radius if pod is compromised.
+    serviceAccount:
+      create: true
+      name: fraud-detection
     envOverrides:
       - name: KAFKA_ADDR
         valueFrom:
@@ -292,6 +305,11 @@ components:
     replicas: 2
     schedulingRules: *directive03-hard-spread
   payment:
+    # SEC-03: dedicated SA — payment is the highest blast-radius service on the
+    # revenue path. Isolated identity now; IRSA role added only if AWS API is needed.
+    serviceAccount:
+      create: true
+      name: payment
     replicas: 2
     schedulingRules: *directive03-hard-spread
   product-catalog:
