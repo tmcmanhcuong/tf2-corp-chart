@@ -765,13 +765,13 @@ components:
       - name: GOMEMLIMIT
         value: 100MiB
     resources:
-      # Guaranteed QoS (request = limit) for critical path stability
+      # Burstable QoS: cpu limit set to 200m to prevent gRPC probe timeouts under peak load
       requests:
-        cpu: 10m
-        memory: 32Mi
+        cpu: 30m
+        memory: 64Mi
       limits:
-        cpu: 10m
-        memory: 32Mi
+        cpu: 200m
+        memory: 128Mi
     # Dual metrics: expensive orchestration → lower RPS target; CPU safety valve.
     # maxReplicas 16: load-test pin at 6 with CPU ~148%/70% → desired ~13; +headroom.
     autoscaling:
