@@ -663,13 +663,14 @@ components:
       - name: OTEL_EXPORTER_OTLP_ENDPOINT
         value: http://$(OTEL_COLLECTOR_NAME):4317
     resources:
-      # Guaranteed QoS (request = limit) for critical path stability
+      # 50-user baseline: P95/P99 CPU 17.3m/18.4m, P99 memory 158Mi.
+      # Keep startup/probe burst headroom to avoid Kestrel thread-pool starvation.
       requests:
-        cpu: 15m
-        memory: 96Mi
+        cpu: 30m
+        memory: 192Mi
       limits:
-        cpu: 15m
-        memory: 96Mi
+        cpu: 200m
+        memory: 256Mi
     # Hot-path under scaled frontend/checkout; Karpenter (default spot-tolerant).
     # Valkey remains singleton; cart pods are stateless clients.
     # Dual metrics: RPS primary; CPU 70% safety valve (HPA uses max).
