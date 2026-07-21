@@ -39,7 +39,13 @@ jobs:
           sudo wget -q https://github.com/mikefarah/yq/releases/download/v4.47.2/yq_linux_amd64 -O /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
       - name: Build Helm dependencies
-        run: helm dependency build .
+        run: |
+          helm repo add opentelemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+          helm repo add jaeger https://jaegertracing.github.io/helm-charts
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add grafana https://grafana-community.github.io/helm-charts
+          helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+          helm dependency build .
       - name: Helm lint
         run: helm lint . -f values.yaml -f values-public-alb.yaml -f values-prod.yaml
       - name: Verify three-state containment manifests
