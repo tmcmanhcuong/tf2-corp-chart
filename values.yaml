@@ -27,6 +27,7 @@ egressProxy:
   image:
     repository: envoyproxy/envoy
     tag: distroless-v1.38.0
+    digest: sha256:a7a56545102f7a682e0cafea2c9b8448af1b09ebb710eab688dfb931e3ec7ff6
     pullPolicy: IfNotPresent
   port: 10000
   adminPort: 9901
@@ -2477,6 +2478,9 @@ opentelemetry-collector:
   image:
     repository: "otel/opentelemetry-collector-contrib"
   fullnameOverride: otel-collector
+  podLabels:
+    app.kubernetes.io/component: otel-collector
+    app.kubernetes.io/part-of: techx-corp
   mode: daemonset
   presets:
     # Disabled: hostmetrics + root_path /hostfs blocked otelcol in D-state (disk sleep) on

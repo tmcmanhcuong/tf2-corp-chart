@@ -1,5 +1,9 @@
 {{- if .Values.egressProxy.enabled }}
 {{- $proxy := .Values.egressProxy }}
+{{- $proxyImage := printf "%s:%s" $proxy.image.repository $proxy.image.tag }}
+{{- if $proxy.image.digest }}
+{{- $proxyImage = printf "%s@%s" $proxy.image.repository $proxy.image.digest }}
+{{- end }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -154,7 +158,7 @@ spec:
               app.kubernetes.io/name: egress-proxy
       containers:
         - name: envoy
-          image: {{ printf "%s:%s" $proxy.image.repository $proxy.image.tag | quote }}
+          image: {{ $proxyImage | quote }}
           imagePullPolicy: {{ $proxy.image.pullPolicy }}
           args:
             - -c

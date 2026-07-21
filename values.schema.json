@@ -398,6 +398,84 @@
     "components",
     "serviceAccount"
   ],
+  "allOf": [
+    {
+      "if": {
+        "required": ["networkPolicy"],
+        "properties": {
+          "networkPolicy": {
+            "required": ["enforceEgress"],
+            "properties": {
+              "enforceEgress": { "const": true }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "networkPolicy": {
+            "required": ["enabled"],
+            "properties": {
+              "enabled": { "const": true }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["networkPolicy"],
+        "properties": {
+          "networkPolicy": {
+            "required": ["enforceEgress"],
+            "properties": {
+              "enforceEgress": { "const": true }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": ["egressProxy"],
+        "properties": {
+          "egressProxy": {
+            "required": ["enabled"],
+            "properties": {
+              "enabled": { "const": true }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["networkPolicy"],
+        "properties": {
+          "networkPolicy": {
+            "required": ["enforceEgress"],
+            "properties": {
+              "enforceEgress": { "const": true }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": ["egressProxy"],
+        "properties": {
+          "egressProxy": {
+            "required": ["image"],
+            "properties": {
+              "image": {
+                "required": ["digest"],
+                "properties": {
+                  "digest": { "pattern": "^sha256:[0-9a-f]{64}$" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "definitions": {
     "Components": {
       "type": "object",
