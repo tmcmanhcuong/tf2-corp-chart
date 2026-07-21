@@ -718,6 +718,11 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Distroless nonroot UID (must be numeric for kubelet runAsNonRoot verification).
+    securityContext:
+      runAsUser: 65532
+      runAsGroup: 65532
+      runAsNonRoot: true
     # Tier B (Go gRPC): see docs/operations/probe-thresholds.md
     readinessProbe:
       grpc:
@@ -1466,6 +1471,11 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Distroless nonroot UID (must be numeric for kubelet runAsNonRoot verification).
+    securityContext:
+      runAsUser: 65532
+      runAsGroup: 65532
+      runAsNonRoot: true
     # Stateless → Karpenter hard placement
     schedulingRules: *scheduling-spot-tolerant
     # Tier B (Go gRPC); initContainer waits for postgresql
@@ -1854,6 +1864,11 @@ components:
     enabled: true
     useDefault:
       env: true
+    # Distroless nonroot UID (must be numeric for kubelet runAsNonRoot verification).
+    securityContext:
+      runAsUser: 65532
+      runAsGroup: 65532
+      runAsNonRoot: true
     # Tier A (Rust; business routes only → tcp)
     readinessProbe:
       tcpSocket:
@@ -3160,4 +3175,4 @@ prometheus-adapter:
       memory: 128Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-19 - load-generator-worker uses imageOverride.name=load-generator (not hardcoded techx-corp path).
+# Change trail: @hungxqt - 2026-07-21 - Set runAsUser 65532 for checkout, product-catalog, shipping (kubelet non-numeric USER fix)
