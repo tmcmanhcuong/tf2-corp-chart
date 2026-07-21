@@ -86,8 +86,11 @@ Không được thay đổi số node, số load-generator worker, workload mix,
 | 1000 | ~28m41s* | 209.74 | Browse | 178,770 | 1 | 45.4 ms | 89.5 ms | 6/6 | 57R+22P / 58R+22P | Passed latency budget; one isolated HTTP 503 |
 | 1000 | ~28m41s* | 209.74 | Cart | 66,883 | 0 | 49.2 ms | 111 ms | 6/6 | 57R+22P / 58R+22P | Passed latency budget; severe scheduling constraint |
 | 1000 | ~28m41s* | 209.74 | Checkout | 22,383 | 1 | 226 ms | 382 ms | 6/6 | 57R+22P / 58R+22P | Passed latency budget; one isolated HTTP 503 |
+| 1200 | 22m44s | 240.50 | Browse | 150,730 | 7 | 97.2 ms | 186 ms | 6/6 | 59R+28P / 59R+30P+1I | **Invalid**; concurrent image publication caused ImagePullBackOff |
+| 1200 | 22m44s | 240.50 | Cart | 56,437 | 0 | 195 ms | 365 ms | 6/6 | 59R+28P / 59R+30P+1I | **Invalid**; concurrent image publication caused ImagePullBackOff |
+| 1200 | 22m44s | 240.50 | Checkout | 18,984 | 0 | 392 ms | 707 ms | 6/6 | 59R+28P / 59R+30P+1I | **Invalid**; concurrent image publication caused ImagePullBackOff |
 
-Mức 900 users không được thực hiện. Chuỗi test chuyển trực tiếp từ 800 lên 1000 users. Vì 1000 users vẫn chưa vi phạm tail-latency budget của Browse, Cart hoặc Checkout, tiếp tục tăng tải để tìm latency breakpoint.
+Mức 900 users không được thực hiện. Chuỗi test chuyển trực tiếp từ 800 lên 1000 users. Run 1200-01 chỉ được giữ làm contaminated evidence và không được dùng để xác định breakpoint; phải chạy lại 1200 users sau khi rollout ổn định.
 
 ### Run 200-01 - Valid on fixed six-node capacity
 
@@ -278,6 +281,20 @@ Grafana resource evidence ghi nhận Product Reviews p99 3.47 GiB, Prometheus p9
 - Next step: tiếp tục mức tải cao hơn trên cùng fixed capacity. Khi p95/p99 critical flow vượt budget hoặc tăng/jitter bền vững, dùng chính mức tải đó làm đầu vào cho MANDATE-16.2.
 
 Grafana resource evidence ghi nhận Product Reviews p99 1.79 GiB, Prometheus p99 1.38 GiB, Shopping Copilot 1.72 GiB, OpenSearch 939 MiB, OTel Collector p99 133 MiB và Frontend p99 128 MiB. Không có container restart mới trong measurement window.
+
+### Run 1200-01 - Invalid due to concurrent image publication
+
+- Evidence: `docs/evidence/mandate-16/tail-latency/1200-users-run-01-fixed-6-nodes`
+- Measurement started: `2026-07-21T09:14:29+07:00`
+- Measurement ended: `2026-07-21T09:37:13+07:00`
+- Duration: 22 phút 44 giây
+- Load: 1200 users, 3 fixed workers; average throughput 240.50 RPS
+- Total requests: 339,100; HTTP failures: 10 (khoảng 0.00295%)
+- Nodes: 6/6 Ready; Karpenter giữ ở 0/0
+- Pod inventory: 59 Running + 28 Pending lúc bắt đầu; 59 Running + 30 Pending + 1 ImagePullBackOff lúc kết thúc
+- Trong khoảng 2 phút cuối measurement, HPA tạo thêm pod `product-reviews-7cd8dcb9cd-n5mpd` từ cùng ReplicaSet hiện hữu. Pod mới không pull được image `product-reviews:sha-aabb8be` và rơi vào `ImagePullBackOff` đúng lúc có hoạt động push image bên ngoài bài test.
+- Việc publish image đồng thời làm replica scale-out không thể khởi động, khiến điều kiện hệ thống thay đổi ngoài kế hoạch trong measurement window. Vì vậy toàn bộ run được đánh dấu **Invalid/Contaminated**, dù Grafana ghi nhận Browse 97.2/186 ms, Cart 195/365 ms và Checkout 392/707 ms cho p95/p99, đều còn dưới budget.
+- Không dùng số liệu run này để tuyên bố pass, fail hoặc latency breakpoint. Giữ evidence để giải trình và chạy lại ở thư mục `1200-users-run-02-fixed-6-nodes` sau khi image/rollout ổn định.
 
 ## Quy tắc xác định latency breakpoint
 
