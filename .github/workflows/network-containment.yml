@@ -1,9 +1,9 @@
-name: Mandate 17 containment verification
+name: Network containment verification
 
 on:
   pull_request:
     paths:
-      - ".github/workflows/mandate17.yml"
+      - ".github/workflows/network-containment.yml"
       - "templates/networkpolicy.yaml"
       - "templates/egress-proxy.yaml"
       - "templates/_objects.tpl"
@@ -15,7 +15,7 @@ on:
   push:
     branches: [main]
     paths:
-      - ".github/workflows/mandate17.yml"
+      - ".github/workflows/network-containment.yml"
       - "templates/networkpolicy.yaml"
       - "templates/egress-proxy.yaml"
       - "templates/_objects.tpl"
