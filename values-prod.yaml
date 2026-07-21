@@ -38,15 +38,14 @@ default:
     repository: 493499579600.dkr.ecr.us-east-1.amazonaws.com/techx-prod-corp
     # Replace with currently running tag before cutover (e.g. sha-a1b2c3d or v1.2.3).
     tag: "sha-a149fa1"
-  # Production replicas must occupy distinct hosts and, where capacity exists,
-  # both configured AZs. minDomains=2 prevents a one-zone placement from being
-  # treated as balanced. Karpenter can add the missing stateless capacity.
+  # Production replicas must occupy distinct hosts and prefer both configured
+  # AZs. Zone spread is soft so an AZ outage cannot block recovery; hostname
+  # spread remains hard to avoid placing replicas on one node.
   schedulingRules:
     topologySpreadConstraints:
       - maxSkew: 1
-        minDomains: 2
         topologyKey: topology.kubernetes.io/zone
-        whenUnsatisfiable: DoNotSchedule
+        whenUnsatisfiable: ScheduleAnyway
       - maxSkew: 1
         minDomains: 2
         topologyKey: kubernetes.io/hostname
@@ -89,9 +88,8 @@ components:
     schedulingRules: &directive03-hard-spread
       topologySpreadConstraints:
         - maxSkew: 1
-          minDomains: 2
           topologyKey: topology.kubernetes.io/zone
-          whenUnsatisfiable: DoNotSchedule
+          whenUnsatisfiable: ScheduleAnyway
         - maxSkew: 1
           minDomains: 2
           topologyKey: kubernetes.io/hostname
@@ -248,6 +246,7 @@ components:
       topologySpreadConstraints: []
 
   frontend:
+    optionalDependencyTimeoutMs: 500
     autoscaling:
       # Temporary N+1 capacity for the maintenance window: draining one node
       # leaves two frontend pods serving while the replacement becomes Ready.
