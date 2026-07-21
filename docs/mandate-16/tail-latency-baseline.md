@@ -83,8 +83,11 @@ Không được thay đổi số node, số load-generator worker, workload mix,
 | 800 | 28m19s | 167.49 | Browse | 126,748 | 0 | 37.7 ms | 77.6 ms | 6/6 | 56R+14P / 56R+15P | Passed latency budget; severe scheduling constraint |
 | 800 | 28m19s | 167.49 | Cart | 47,235 | 0 | 38.7 ms | 85.8 ms | 6/6 | 56R+14P / 56R+15P | Passed latency budget; severe scheduling constraint |
 | 800 | 28m19s | 167.49 | Checkout | 15,791 | 0 | 179 ms | 322 ms | 6/6 | 56R+14P / 56R+15P | Passed latency budget; severe scheduling constraint |
+| 1000 | ~28m41s* | 209.74 | Browse | 178,770 | 1 | 45.4 ms | 89.5 ms | 6/6 | 57R+22P / 58R+22P | Passed latency budget; one isolated HTTP 503 |
+| 1000 | ~28m41s* | 209.74 | Cart | 66,883 | 0 | 49.2 ms | 111 ms | 6/6 | 57R+22P / 58R+22P | Passed latency budget; severe scheduling constraint |
+| 1000 | ~28m41s* | 209.74 | Checkout | 22,383 | 1 | 226 ms | 382 ms | 6/6 | 57R+22P / 58R+22P | Passed latency budget; one isolated HTTP 503 |
 
-Nếu mức tải hiện tại vẫn chưa nghẽn, thêm ba dòng cho từng mức 900, 1000... theo đúng mẫu trên.
+Mức 900 users không được thực hiện. Chuỗi test chuyển trực tiếp từ 800 lên 1000 users. Vì 1000 users vẫn chưa vi phạm tail-latency budget của Browse, Cart hoặc Checkout, tiếp tục tăng tải để tìm latency breakpoint.
 
 ### Run 200-01 - Valid on fixed six-node capacity
 
@@ -251,17 +254,42 @@ Grafana resource evidence ghi nhận Product Reviews p99 3.47 GiB, Prometheus p9
 
 Grafana resource evidence ghi nhận Product Reviews p99 3.47 GiB, Prometheus p99 1.90 GiB, Shopping Copilot 1.72 GiB, OpenSearch 932 MiB, OTel Collector p99 658 MiB và Frontend p99 349 MiB. Không có container restart mới trong measurement window.
 
-## Quy tắc xác định breakpoint
+### Run 1000-01 - Passed critical-flow tail-latency budget
+
+- Evidence: `docs/evidence/mandate-16/tail-latency/1000-users-run-01-fixed-6-nodes`
+- Measurement started: `2026-07-21T08:00:47+07:00`
+- Active measurement completed at approximately `08:29:28` according to the final monitor sample, giving approximately 28 phút 41 giây of active measurement.
+- `end-time.txt` and `cluster-end.txt` were captured manually at `08:31:39`, about two minutes after Locust was stopped because the original script did not save them automatically. The resulting absolute evidence window is 30 phút 52 giây; this post-stop capture delay is an evidence caveat.
+- Load: 1000 users, 3 fixed workers. `02-locust-charts.png` confirms Number of Users remained at 1000 throughout the active measurement.
+- Average RPS: 209.74; tăng 25.2% so với 167.49 RPS tại 800 users, gần như khớp với mức tăng users 25%. Application throughput chưa bão hòa rõ rệt.
+- Total requests: 401,994
+- Total HTTP failures: 163; failure rate khoảng 0.0405%.
+- Reliability observation ngoài phạm vi tail-latency budget: 159 HTTP 500 responses trên bảy biến thể `GET /api/data` trong khoảng `08:26:24-08:27:50`. `/api/data` không thuộc ba API critical-flow được chấm trong MANDATE-16.1, nên lỗi này không được dùng để tuyên bố latency breakpoint; cần tạo reliability backlog riêng.
+- Additional failures: 1 `GET /api/cart` HTTP 503, 1 `POST /api/checkout` HTTP 503, 1 Browse product HTTP 503 và 1 Recommendation HTTP 503.
+- Nodes: 6/6 Ready; không thay đổi node trong measurement window
+- Karpenter: 0/0 trong toàn bộ measurement window
+- Pod inventory: 57 Running + 22 Pending lúc bắt đầu; 58 Running + 22 Pending lúc capture cuối; ngoài ra có 2 inventory Job Completed.
+- Pod restarts during measurement: 0. Hai Load Generator Worker và Metrics Server có restart từ nhiều giờ trước, không thuộc run này.
+- Pending pods tại cả đầu và cuối: 5 Cart, 7 Checkout và 10 Frontend. HPA scale-out tiếp tục không thể schedule trên fixed six-node capacity.
+- HPA pressure: Cart khoảng 143-148%/70%, Checkout 223-233%/70% và Frontend 154-156%/65%. Load Generator Worker ở khoảng 88-92%/70% và đã chạm giới hạn cố định 3 replicas, nhưng RPS vẫn tăng tương ứng nên chưa xác nhận load-generator saturation.
+- Node pressure: ba node ở khoảng 94%, 96% và 101-103% allocatable memory; CPU node cao nhất khoảng 53% lúc đầu và 47% lúc cuối.
+- Latency conclusion: cả ba critical flow vẫn đạt budget. Grafana rolling-percentile Max lần lượt là Browse 45.4/89.5 ms, Cart 49.2/111 ms và Checkout 226/382 ms cho p95/p99.
+- Breakpoint conclusion: chưa có latency breakpoint tại 1000 users vì p95/p99 của Browse, Cart và Checkout đều còn thấp hơn budget. Một Checkout HTTP 503 đơn lẻ được ghi nhận nhưng chưa đủ chứng minh điểm nghẽn latency lặp lại.
+- Next step: tiếp tục mức tải cao hơn trên cùng fixed capacity. Khi p95/p99 critical flow vượt budget hoặc tăng/jitter bền vững, dùng chính mức tải đó làm đầu vào cho MANDATE-16.2.
+
+Grafana resource evidence ghi nhận Product Reviews p99 1.79 GiB, Prometheus p99 1.38 GiB, Shopping Copilot 1.72 GiB, OpenSearch 939 MiB, OTel Collector p99 133 MiB và Frontend p99 128 MiB. Không có container restart mới trong measurement window.
+
+## Quy tắc xác định latency breakpoint
 
 Một mức tải được xem là breakpoint khi xảy ra ít nhất một trong các điều kiện sau trong measurement window:
 
 - p95 hoặc p99 vượt budget liên tục, không chỉ là một điểm spike đơn lẻ.
-- HTTP failure rate tăng rõ rệt hoặc có lỗi lặp lại.
+- HTTP failure lặp lại trên chính Browse, Cart hoặc Checkout được ghi nhận như dấu hiệu critical flow không còn phục vụ ổn định; lỗi của API ngoài phạm vi không tự xác nhận latency breakpoint cho MANDATE-16.
 - Pod OOMKilled/CrashLoopBackOff lặp lại, hoặc pod Pending do hết capacity kèm theo latency/failure xấu đi hay HPA không còn đáp ứng được tải. Pending đơn lẻ mà SLO vẫn đạt được ghi là capacity warning, chưa tự nó xác nhận latency breakpoint.
 - Latency tiếp tục tăng trong khi RPS không tăng tương ứng.
 - HPA chạm maxReplicas hoặc cluster hết CPU/RAM có thể cấp phát.
 
-Khi gặp breakpoint: dừng tăng tải, giữ lại evidence, ghi timestamp và chuyển sang MANDATE-16.2 để phân tích các trace chậm bằng Jaeger.
+Khi p95/p99 critical flow gặp breakpoint: dừng tăng tải, giữ lại evidence, ghi timestamp và chuyển sang MANDATE-16.2 để phân tích các trace chậm bằng Jaeger. Lỗi ngoài critical flow được tách thành reliability backlog riêng.
 
 ## Evidence bắt buộc cho mỗi run
 
