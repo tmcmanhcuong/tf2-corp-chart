@@ -61,7 +61,12 @@ spec:
       imagePullSecrets:
         {{- ((.imageOverride).pullSecrets) | default .defaultValues.image.pullSecrets | toYaml | nindent 8}}
       {{- end }}
+      {{- if .componentServiceAccount }}
       serviceAccountName: {{ include "techx-corp.serviceAccountName" .}}
+      {{- else }}
+      serviceAccountName: {{ .name }}
+      {{- end }}
+      automountServiceAccountToken: false
       {{- /* Component schedulingRules keys fully replace defaults when present (including empty maps/lists). */}}
       {{- $schedDefaults := default dict .defaultValues.schedulingRules }}
       {{- $schedOverrides := default dict .schedulingRules }}
@@ -132,6 +137,10 @@ spec:
           {{- end }}
           env:
             {{- include "techx-corp.pod.env" . | nindent 12 }}
+            {{- if .optionalDependencyTimeoutMs }}
+            - name: OPTIONAL_DEPENDENCY_TIMEOUT_MS
+              value: {{ .optionalDependencyTimeoutMs | quote }}
+            {{- end }}
             {{- if and .modelDelivery .modelDelivery.enabled }}
             - name: HF_HOME
               value: {{ .modelDelivery.mountPath | quote }}

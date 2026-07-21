@@ -167,6 +167,10 @@
         },
         "name": {
           "type": "string"
+        },
+        "automountServiceAccountToken": {
+          "type": "boolean",
+          "const": false
         }
       },
       "required": [
@@ -439,7 +443,7 @@
           "type": "boolean"
         },
         "serviceAccount": {
-          "description": "SEC-03: per-component ServiceAccount for least-privilege identity. When omitted, the component falls back to the global serviceAccount.",
+          "description": "SEC-03: per-component ServiceAccount for least-privilege identity. When omitted, the chart creates an identity named after the component.",
           "type": "object",
           "additionalProperties": false,
           "properties": {
@@ -451,6 +455,10 @@
             },
             "name": {
               "type": "string"
+            },
+            "automountServiceAccountToken": {
+              "type": "boolean",
+              "const": false
             }
           },
           "required": [
@@ -475,6 +483,10 @@
         },
         "replicas": {
           "type": "integer"
+        },
+        "optionalDependencyTimeoutMs": {
+          "type": "integer",
+          "minimum": 1
         },
         "stateful": {
           "type": "boolean"
