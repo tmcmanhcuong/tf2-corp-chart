@@ -1943,13 +1943,13 @@ components:
       - name: GOMEMLIMIT
         value: 100MiB
     resources:
-      # Guaranteed QoS (request = limit) for critical path stability
+      # Burstable QoS: cpu limit set to 100m, memory limit set to 128Mi for GOMEMLIMIT safety
       requests:
         cpu: 10m
-        memory: 48Mi
+        memory: 64Mi
       limits:
-        cpu: 10m
-        memory: 48Mi
+        cpu: 100m
+        memory: 128Mi
     # Base: local file only (Compose / bare helm without BTC). File content is
     # local-* team keys only (see flagd/demo.flagd.json); BTC originals come from
     # prod HTTP source. Prod dual-sources live in values-prod.yaml and
