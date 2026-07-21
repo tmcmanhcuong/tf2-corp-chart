@@ -2150,6 +2150,10 @@ components:
         value: flagd
       - name: FLAGD_PORT
         value: "8013"
+      # Recovery guard: override the Kubernetes service-link variable injected
+      # as LLM_PORT=tcp://... until the application moves to APP_PORT.
+      - name: LLM_PORT
+        value: "8000"
     resources:
       # 50-user baseline: P99 CPU 7.24m, P99 memory 71.5Mi.
       requests:
