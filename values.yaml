@@ -1399,7 +1399,7 @@ components:
     # Locust master disconnect thrash (fixed user count rebalances after scale-out).
     autoscaling:
       enabled: true
-      minReplicas: 6
+      minReplicas: 1
       maxReplicas: 20
       targetCPUUtilizationPercentage: 70
       behavior:
