@@ -36,7 +36,7 @@ egressProxy:
     - grafana
     - product-reviews
     - shopping-copilot
-  noProxy: ".svc,.svc.cluster.local,localhost,127.0.0.1,10.0.0.0/8"
+  noProxy: ".svc,.svc.cluster.local,localhost,127.0.0.1,10.0.0.0/8,accounting,ad,cart,checkout,currency,email,flagd,fraud-detection,frontend,frontend-proxy,image-provider,llm,payment,product-catalog,product-reviews,quote,recommendation,shipping,shopping-copilot,otel-collector,prometheus,jaeger,grafana"
   allowedDomains:
     # Envoy matches the CONNECT target, which includes the destination port.
     - api.groq.com:443
