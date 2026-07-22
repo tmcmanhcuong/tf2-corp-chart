@@ -46,6 +46,8 @@ egressProxy:
     - bedrock-runtime.us-east-1.amazonaws.com:443
     - sts.us-east-1.amazonaws.com:443
     - dynamodb.us-east-1.amazonaws.com:443
+    - 493499579600.ddb.us-east-1.amazonaws.com:443
+    - "*.ddb.us-east-1.amazonaws.com:443"
     - s3.us-east-1.amazonaws.com:443
     - "*.s3.us-east-1.amazonaws.com:443"
     # Grafana CUR datasource uses Athena, Glue, STS and S3 in ap-southeast-1.
