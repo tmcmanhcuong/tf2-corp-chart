@@ -1,9 +1,9 @@
 # Managed by tf2-corp-platform secure delivery pipeline.
-# Change trail: @datpn02 - 2026-07-22 - Update verified production ECR digest for load-generator master and worker.
+# Change trail: @hungxqt - 2026-07-20 - Selective service digest promote into service-digest/.
 components:
   load-generator:
     imageOverride:
-      digest: "sha256:d57802644fe90a4cc00a35c8cdbf845749dbfd5b3795d7ec1cfbbfcec31c31c2"
+      digest: "sha256:ee716572943cd3abf2d987ee1c5c702d325e8c9b3ebf9710d4b84d567d9a2825"
   load-generator-worker:
     imageOverride:
-      digest: "sha256:d57802644fe90a4cc00a35c8cdbf845749dbfd5b3795d7ec1cfbbfcec31c31c2"
+      digest: "sha256:ee716572943cd3abf2d987ee1c5c702d325e8c9b3ebf9710d4b84d567d9a2825"
