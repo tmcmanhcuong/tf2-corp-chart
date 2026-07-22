@@ -43,8 +43,11 @@ Related: `techx-corp-infra/docs/changes/2026-07-22-ebs-encryption-and-orphan-cle
 
 | Field | Value |
 |---|---|
-| Before | No `gp3-encrypted` SC (or only in-tree `gp2`) |
-| After Argo | *(pending)* `kubectl get sc gp3-encrypted` shows encrypted param |
+| Before | No `gp3-encrypted` SC (only in-tree `gp2`) |
+| Chart on main | Yes (`62ecbc3` via PR #220 / merge on `main`) |
+| Sync failure | Argo: `resource storage.k8s.io:StorageClass is not permitted in project techx-corp` |
+| Fix | Add `storage.k8s.io/StorageClass` to `gitops/clusters/prod/appproject.yaml` clusterResourceWhitelist |
+| After Argo | *(pending after AppProject allow + sync)* SC present with `encrypted: "true"` |
 | Expected | SC present; existing PVCs still on old volumes until Phase 4 |
 
 #### Phase 4a — Grafana
