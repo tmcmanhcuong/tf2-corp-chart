@@ -68,4 +68,13 @@ spec:
         duration: 5s
         factor: 2
         maxDuration: 3m
-# Change trail: @hungxqt - 2026-07-20 - Load service-digest valueFiles for selective immutable image pins.
+
+  # Bound PVCs: the API fills /spec/volumeName after bind; Helm never sets it.
+  # After static rebind (encrypted EBS), live volumeName is pv-enc-*; desired is "".
+  # Patching volumeName is forbidden on Bound claims and fails the whole sync.
+  ignoreDifferences:
+    - group: ""
+      kind: PersistentVolumeClaim
+      jsonPointers:
+        - /spec/volumeName
+# Change trail: @hungxqt - 2026-07-22 - Ignore PVC volumeName so Bound claims do not block Argo sync.
