@@ -69,7 +69,7 @@ The following resource configurations were applied to `values.yaml`:
 - **`opensearch` (JVM):** `requests: 100m / 960Mi`, `limits: 100m / 960Mi` (P99: 87.9m CPU, 917.30Mi Memory - Guaranteed QoS).
 - **`otel-collector` (DaemonSet):** `requests: 20m / 128Mi`, `limits: 20m / 128Mi` (P99: 13.3m CPU, 117.86Mi Memory - Guaranteed QoS).
 - **`metrics-server` (Go):** `requests: 10m / 32Mi`, `limits: 50m / 32Mi` (P99: 5.3m CPU, 27.29Mi Memory - limits.cpu raised to 50m for /livez probe safety).
-- **`prometheus-adapter` (Go):** `requests: 10m / 48Mi`, `limits: 10m / 48Mi` (P99: 5.4m CPU, 38.18Mi Memory - Guaranteed QoS).
+- **`prometheus-adapter` (Go):** `requests: 50m / 128Mi`, `limits: 200m / 256Mi` (Raised memory to 256Mi and CPU to 200m to prevent OOMKills and probe timeouts during 200-user load tests).
 - **`jaeger` (Go):** `requests: 20m / 384Mi`, `limits: 100m / 1Gi` (P99: 7.9m CPU, 307.78Mi Memory).
 - **`grafana` (Go/JS):** `requests: 20m / 448Mi`, `limits: 100m / 768Mi` (P99: 15.3m CPU, 381.94Mi Memory).
 - **`kube-state-metrics` (Go):** `requests: 5m / 32Mi`, `limits: 50m / 64Mi` (P99: 2.4m CPU, 29.01Mi Memory).

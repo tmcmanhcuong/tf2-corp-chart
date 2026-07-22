@@ -3169,11 +3169,11 @@ prometheus-adapter:
   resources:
     # Guaranteed QoS (request = limit) for critical External Metrics API stability
     requests:
-      cpu: 10m
-      memory: 48Mi
+      cpu: 50m
+      memory: 128Mi
     limits:
-      cpu: 10m
-      memory: 48Mi
+      cpu: 200m
+      memory: 256Mi
   replicas: 1
 
 # Change trail: @hungxqt - 2026-07-22 - Default PVC storage class to encrypted gp3.
