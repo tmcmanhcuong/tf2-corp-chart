@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Directive 16 Verification Dashboard: Proving p95/p99 tail latency reduction under sustained load without increasing resource usage (Nodes, Pods, CPU, Memory).",
+  "description": "DIRECTIVE #16 - SRE Evaluation Dashboard: Proof of Sustained Load (RPS), Tail Latency Reduction (p95/p99), and Zero Infrastructure Expansion.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -32,8 +32,68 @@
       },
       "id": 1,
       "panels": [],
-      "title": "1. Tail Latency Budget Scorecard (p95 & p99 under Sustained Load)",
+      "title": "\u26a1 1. Sustained Load & Tail Latency SLO Scorecard",
       "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Total System Throughput (RPS)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(traces_span_metrics_calls_total{service_name=\"frontend\"}[$__rate_interval]))",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ]
     },
     {
       "datasource": {
@@ -69,11 +129,11 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 0,
+        "w": 3,
+        "x": 4,
         "y": 1
       },
-      "id": 2,
+      "id": 3,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -87,7 +147,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Browse p95 (Target < 300 ms)",
+      "title": "Browse p95 (Budget <300ms)",
       "type": "stat",
       "targets": [
         {
@@ -137,11 +197,11 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 4,
+        "w": 3,
+        "x": 7,
         "y": 1
       },
-      "id": 3,
+      "id": 4,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -155,7 +215,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Browse p99 (Target < 700 ms)",
+      "title": "Browse p99 (Budget <700ms)",
       "type": "stat",
       "targets": [
         {
@@ -205,11 +265,11 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 8,
+        "w": 3,
+        "x": 10,
         "y": 1
       },
-      "id": 4,
+      "id": 5,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -223,7 +283,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Cart p95 (Target < 300 ms)",
+      "title": "Cart p95 (Budget <300ms)",
       "type": "stat",
       "targets": [
         {
@@ -273,11 +333,11 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 12,
+        "w": 3,
+        "x": 13,
         "y": 1
       },
-      "id": 5,
+      "id": 6,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -291,7 +351,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Cart p99 (Target < 700 ms)",
+      "title": "Cart p99 (Budget <700ms)",
       "type": "stat",
       "targets": [
         {
@@ -345,7 +405,7 @@
         "x": 16,
         "y": 1
       },
-      "id": 6,
+      "id": 7,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -359,7 +419,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Checkout p95 (Target < 500 ms)",
+      "title": "Checkout p95 (Budget <500ms)",
       "type": "stat",
       "targets": [
         {
@@ -413,7 +473,7 @@
         "x": 20,
         "y": 1
       },
-      "id": 7,
+      "id": 8,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -427,7 +487,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Checkout p99 (Target < 1s)",
+      "title": "Checkout p99 (Budget <1s)",
       "type": "stat",
       "targets": [
         {
@@ -451,9 +511,9 @@
         "x": 0,
         "y": 5
       },
-      "id": 8,
+      "id": 9,
       "panels": [],
-      "title": "2. Proof of Zero Resource Increase (Infrastructure & Container Footprint)",
+      "title": "\ud83d\udcc8 2. Sustained Load Verification: Requests Per Second (RPS Breakdown)",
       "type": "row"
     },
     {
@@ -463,103 +523,36 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2
           },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
+          "unit": "reqps"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 6,
+        "h": 7,
+        "w": 12,
         "x": 0,
-        "y": 6
-      },
-      "id": 9,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "title": "Total Cluster EC2 Nodes",
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "webstore-metrics"
-          },
-          "editorMode": "code",
-          "expr": "sum(kube_node_info)",
-          "instant": false,
-          "range": true,
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "webstore-metrics"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
         "y": 6
       },
       "id": 10,
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "reduceOptions": {
+        "legend": {
           "calcs": [
-            "lastNotNull"
+            "lastNotNull",
+            "max",
+            "mean"
           ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
+          "displayMode": "table",
+          "placement": "bottom"
+        }
       },
-      "title": "Total Running Pods in Prod",
-      "type": "stat",
+      "title": "Storefront Entrypoint Traffic Breakdown by Route (RPS)",
+      "type": "timeseries",
       "targets": [
         {
           "datasource": {
@@ -567,9 +560,8 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "sum(kube_pod_status_ready{namespace=\"techx-corp-prod\", condition=\"true\"})",
-          "instant": false,
-          "range": true,
+          "expr": "sum by (span_name) (rate(traces_span_metrics_calls_total{service_name=\"frontend\", span_name=~\"GET /|POST /api/cart|POST /api/checkout|GET /products/.*|GET /api/products/.*\"}[$__rate_interval]))",
+          "legendFormat": "{{span_name}}",
           "refId": "A"
         }
       ]
@@ -581,103 +573,36 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2
           },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "purple",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
+          "unit": "reqps"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 6,
+        "h": 7,
+        "w": 12,
         "x": 12,
         "y": 6
       },
       "id": 11,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "reduceOptions": {
+        "legend": {
           "calcs": [
-            "lastNotNull"
+            "lastNotNull",
+            "max",
+            "mean"
           ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "title": "Total CPU Cores Used by All Services",
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "webstore-metrics"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[$__rate_interval]))",
-          "instant": false,
-          "range": true,
-          "refId": "A"
+          "displayMode": "table",
+          "placement": "bottom"
         }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "webstore-metrics"
       },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "purple",
-                "value": null
-              }
-            ]
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 6
-      },
-      "id": 12,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "title": "Total RAM Working Set Used",
-      "type": "stat",
+      "title": "Backend Microservice Call Volume (RPS per Service)",
+      "type": "timeseries",
       "targets": [
         {
           "datasource": {
@@ -685,9 +610,8 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "sum(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"})",
-          "instant": false,
-          "range": true,
+          "expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"checkout|cart|product-catalog|shipping|quote|payment|currency\"}[$__rate_interval]))",
+          "legendFormat": "{{service_name}}",
           "refId": "A"
         }
       ]
@@ -698,11 +622,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 10
+        "y": 13
       },
-      "id": 13,
+      "id": 12,
       "panels": [],
-      "title": "3. Tail Latency Trends (Before vs After Code Optimizations under Sustained Load)",
+      "title": "\ud83c\udfaf 3. Tail Latency Trends (p95 & p99 Stability under Sustained Load)",
       "type": "row"
     },
     {
@@ -725,16 +649,21 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 11
+        "y": 14
       },
-      "id": 14,
+      "id": 13,
       "options": {
         "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom"
         }
       },
-      "title": "Tail Latency Trends: p95 Across Core Flows",
+      "title": "p95 Latency Trends Across Core Flows (ms)",
       "type": "timeseries",
       "targets": [
         {
@@ -789,16 +718,21 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 11
+        "y": 14
       },
-      "id": 15,
+      "id": 14,
       "options": {
         "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom"
         }
       },
-      "title": "Tail Latency Trends: p99 Across Core Flows",
+      "title": "p99 Latency Trends Across Core Flows (ms)",
       "type": "timeseries",
       "targets": [
         {
@@ -839,12 +773,248 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 22
+      },
+      "id": 15,
+      "panels": [],
+      "title": "\ud83d\udee1\ufe0f 4. Proof of Zero Resource Increase (Constraint: No Infrastructure Expansion)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 23
       },
       "id": 16,
-      "panels": [],
-      "title": "4. Resource Elasticity Verification (Node & Pod Count Stability)",
-      "type": "row"
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Total Cluster EC2 Nodes",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "editorMode": "code",
+          "expr": "sum(kube_node_info)",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 23
+      },
+      "id": 17,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Total Active Pods in Prod",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "editorMode": "code",
+          "expr": "sum(kube_pod_status_ready{namespace=\"techx-corp-prod\", condition=\"true\"})",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-purple",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 23
+      },
+      "id": 18,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Aggregate CPU Cores Consumed",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[$__rate_interval]))",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-purple",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 23
+      },
+      "id": 19,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Aggregate RAM Working Set Consumed",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "editorMode": "code",
+          "expr": "sum(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"})",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ]
     },
     {
       "datasource": {
@@ -865,16 +1035,21 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 27
       },
-      "id": 17,
+      "id": 20,
       "options": {
         "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom"
         }
       },
-      "title": "Cluster Nodes vs Pods Count Trend",
+      "title": "Nodes vs Pods Elasticity Stability Trend",
       "type": "timeseries",
       "targets": [
         {
@@ -884,7 +1059,7 @@
           },
           "editorMode": "code",
           "expr": "sum(kube_pod_status_ready{namespace=\"techx-corp-prod\", condition=\"true\"})",
-          "legendFormat": "Total Pods",
+          "legendFormat": "Active Pods",
           "refId": "A"
         },
         {
@@ -894,7 +1069,7 @@
           },
           "editorMode": "code",
           "expr": "sum(kube_node_info)",
-          "legendFormat": "Total EC2 Nodes",
+          "legendFormat": "EC2 Nodes",
           "refId": "B"
         }
       ]
@@ -918,16 +1093,21 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 27
       },
-      "id": 18,
+      "id": 21,
       "options": {
         "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ],
           "displayMode": "table",
           "placement": "bottom"
         }
       },
-      "title": "CPU Usage Breakdown per Container (Cores)",
+      "title": "CPU Consumption Breakdown per Microservice (Cores)",
       "type": "timeseries",
       "targets": [
         {
@@ -936,7 +1116,7 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "max(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[$__rate_interval])) by (container)",
+          "expr": "sum by (container) (rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[$__rate_interval]))",
           "legendFormat": "{{container}}",
           "refId": "A"
         }
@@ -950,7 +1130,8 @@
     "mandate-16",
     "latency",
     "slo",
-    "performance"
+    "performance",
+    "efficiency"
   ],
   "time": {
     "from": "now-30m",
