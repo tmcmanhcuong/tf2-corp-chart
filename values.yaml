@@ -823,11 +823,11 @@ components:
     resources:
       # Guaranteed QoS (request = limit) for critical path stability
       requests:
-        cpu: 10m
-        memory: 16Mi
+        cpu: 50m
+        memory: 64Mi
       limits:
-        cpu: 10m
-        memory: 16Mi
+        cpu: 50m
+        memory: 64Mi
     # High-RPS / low-CPU gRPC (native C++): RPS is the primary capacity signal; CPU often never hits 70%.
     # maxReplicas 72: load-test pin at 12 with CPU ~412%/70% → desired ~71 (tiny 10m request amplifies %).
     autoscaling:
