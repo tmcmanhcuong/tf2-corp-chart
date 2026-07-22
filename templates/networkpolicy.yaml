@@ -7,6 +7,7 @@ Docs: docs/operations/network-policy.md
 {{- $relCtx := . }}
 {{- $enforceEgress := .Values.networkPolicy.enforceEgress }}
 {{- $vpcCidr := .Values.networkPolicy.vpcCidr }}
+{{- $kubernetesApiCidr := .Values.networkPolicy.kubernetesApiCidr }}
 {{- $ns := .Release.Namespace }}
 {{- if and $enforceEgress (not .Values.egressProxy.enabled) }}
 {{- fail "networkPolicy.enforceEgress=true requires egressProxy.enabled=true" }}
@@ -124,12 +125,17 @@ spec:
               app.kubernetes.io/component: otel-collector
       ports:
         - { protocol: TCP, port: 4318 }
-    # Kubernetes attributes, cluster metrics and kubelet metrics presets.
+    # Kubernetes attributes and cluster metrics use the in-cluster API Service.
+    - to:
+        - ipBlock:
+            cidr: {{ $kubernetesApiCidr }}
+      ports:
+        - { protocol: TCP, port: 443 }
+    # Kubelet metrics use node IPs inside the production VPC.
     - to:
         - ipBlock:
             cidr: {{ $vpcCidr }}
       ports:
-        - { protocol: TCP, port: 443 }
         - { protocol: TCP, port: 10250 }
 {{- end }}
 
@@ -160,9 +166,13 @@ spec:
   egress:
     - to:
         - ipBlock:
-            cidr: {{ $vpcCidr }}
+            cidr: {{ $kubernetesApiCidr }}
       ports:
         - { protocol: TCP, port: 443 }
+    - to:
+        - ipBlock:
+            cidr: {{ $vpcCidr }}
+      ports:
         - { protocol: TCP, port: 10250 }
 {{- end }}
 {{- end }}
@@ -200,7 +210,7 @@ spec:
         - { protocol: TCP, port: 9090 }
     - to:
         - ipBlock:
-            cidr: {{ $vpcCidr }}
+            cidr: {{ $kubernetesApiCidr }}
       ports:
         - { protocol: TCP, port: 443 }
 {{- end }}
@@ -235,7 +245,7 @@ spec:
   egress:
     - to:
         - ipBlock:
-            cidr: {{ $vpcCidr }}
+            cidr: {{ $kubernetesApiCidr }}
       ports:
         - { protocol: TCP, port: 443 }
 {{- end }}
@@ -257,7 +267,7 @@ spec:
   egress:
     - to:
         - ipBlock:
-            cidr: {{ $vpcCidr }}
+            cidr: {{ $kubernetesApiCidr }}
       ports:
         - { protocol: TCP, port: 443 }
 {{- end }}
@@ -1876,15 +1886,20 @@ spec:
               app.kubernetes.io/name: karpenter
       ports:
         - { protocol: TCP, port: 8080 }
-    # Kubernetes discovery and kubelet scrape stay inside the production VPC.
+    # Kubernetes discovery uses the in-cluster API Service.
+    - to:
+        - ipBlock:
+            cidr: {{ $kubernetesApiCidr }}
+      ports:
+        - protocol: TCP
+          port: 443
+    # Kubelet scrape stays inside the production VPC.
     - to:
         - ipBlock:
             cidr: {{ $vpcCidr }}
       ports:
         - protocol: TCP
           port: 10250
-        - protocol: TCP
-          port: 443
 {{- end }}
 {{- end }}
 
@@ -2013,6 +2028,13 @@ spec:
       ports:
         - protocol: TCP
           port: {{ .Values.egressProxy.port }}
+    # Provisioning init/sidecars list namespaced ConfigMaps and Secrets.
+    - to:
+        - ipBlock:
+            cidr: {{ $kubernetesApiCidr }}
+      ports:
+        - protocol: TCP
+          port: 443
 {{- end }}
 {{- end }}
 
