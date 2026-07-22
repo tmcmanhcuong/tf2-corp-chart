@@ -56,7 +56,8 @@ Assert-InvalidValues $true $true $false
 $missingGrafanaProxyArgs = $baseArgs + @(
     "--set", "networkPolicy.enabled=true",
     "--set", "networkPolicy.enforceEgress=true",
-    "--set", "egressProxy.enabled=true"
+    "--set", "egressProxy.enabled=true",
+    "--set-json", "grafana.env=null"
 )
 & $Helm @missingGrafanaProxyArgs 2>&1 | Out-Null
 if ($LASTEXITCODE -eq 0) { throw "full enforcement accepted Grafana without proxy environment" }
