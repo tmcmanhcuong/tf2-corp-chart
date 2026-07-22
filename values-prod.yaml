@@ -177,7 +177,18 @@ components:
     initContainers: []
   
   accounting:
+    serviceAccount:
+      create: true
+      name: accounting
+      annotations:
+        eks.amazonaws.com/role-arn: arn:aws:iam::493499579600:role/techx-prod-tf2-accounting-outbox-reconciler
     envOverrides:
+      - name: CHECKOUT_OUTBOX_TABLE
+        value: techx-prod-tf2-checkout-outbox
+      - name: OUTBOX_RECONCILE_INTERVAL_SECONDS
+        value: "300"
+      - name: OUTBOX_PUBLISHED_STALE_SECONDS
+        value: "900"
       - name: KAFKA_ADDR
         valueFrom:
           secretKeyRef:

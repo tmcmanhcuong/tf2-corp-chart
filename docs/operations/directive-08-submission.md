@@ -70,7 +70,7 @@
 All 50 reviews and 10 catalog products preserved their IDs, checksums, and foreign key integrity.
 
 ### 2.2 Kafka / MSK — Topic & Partition Parity
-- **Topics created on MSK:** `orders`, `orders-approved`, `orders-cancelled`.
+- **Topics currently created on MSK:** `orders`, `orders-approved`, `orders-cancelled`, `orders-shipped`. **Pre-deploy action:** create `orders-persisted`; it acknowledges that accounting committed the order to RDS before checkout removes its DynamoDB outbox item.
 - **Outbox Pattern:** `checkout` persists orders into DynamoDB Outbox before publishing to MSK, guaranteeing 0 order loss during the cutover window.
 - **Verification:** `checkout` successfully writes messages to MSK (`Successful to write message`), and `accounting` + `fraud-detection` consume events normally.
 
