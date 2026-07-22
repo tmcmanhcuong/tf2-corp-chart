@@ -1778,15 +1778,15 @@ components:
     resources:
       # Guaranteed QoS (request = limit) for critical path stability
       requests:
-        cpu: 10m
-        memory: 32Mi
+        cpu: 100m
+        memory: 64Mi
       limits:
-        cpu: 10m
-        memory: 32Mi
+        cpu: 500m
+        memory: 128Mi
     autoscaling:
       enabled: true
-      minReplicas: 1
-      maxReplicas: 4
+      minReplicas: 2
+      maxReplicas: 8
       targetCPUUtilizationPercentage: 70
       behavior: *hpa-behavior-default
     mountedEmptyDirs:
@@ -1900,15 +1900,15 @@ components:
     resources:
       # Guaranteed QoS (request = limit) for critical path stability
       requests:
-        cpu: 10m
-        memory: 16Mi
+        cpu: 50m
+        memory: 32Mi
       limits:
-        cpu: 10m
-        memory: 16Mi
+        cpu: 200m
+        memory: 64Mi
     autoscaling:
       enabled: true
-      minReplicas: 1
-      maxReplicas: 4
+      minReplicas: 2
+      maxReplicas: 6
       targetCPUUtilizationPercentage: 70
       behavior: *hpa-behavior-default
 
