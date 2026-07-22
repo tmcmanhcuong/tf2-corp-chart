@@ -19,7 +19,7 @@
       },
       "id": 1,
       "panels": [],
-      "title": "1. Sustained Load & System Throughput Context",
+      "title": "1. Sustained Load & Flow Traffic Profile (RPS)",
       "type": "row"
     },
     {
@@ -48,7 +48,7 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 12,
+        "w": 24,
         "x": 0,
         "y": 1
       },
@@ -89,6 +89,94 @@
       },
       "fieldConfig": {
         "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "title": "Traffic Rate by Core Flow (Browse vs Cart vs Checkout RPS)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(traces_span_metrics_calls_total{service_name=\"frontend\", span_name=~\"GET /products/.*|GET /api/products/.*|render route /product.*\"}[$__rate_interval]))",
+          "legendFormat": "Browse RPS",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(traces_span_metrics_calls_total{service_name=\"frontend\", span_name=\"POST /api/cart\"}[$__rate_interval]))",
+          "legendFormat": "Cart RPS",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(traces_span_metrics_calls_total{service_name=\"frontend\", span_name=\"POST /api/checkout\"}[$__rate_interval]))",
+          "legendFormat": "Checkout RPS",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 4,
+      "panels": [],
+      "title": "2. Service Reliability & SLO Success Rates",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
           "color": {
             "mode": "thresholds"
           },
@@ -102,17 +190,17 @@
               }
             ]
           },
-          "unit": "reqps"
+          "unit": "percent"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 3,
-        "w": 12,
-        "x": 12,
-        "y": 1
+        "w": 8,
+        "x": 0,
+        "y": 11
       },
-      "id": 3,
+      "id": 5,
       "options": {
         "colorMode": "none",
         "graphMode": "none",
@@ -126,7 +214,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Checkout Flow Throughput (RPS)",
+      "title": "Browse Success Rate (SLO Target >= 99.5%)",
       "type": "stat",
       "targets": [
         {
@@ -135,7 +223,127 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "sum(rate(traces_span_metrics_calls_total{service_name=\"frontend\", span_name=\"POST /api/checkout\"}[$__rate_interval]))",
+          "expr": "100 * (1 - (sum(rate(traces_span_metrics_duration_milliseconds_count{service_name=\"frontend\", span_name=~\"render route.*|GET /products/.*|GET /api/products/.*\", status_code=\"STATUS_CODE_ERROR\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(traces_span_metrics_duration_milliseconds_count{service_name=\"frontend\", span_name=~\"render route.*|GET /products/.*|GET /api/products/.*\"}[$__rate_interval])), 0.000001))",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 8,
+        "x": 8,
+        "y": 11
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Cart Operations Success Rate (SLO Target >= 99.5%)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "editorMode": "code",
+          "expr": "100 * (1 - (sum(rate(traces_span_metrics_duration_milliseconds_count{service_name=\"cart\", status_code=\"STATUS_CODE_ERROR\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(traces_span_metrics_duration_milliseconds_count{service_name=\"cart\"}[$__rate_interval])), 0.000001))",
+          "instant": false,
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 8,
+        "x": 16,
+        "y": 11
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Checkout Success Rate (SLO Target >= 99.0%)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "editorMode": "code",
+          "expr": "(100 * (1 - ((sum(rate(traces_span_metrics_calls_total{service_name=\"frontend\", span_name=\"POST /api/checkout\", status_code=\"STATUS_CODE_ERROR\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(traces_span_metrics_calls_total{service_name=\"frontend\", span_name=\"POST /api/checkout\"}[$__rate_interval])), 0.000001))))",
           "instant": false,
           "range": true,
           "refId": "A"
@@ -148,237 +356,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 4
-      },
-      "id": 4,
-      "panels": [],
-      "title": "2. Service Reliability & SLO Success Rates (per onboarding/SLO.md)",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "webstore-metrics"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 5,
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 99.5
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 5
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "min",
-            "mean"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "Browse Success Rate (SLO Target >= 99.5%)",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "webstore-metrics"
-          },
-          "editorMode": "code",
-          "expr": "100 * (1 - (sum(rate(traces_span_metrics_duration_milliseconds_count{service_name=\"frontend\", span_name=~\"render route.*|GET /products/.*|GET /api/products/.*\", status_code=\"STATUS_CODE_ERROR\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(traces_span_metrics_duration_milliseconds_count{service_name=\"frontend\", span_name=~\"render route.*|GET /products/.*|GET /api/products/.*\"}[$__rate_interval])), 0.000001))",
-          "legendFormat": "Browse Success Rate (%)",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "webstore-metrics"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 5,
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 99.5
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 5
-      },
-      "id": 6,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "min",
-            "mean"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "Cart Operations Success Rate (SLO Target >= 99.5%)",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "webstore-metrics"
-          },
-          "editorMode": "code",
-          "expr": "100 * (1 - (sum(rate(traces_span_metrics_duration_milliseconds_count{service_name=\"cart\", status_code=\"STATUS_CODE_ERROR\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(traces_span_metrics_duration_milliseconds_count{service_name=\"cart\"}[$__rate_interval])), 0.000001))",
-          "legendFormat": "Cart Success Rate (%)",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "webstore-metrics"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 5,
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 99.0
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 5
-      },
-      "id": 7,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "min",
-            "mean"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "title": "Checkout Success Rate (SLO Target >= 99.0%)",
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "webstore-metrics"
-          },
-          "editorMode": "code",
-          "expr": "(100 * (1 - ((sum(rate(traces_span_metrics_calls_total{service_name=\"frontend\", span_name=\"POST /api/checkout\", status_code=\"STATUS_CODE_ERROR\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(traces_span_metrics_calls_total{service_name=\"frontend\", span_name=\"POST /api/checkout\"}[$__rate_interval])), 0.000001))))",
-          "legendFormat": "Checkout Success Rate (%)",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 11
+        "y": 14
       },
       "id": 8,
       "panels": [],
-      "title": "3. Browse Flow Tail Latency (Target: p95 < 300 ms, p99 < 700 ms)",
+      "title": "3. Browse Flow Tail Latency (Red Line = Target Budget)",
       "type": "row"
     },
     {
@@ -390,7 +372,7 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 5,
+            "fillOpacity": 0,
             "lineInterpolation": "smooth",
             "lineWidth": 2,
             "thresholdsStyle": {
@@ -418,7 +400,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 15
       },
       "id": 9,
       "options": {
@@ -437,7 +419,7 @@
           "sort": "desc"
         }
       },
-      "title": "Browse Latency p95",
+      "title": "Browse Latency p95 (Red Line: Target < 300 ms)",
       "type": "timeseries",
       "targets": [
         {
@@ -461,7 +443,7 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 5,
+            "fillOpacity": 0,
             "lineInterpolation": "smooth",
             "lineWidth": 2,
             "thresholdsStyle": {
@@ -489,7 +471,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 12
+        "y": 15
       },
       "id": 10,
       "options": {
@@ -508,7 +490,7 @@
           "sort": "desc"
         }
       },
-      "title": "Browse Latency p99",
+      "title": "Browse Latency p99 (Red Line: Target < 700 ms)",
       "type": "timeseries",
       "targets": [
         {
@@ -529,11 +511,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 22
       },
       "id": 11,
       "panels": [],
-      "title": "4. Cart Flow Tail Latency (Target: p95 < 300 ms, p99 < 700 ms)",
+      "title": "4. Cart Flow Tail Latency (Red Line = Target Budget)",
       "type": "row"
     },
     {
@@ -545,7 +527,7 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 5,
+            "fillOpacity": 0,
             "lineInterpolation": "smooth",
             "lineWidth": 2,
             "thresholdsStyle": {
@@ -573,7 +555,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 23
       },
       "id": 12,
       "options": {
@@ -592,7 +574,7 @@
           "sort": "desc"
         }
       },
-      "title": "Cart Latency p95",
+      "title": "Cart Latency p95 (Red Line: Target < 300 ms)",
       "type": "timeseries",
       "targets": [
         {
@@ -616,7 +598,7 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 5,
+            "fillOpacity": 0,
             "lineInterpolation": "smooth",
             "lineWidth": 2,
             "thresholdsStyle": {
@@ -644,7 +626,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 23
       },
       "id": 13,
       "options": {
@@ -663,7 +645,7 @@
           "sort": "desc"
         }
       },
-      "title": "Cart Latency p99",
+      "title": "Cart Latency p99 (Red Line: Target < 700 ms)",
       "type": "timeseries",
       "targets": [
         {
@@ -684,11 +666,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 30
       },
       "id": 14,
       "panels": [],
-      "title": "5. Checkout End-to-End Latency (Target: p95 < 500 ms, p99 < 1000 ms)",
+      "title": "5. Checkout End-to-End Latency (Red Line = Target Budget)",
       "type": "row"
     },
     {
@@ -700,7 +682,7 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 5,
+            "fillOpacity": 0,
             "lineInterpolation": "smooth",
             "lineWidth": 2,
             "thresholdsStyle": {
@@ -728,7 +710,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 28
+        "y": 31
       },
       "id": 15,
       "options": {
@@ -747,7 +729,7 @@
           "sort": "desc"
         }
       },
-      "title": "Checkout End-to-End Latency p95",
+      "title": "Checkout End-to-End Latency p95 (Red Line: Target < 500 ms)",
       "type": "timeseries",
       "targets": [
         {
@@ -771,7 +753,7 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 5,
+            "fillOpacity": 0,
             "lineInterpolation": "smooth",
             "lineWidth": 2,
             "thresholdsStyle": {
@@ -799,7 +781,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 31
       },
       "id": 16,
       "options": {
@@ -818,7 +800,7 @@
           "sort": "desc"
         }
       },
-      "title": "Checkout End-to-End Latency p99",
+      "title": "Checkout End-to-End Latency p99 (Red Line: Target < 1000 ms)",
       "type": "timeseries",
       "targets": [
         {
@@ -839,11 +821,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 38
       },
       "id": 17,
       "panels": [],
-      "title": "6. Infrastructure Resource Footprint (Mandate Constraint: Must Not Expand)",
+      "title": "6. Infrastructure Resource Footprint",
       "type": "row"
     },
     {
@@ -872,9 +854,9 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 6,
+        "w": 12,
         "x": 0,
-        "y": 36
+        "y": 39
       },
       "id": 18,
       "options": {
@@ -890,7 +872,7 @@
         },
         "textMode": "auto"
       },
-      "title": "Total Cluster EC2 Nodes Count",
+      "title": "Total Cluster EC2 Nodes",
       "type": "stat",
       "targets": [
         {
@@ -932,9 +914,9 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 6,
-        "x": 6,
-        "y": 36
+        "w": 12,
+        "x": 12,
+        "y": 39
       },
       "id": 19,
       "options": {
@@ -973,45 +955,41 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2
           },
           "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 3,
-        "w": 6,
-        "x": 12,
-        "y": 36
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 42
       },
       "id": 20,
       "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "reduceOptions": {
+        "legend": {
           "calcs": [
-            "lastNotNull"
+            "lastNotNull",
+            "max",
+            "mean"
           ],
-          "fields": "",
-          "values": false
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
         },
-        "textMode": "auto"
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
-      "title": "Total Container CPU Usage Rate",
-      "type": "stat",
+      "title": "Total Container CPU Usage Rate Trend (Cores)",
+      "type": "timeseries",
       "targets": [
         {
           "datasource": {
@@ -1020,8 +998,7 @@
           },
           "editorMode": "code",
           "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", container!=\"\"}[$__rate_interval]))",
-          "instant": false,
-          "range": true,
+          "legendFormat": "Total CPU Cores Used",
           "refId": "A"
         }
       ]
@@ -1033,45 +1010,41 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2
           },
           "unit": "bytes"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 3,
-        "w": 6,
-        "x": 18,
-        "y": 36
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 42
       },
       "id": 21,
       "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "reduceOptions": {
+        "legend": {
           "calcs": [
-            "lastNotNull"
+            "lastNotNull",
+            "max",
+            "mean"
           ],
-          "fields": "",
-          "values": false
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
         },
-        "textMode": "auto"
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
-      "title": "Total Container RAM Working Set",
-      "type": "stat",
+      "title": "Total Container RAM Working Set Trend",
+      "type": "timeseries",
       "targets": [
         {
           "datasource": {
@@ -1080,8 +1053,7 @@
           },
           "editorMode": "code",
           "expr": "sum(container_memory_working_set_bytes{namespace=\"techx-corp-prod\", container!=\"\"})",
-          "instant": false,
-          "range": true,
+          "legendFormat": "Total RAM Working Set (Bytes)",
           "refId": "A"
         }
       ]
