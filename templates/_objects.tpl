@@ -41,6 +41,7 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/part-of: techx-corp
         {{- include "techx-corp.selectorLabels" . | nindent 8 }}
         {{- include "techx-corp.workloadLabels" . | nindent 8 }}
         {{- if .podLabels }}
