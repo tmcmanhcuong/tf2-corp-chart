@@ -289,6 +289,16 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+    - from:
+        - podSelector:
+            matchLabels:
+              opentelemetry.io/name: load-generator-worker
+        - podSelector:
+            matchLabels:
+              opentelemetry.io/name: load-generator
+      ports:
+        - protocol: TCP
+          port: 8080
 {{- if $enforceEgress }}
   egress:
     - to:
