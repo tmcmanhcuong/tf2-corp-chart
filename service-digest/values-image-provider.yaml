@@ -3,5 +3,5 @@
 components:
   image-provider:
     imageOverride:
-      digest: "sha256:b8b8bfcdbe2787b86b9a719da8ef7196b818a05061c5f94867d21b04ccd1bb79"
+      digest: "sha256:c4c2fbff72a161f0162d725a4bd4bdb71d915b81f237fe2caa6a4e2f5bad3cf8"
 # Change trail: @MinhKhoa2209 - 2026-07-22 - Pin verified production digest.
