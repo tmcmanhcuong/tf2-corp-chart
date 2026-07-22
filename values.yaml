@@ -1386,7 +1386,7 @@ components:
     resources:
       # Burstable QoS: cpu limit set to 100m for admission policy compliance
       requests:
-        cpu: 100m
+        cpu: 35m
         memory: 112Mi
       limits:
         cpu: 500m
@@ -1401,7 +1401,7 @@ components:
       enabled: true
       minReplicas: 1
       maxReplicas: 20
-      targetCPUUtilizationPercentage: 70
+      targetCPUUtilizationPercentage: 60
       behavior:
         scaleUp:
           stabilizationWindowSeconds: 0
