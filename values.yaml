@@ -2391,18 +2391,18 @@ components:
         rollingUpdate:
           maxUnavailable: 1
           maxSurge: 0
-    # Cold start is JVM-heavy: on 200m CPU, :9200 often binds only after ~4+ minutes
-    # (observed ~4m16s). CPU request 500m shortens bootstrap; startupProbe still
-    # gates liveness so kubelet does not kill mid-bootstrap if the node is busy.
-    # Unhealthy "connection refused" events during the first few minutes are expected
-    # until the first successful TCP probe; they do not mean the process crashed.
+    # Cold start is JVM-heavy. On 100m CPU after PVC recovery, :9200 can bind only
+    # after ~6.5m — equal to the old failureThreshold 36 budget, so kubelet SIGTERM
+    # (exit 143) restarts the pod in a loop (connection refused is mid-bootstrap).
+    # 500m CPU shortens bootstrap; extended startupProbe still gates liveness if the
+    # node is busy. Early "connection refused" probe events are expected until :9200 binds.
     startupProbe:
       tcpSocket:
         port: 9200
       initialDelaySeconds: 30
       periodSeconds: 10
       timeoutSeconds: 5
-      failureThreshold: 36 # ~6.5 minutes after start (30s + 36*10s)
+      failureThreshold: 60 # ~10.5 minutes after start (30s + 60*10s)
     readinessProbe:
       tcpSocket:
         port: 9200
@@ -2452,12 +2452,13 @@ components:
       - name: network.host
         value: "0.0.0.0"
     resources:
-      # Guaranteed QoS (request = limit) for search database stability
+      # Guaranteed QoS (request = limit). 500m CPU shortens JVM + index recovery so
+      # startupProbe can pass after PVC encrypt-migrate / cold node schedules.
       requests:
-        cpu: 100m
+        cpu: 500m
         memory: 960Mi
       limits:
-        cpu: 100m
+        cpu: 500m
         memory: 960Mi
     securityContext:
       runAsUser: 1000
@@ -3176,4 +3177,4 @@ prometheus-adapter:
       memory: 256Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-22 - Default PVC storage class to encrypted gp3.
+# Change trail: @hungxqt - 2026-07-22 - Raise OpenSearch CPU and startup probe budget.
