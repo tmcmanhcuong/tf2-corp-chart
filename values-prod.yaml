@@ -21,6 +21,8 @@ runtimeHardeningInventory:
 networkPolicy:
   enabled: true
   enforceEgress: true
+  # default/kubernetes ClusterIP verified live on 2026-07-22.
+  kubernetesApiCidr: 172.20.0.1/32
   # Internal storefront ALB live subnets (verified 2026-07-21 via ELBv2/EC2).
   albIngressCidrs:
     - 10.0.10.0/24

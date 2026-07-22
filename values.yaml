@@ -15,6 +15,9 @@ networkPolicy:
   # true/true = ingress and egress enforcement.
   enforceEgress: false
   vpcCidr: 10.0.0.0/16
+  # ClusterIP of default/kubernetes as a host CIDR. Keep separate from vpcCidr:
+  # NetworkPolicy evaluates in-cluster API traffic against this Service IP.
+  kubernetesApiCidr: 172.20.0.1/32
   albIngressCidrs:
     - 10.0.0.0/16
   # flagd keeps its existing BTC HTTP provider path and is not proxy-injected.

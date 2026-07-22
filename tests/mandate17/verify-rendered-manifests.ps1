@@ -72,6 +72,12 @@ $missingDigestArgs = $baseArgs + @(
 & $Helm @missingDigestArgs 2>&1 | Out-Null
 if ($LASTEXITCODE -eq 0) { throw "full enforcement accepted an unpinned proxy image" }
 
+$broadApiCidrArgs = $baseArgs + @(
+    "--set-string", "networkPolicy.kubernetesApiCidr=10.0.0.0/16"
+)
+& $Helm @broadApiCidrArgs 2>&1 | Out-Null
+if ($LASTEXITCODE -eq 0) { throw "networkPolicy accepted a non-host Kubernetes API CIDR" }
+
 $ingressRendered = Render $true $false $false
 $ingress = NetworkPolicyDocuments $ingressRendered
 if ($ingress.Count -lt 20) { throw "ingress state rendered too few NetworkPolicy resources" }
@@ -117,6 +123,27 @@ foreach ($requiredPolicy in @(
     if ($fullText -notmatch "(?m)^  name: $([regex]::Escape($requiredPolicy))$") {
         throw "full state is missing control-plane policy: $requiredPolicy"
     }
+}
+
+$apiConsumerPolicies = @(
+    'otel-collector-egress', 'metrics-server', 'prometheus-adapter',
+    'kube-state-metrics', 'runtime-hardening-inventory', 'prometheus', 'grafana'
+)
+$apiRulePattern = '(?ms)- to:\s*\n\s*- ipBlock:\s*\n\s*cidr: 172\.20\.0\.1/32\s*\n\s*ports:\s*\n(?:(?!\s{4}- to:).)*port: 443'
+$broadApiRulePattern = '(?ms)- to:\s*\n\s*- ipBlock:\s*\n\s*cidr: 10\.0\.0\.0/16\s*\n\s*ports:\s*\n(?:(?!\s{4}- to:).)*port: 443'
+foreach ($policyName in $apiConsumerPolicies) {
+    $policy = $full | Where-Object { $_ -match "(?m)^  name: $([regex]::Escape($policyName))$" }
+    if ($policy.Count -ne 1) { throw "full state must render one $policyName policy" }
+    if ($policy -notmatch $apiRulePattern) {
+        throw "$policyName must allow only the verified Kubernetes API CIDR on TCP 443"
+    }
+    if ($policy -match $broadApiRulePattern) {
+        throw "$policyName must not use the VPC CIDR for Kubernetes API TCP 443"
+    }
+}
+$apiCidrRules = [regex]::Matches($fullText, 'cidr: 172\.20\.0\.1/32')
+if ($apiCidrRules.Count -ne $apiConsumerPolicies.Count) {
+    throw "Kubernetes API CIDR must be granted only to the approved API consumers"
 }
 if ($fullRendered -notmatch 'app.kubernetes.io/component: otel-collector') {
     throw "OTel collector pods are missing the selector label used by NetworkPolicy"
