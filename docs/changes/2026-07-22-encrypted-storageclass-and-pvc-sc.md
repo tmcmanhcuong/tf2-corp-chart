@@ -47,32 +47,34 @@ Related: `techx-corp-infra/docs/changes/2026-07-22-ebs-encryption-and-orphan-cle
 | Chart on main | Yes (`62ecbc3` via PR #220 / merge on `main`) |
 | Sync failure | Argo: `resource storage.k8s.io:StorageClass is not permitted in project techx-corp` |
 | Fix | Add `storage.k8s.io/StorageClass` to `gitops/clusters/prod/appproject.yaml` clusterResourceWhitelist |
-| After Argo | *(pending after AppProject allow + sync)* SC present with `encrypted: "true"` |
-| Expected | SC present; existing PVCs still on old volumes until Phase 4 |
+| After Argo | SC `gp3-encrypted` present (`ebs.csi.aws.com`, `encrypted: "true"`) after AppProject whitelist push `774a607` |
+| Expected met | Yes for SC; PVCs migrated in Phase 4 |
 
 #### Phase 4a — Grafana
 
 | Field | Value |
 |---|---|
-| Before | `vol-04b630daaf7625c77` Encrypted=false |
-| Map | old_vol / snap / enc_snap / new_vol *(pending)* |
-| After | *(pending)* Encrypted=true, PVC Bound, pod Ready |
+| Before | `vol-04b630daaf7625c77` Encrypted=false, AZ us-east-1b |
+| Map | old `vol-04b630daaf7625c77` → snap `snap-070319393f698d4df` → enc_snap `snap-0603408edb99ef3ca` → new `vol-0807f3ccbbfbf3bec` |
+| After | PVC Bound `gp3-encrypted` / `pv-enc-grafana`; Encrypted=true; pod **2/2 Running** after zone nodeAffinity fix |
 
 #### Phase 4b — Prometheus
 
 | Field | Value |
 |---|---|
-| Before | `vol-05b854adac88d324e` Encrypted=false |
-| Map | *(pending)* |
-| After | *(pending)* |
+| Before | `vol-05b854adac88d324e` Encrypted=false, AZ us-east-1a |
+| Map | old `vol-05b854adac88d324e` → snap `snap-0db153734790714a9` → enc_snap `snap-03acbaf8ed8e8968c` → new `vol-066f84fa4ab9bd406` |
+| After | PVC Bound `gp3-encrypted` / `pv-enc-prometheus`; Encrypted=true; pod **1/1 Running** |
 
 #### Phase 4c — OpenSearch
 
 | Field | Value |
 |---|---|
-| Before | `vol-085a38efdb1a24c2a` Encrypted=false |
-| Map | *(pending)* |
-| After | *(pending)* |
+| Before | `vol-085a38efdb1a24c2a` Encrypted=false, AZ us-east-1b |
+| Map | old `vol-085a38efdb1a24c2a` → snap `snap-0fa860a29f2ef73f0` → enc_snap `snap-076b6a516ff8d2757` → new `vol-03755abdce1928b77` |
+| After | PVC Bound `gp3-encrypted` / `pv-enc-opensearch`; Encrypted=true; STS recreated by Argo; pod Running (startup probe slow — security/JVM cold start) |
+
+**Ops notes:** Argo auto-sync paused during rebind; static PVs required `topology.kubernetes.io/zone` nodeAffinity to avoid AZ mismatch; old unencrypted volumes deleted after cutover.
 
 ## Technical Design Decisions
 
