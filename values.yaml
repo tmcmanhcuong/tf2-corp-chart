@@ -985,11 +985,11 @@ components:
     resources:
       # Burstable QoS: cpu limit set to 200m for admission policy compliance
       requests:
-        cpu: 64m
-        memory: 160Mi
-      limits:
-        cpu: 200m
+        cpu: 100m
         memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
     # BFF/SSR: RPS primary (often I/O-wait on backends); CPU safety valve.
     # maxReplicas 20: load-test pin at 14 with CPU ~100%/80% → desired ~18; +headroom.
     autoscaling:
@@ -1120,11 +1120,11 @@ components:
     resources:
       # Guaranteed QoS (request = limit) for critical path stability
       requests:
-        cpu: 30m
-        memory: 48Mi
+        cpu: 159m
+        memory: 100Mi
       limits:
-        cpu: 30m
-        memory: 48Mi
+        cpu: 500m
+        memory: 200Mi
     # Edge / ALB target on Critical MNG (small floor). maxReplicas 10 needs MNG headroom.
     # RPS primary; CPU safety valve. If pods Pending: free Critical capacity in infra.
     # OTel service.name may differ for Envoy — set autoscaling.serviceName after metric inventory.
@@ -1133,7 +1133,7 @@ components:
       enabled: true
       minReplicas: 2
       maxReplicas: 10
-      targetCPUUtilizationPercentage: 80
+      targetCPUUtilizationPercentage: 55
       # Envoy edge: raised from 200 → 300 RPS/pod (delay Critical MNG scale-out).
       targetRequestsPerSecond: 300
       behavior: *hpa-behavior-default
@@ -1514,11 +1514,11 @@ components:
     resources:
       # Guaranteed QoS (request = limit) for critical path stability
       requests:
-        cpu: 20m
-        memory: 32Mi
+        cpu: 150m
+        memory: 128Mi
       limits:
-        cpu: 20m
-        memory: 32Mi
+        cpu: 300m
+        memory: 256Mi
     # Hot read path under frontend/checkout; Karpenter spot-tolerant.
     # Highest backend RPS under Locust browse; RPS primary + CPU safety valve.
     # maxReplicas 12: load-test pin at 6 with CPU ~126%/70% → desired ~11; +headroom.
@@ -1526,7 +1526,7 @@ components:
       enabled: true
       minReplicas: 2
       maxReplicas: 12
-      targetCPUUtilizationPercentage: 70
+      targetCPUUtilizationPercentage: 55
       # Go backend: raised from 100 → 150 RPS/pod (hot browse path).
       targetRequestsPerSecond: 150
       behavior: *hpa-behavior-default
