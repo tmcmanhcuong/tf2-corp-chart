@@ -46,9 +46,14 @@ egressProxy:
     - sts.ap-southeast-1.amazonaws.com:443
     - s3.ap-southeast-1.amazonaws.com:443
     - "*.s3.ap-southeast-1.amazonaws.com:443"
+    - s3.us-east-1.amazonaws.com:443
+    - "*.s3.us-east-1.amazonaws.com:443"
+    - s3.amazonaws.com:443
+    - "*.s3.amazonaws.com:443"
     - discord.com:443
     - grafana.com:443
     - "*.grafana.com:443"
+
 
 
 
