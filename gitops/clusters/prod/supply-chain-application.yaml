@@ -18,6 +18,8 @@ spec:
           webhook:
             # TLS and CRDs must be healthy before production enforcement is enabled.
             failurePolicy: Ignore
+            podSecurityContext:
+              runAsNonRoot: true
             serviceAccount:
               create: true
               name: policy-controller
