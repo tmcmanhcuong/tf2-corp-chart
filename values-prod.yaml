@@ -30,14 +30,27 @@ networkPolicy:
 
 egressProxy:
   enabled: true
+  callers:
+    - checkout
+    - grafana
+    - product-reviews
+    - shopping-copilot
   allowedDomains:
     - api.groq.com:443
     - bedrock-runtime.us-east-1.amazonaws.com:443
     - sts.us-east-1.amazonaws.com:443
     - monitoring.us-east-1.amazonaws.com:443
     - logs.us-east-1.amazonaws.com:443
+    - athena.ap-southeast-1.amazonaws.com:443
+    - glue.ap-southeast-1.amazonaws.com:443
+    - sts.ap-southeast-1.amazonaws.com:443
+    - s3.ap-southeast-1.amazonaws.com:443
+    - "*.s3.ap-southeast-1.amazonaws.com:443"
+    - discord.com:443
     - grafana.com:443
     - "*.grafana.com:443"
+
+
 
 
 grafana:
