@@ -89,6 +89,8 @@ spec:
             limit: 250Mi
 
         # Log level — warn in prod to reduce noise; use debug only when troubleshooting.
+        cniEnabled: true
+
         controllerLogLevel: warn
 
         # -----------------------------------------------------------------------
