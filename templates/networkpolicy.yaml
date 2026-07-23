@@ -58,6 +58,59 @@ spec:
 
 {{- end }}
 
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-linkerd-mesh
+  labels:
+    {{- include "techx-corp.labels" $relCtx | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow inbound mTLS traffic from other meshed pods in the namespace
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 4143
+    # Allow control plane and kubelet to scrape metrics / perform readiness probes
+    - from:
+        - namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values:
+                  - linkerd
+                  - kube-system
+                  - techx-corp-prod
+      ports:
+        - protocol: TCP
+          port: 4191
+  egress:
+    # Allow outbound mTLS traffic to other meshed pods in the namespace
+    - to:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 4143
+    # Allow egress to Linkerd control plane services in the linkerd namespace
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: linkerd
+      ports:
+        - protocol: TCP
+          port: 8080  # identity
+        - protocol: TCP
+          port: 8086  # destination
+        - protocol: TCP
+          port: 8090  # policy
+
+
 {{/* ── 3. OTEL-COLLECTOR: accept telemetry from all pods ──────────── */}}
 ---
 apiVersion: networking.k8s.io/v1
