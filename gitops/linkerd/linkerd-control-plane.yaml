@@ -104,19 +104,8 @@ spec:
             request: 50Mi
             limit: 250Mi
 
-        # Log level — warn in prod to reduce noise; use debug only when troubleshooting.
-        cniEnabled: true
 
         controllerLogLevel: warn
-
-        # -----------------------------------------------------------------------
-        # Proxy injector — auto-inject linkerd-proxy into annotated namespaces.
-        # Namespace techx-corp-prod has linkerd.io/inject: enabled annotation
-        # (managed by templates/linkerd-namespace-inject.yaml in main chart).
-        # -----------------------------------------------------------------------
-        # Runtime-hardening compliance (ValidatingAdmissionPolicy enforcement)
-        # -----------------------------------------------------------------------
-        disableHeartBeat: true
 
 
         podSecurityContext:
