@@ -17,7 +17,7 @@ Proxy resource overhead per pod (configured in linkerd-control-plane valuesObjec
   Memory: 20Mi request / 250Mi limit
   This is Linkerd's default "lightweight" profile, suitable for the TechX Corp budget.
 
-Change trail: @hungxqt - 2026-07-24 - M16: Enable Linkerd proxy injection for techx-corp-prod.
+Change trail: @chinhgithub04 - 2026-07-24 - M16: Enable Linkerd proxy injection for techx-corp-prod.
 */ -}}
 apiVersion: v1
 kind: Namespace
