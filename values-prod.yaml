@@ -32,6 +32,8 @@ egressProxy:
   enabled: true
 
 grafana:
+  podAnnotations:
+    linkerd.io/inject: disabled
   grafana.ini:
     server:
       # Alert links are generated outside an HTTP request, so the base
@@ -40,6 +42,15 @@ grafana:
       domain: "internal.hungtran.id.vn"
       root_url: "https://internal.hungtran.id.vn/grafana"
       serve_from_sub_path: true
+
+metrics-server:
+  podAnnotations:
+    linkerd.io/inject: disabled
+
+prometheus-adapter:
+  podAnnotations:
+    linkerd.io/inject: disabled
+
 
 default:
   # Keep a bounded rollback window while admission policy prevents new violations.
