@@ -193,17 +193,8 @@ spec:
         factor: 2
         maxDuration: 5m
 
-  # Linkerd auto-rotates webhook TLS certificates. Ignore caBundle to avoid
-  # constant OutOfSync noise from Argo re-applying stale bundle.
+  # Linkerd identity controller updates the issuer cert annotation at runtime.
   ignoreDifferences:
-    - group: admissionregistration.k8s.io
-      kind: MutatingWebhookConfiguration
-      jqPathExpressions:
-        - .webhooks[]?.clientConfig.caBundle
-    - group: admissionregistration.k8s.io
-      kind: ValidatingWebhookConfiguration
-      jqPathExpressions:
-        - .webhooks[]?.clientConfig.caBundle
     # Linkerd identity controller updates the issuer cert annotation at runtime.
     - group: ""
       kind: Secret
