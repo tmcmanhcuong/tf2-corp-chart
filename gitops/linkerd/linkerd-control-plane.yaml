@@ -45,6 +45,13 @@ spec:
         identity:
           issuer:
             scheme: kubernetes.io/tls
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 2102
 
         # -----------------------------------------------------------------------
         # Trust anchor (CA cert) — PUBLIC, safe to store in Git.
@@ -118,14 +125,7 @@ spec:
             runAsNonRoot: true
             runAsUser: 2102
 
-        identity:
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            runAsUser: 2102
+
 
         proxyInjector:
           failurePolicy: Ignore  # Do not block pod creation if injector is unavailable
