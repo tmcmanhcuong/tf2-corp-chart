@@ -3,5 +3,5 @@
 components:
   recommendation:
     imageOverride:
-      digest: "sha256:c68be5030d25865d1635ddc5425a9cc67650393e49b962249d6fdaf087c1b96b"
+      digest: "sha256:d78d549ff897b98a9669967313ab0d3c079b51bd49771316969b80eb5ddd7c20"
 # Change trail: @MinhKhoa2209 - 2026-07-22 - Pin verified production digest.
