@@ -30,6 +30,15 @@ networkPolicy:
 
 egressProxy:
   enabled: true
+  allowedDomains:
+    - api.groq.com:443
+    - bedrock-runtime.us-east-1.amazonaws.com:443
+    - sts.us-east-1.amazonaws.com:443
+    - monitoring.us-east-1.amazonaws.com:443
+    - logs.us-east-1.amazonaws.com:443
+    - grafana.com:443
+    - "*.grafana.com:443"
+
 
 grafana:
   grafana.ini:
