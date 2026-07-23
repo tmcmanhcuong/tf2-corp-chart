@@ -96,8 +96,44 @@ spec:
         # Namespace techx-corp-prod has linkerd.io/inject: enabled annotation
         # (managed by templates/linkerd-namespace-inject.yaml in main chart).
         # -----------------------------------------------------------------------
+        # Runtime-hardening compliance (ValidatingAdmissionPolicy enforcement)
+        # -----------------------------------------------------------------------
+        disableHeartbeat: true
+
+        podSecurityContext:
+          runAsNonRoot: true
+          runAsUser: 2102
+          runAsGroup: 2102
+          seccompProfile:
+            type: RuntimeDefault
+
+        destination:
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 2102
+
+        identity:
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 2102
+
         proxyInjector:
           failurePolicy: Ignore  # Do not block pod creation if injector is unavailable
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 2102
 
   destination:
     server: https://kubernetes.default.svc
