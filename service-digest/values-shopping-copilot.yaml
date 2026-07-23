@@ -3,5 +3,5 @@
 components:
   shopping-copilot:
     imageOverride:
-      digest: "sha256:dcdcb88a164447b4d3ff1b6113df8d1467621c32f49db7a85b88f5e80b23537c"
+      digest: "sha256:8538bad0a9ab4fd7cbecb299c2e7beb65c87c325b9b6984d88cbf096fd2c2fa7"
 # Change trail: @MinhKhoa2209 - 2026-07-22 - Pin verified production digest.
