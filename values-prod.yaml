@@ -51,6 +51,24 @@ prometheus-adapter:
   podAnnotations:
     linkerd.io/inject: disabled
 
+prometheus:
+  server:
+    podAnnotations:
+      linkerd.io/inject: disabled
+  kube-state-metrics:
+    podAnnotations:
+      linkerd.io/inject: disabled
+
+jaeger:
+  podAnnotations:
+    linkerd.io/inject: disabled
+
+opentelemetry-collector:
+  podAnnotations:
+    linkerd.io/inject: disabled
+
+
+
 
 default:
   # Keep a bounded rollback window while admission policy prevents new violations.
