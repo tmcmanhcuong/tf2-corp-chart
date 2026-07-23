@@ -44,7 +44,7 @@ The following resource configurations were applied to `values.yaml`:
 - **`checkout` (Go):** `requests: 10m / 32Mi`, `limits: 10m / 32Mi` (P99: 5.1m CPU, 27.47Mi Memory - Guaranteed QoS).
 - **`cart` (.NET):** `requests: 15m / 96Mi`, `limits: 15m / 96Mi` (P99: 8.3m CPU, 75.96Mi Memory - Guaranteed QoS).
 - **`payment` (Node.js):** `requests: 10m / 160Mi`, `limits: 100m / 160Mi` (P99: 5.3m CPU, 122.78Mi Memory - limits.cpu raised to 100m for Node.js V8 boot probe safety).
-- **`frontend-proxy` (Envoy):** `requests: 30m / 48Mi`, `limits: 30m / 48Mi` (P99: 17.5m CPU, 30.20Mi Memory - Guaranteed QoS).
+- **`frontend-proxy` (Envoy):** `requests: 50m / 128Mi`, `limits: 50m / 128Mi` (historical P99 ~30Mi was too tight under production routes/load; raised 2026-07-23 after OOMKilled CrashLoop — Guaranteed QoS).
 - **`product-catalog` (Go):** `requests: 20m / 32Mi`, `limits: 20m / 32Mi` (P99: 9.2m CPU, 19.51Mi Memory - Guaranteed QoS).
 - **`currency` (C++):** `requests: 50m / 64Mi`, `limits: 50m / 64Mi` (P99: 2.8m CPU, 12.98Mi Memory - Guaranteed QoS, resized during 200-user load tests to prevent OOMKills).
 - **`quote` (PHP):** `requests: 10m / 32Mi`, `limits: 10m / 32Mi` (P99: 1.0m CPU, 25.57Mi Memory - Guaranteed QoS).
@@ -86,3 +86,4 @@ The following resource configurations were applied to `values.yaml`:
 
 ### Negative / Trade-offs
 - **Cold-Start Burst Overhead:** Heavy JVM (`ad`), Node.js (`payment`), and Go (`flagd`) pods require slightly higher CPU limits (`100m-200m`) during startup, but their steady-state CPU footprint remains minimal (`10m`).
+<!-- Change trail: @hungxqt - 2026-07-23 - Raise frontend-proxy Guaranteed budget after OOMKilled 503. -->
