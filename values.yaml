@@ -1150,13 +1150,14 @@ components:
       - name: OTEL_COLLECTOR_PORT_HTTP
         value: "4318"
     resources:
-      # Guaranteed QoS (request = limit) for critical path stability
+      # Guaranteed QoS (request = limit) for critical path stability.
+      # 48Mi OOMKilled under real routes/load (Envoy + OTEL); raised 2026-07-23.
       requests:
-        cpu: 30m
-        memory: 48Mi
+        cpu: 50m
+        memory: 128Mi
       limits:
-        cpu: 30m
-        memory: 48Mi
+        cpu: 50m
+        memory: 128Mi
     # Edge / ALB target on Critical MNG (small floor). maxReplicas 10 needs MNG headroom.
     # RPS primary; CPU safety valve. If pods Pending: free Critical capacity in infra.
     # OTel service.name may differ for Envoy — set autoscaling.serviceName after metric inventory.
@@ -3215,4 +3216,4 @@ prometheus-adapter:
       memory: 256Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-22 - Raise OpenSearch CPU and startup probe budget.
+# Change trail: @hungxqt - 2026-07-23 - Raise frontend-proxy memory/CPU after OOMKilled 503 outage.
