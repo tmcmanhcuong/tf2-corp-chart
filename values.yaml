@@ -2900,7 +2900,7 @@ prometheus:
         memory: 32Mi
       limits:
         cpu: 50m
-        memory: 64Mi
+        memory: 500Mi
   prometheus-node-exporter:
     enabled: false
   prometheus-pushgateway:
