@@ -2093,6 +2093,18 @@ spec:
       ports:
         - protocol: TCP
           port: 443
+    # Linkerd control plane egress (identity 8080, destination 8086, policy 8090).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: linkerd
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8086
+        - protocol: TCP
+          port: 8090
 {{- end }}
 
 {{- end }}
