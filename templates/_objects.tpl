@@ -411,7 +411,8 @@ spec:
 
     {{- if and .service .service.port }}
     - port: {{ .service.port}}
-      name: tcp-service
+      name: {{ .service.portName | default "grpc" }}
+      appProtocol: {{ .service.appProtocol | default "grpc" }}
       targetPort: {{ .service.port }}
     {{- if .service.nodePort }}
       nodePort: {{ .service.nodePort }}
@@ -429,7 +430,8 @@ spec:
 
     {{- if and .service .service.port }}
     - port: {{ .service.port}}
-      name: tcp-service-{{ $i }}
+      name: {{ .service.portName | default (printf "grpc-%d" $i) }}
+      appProtocol: {{ .service.appProtocol | default "grpc" }}
       targetPort: {{ .service.port }}
     {{- if .service.nodePort }}
       nodePort: {{ .service.nodePort }}
