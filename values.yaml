@@ -870,15 +870,17 @@ components:
       - name: IPV6_ENABLED
         value: "false"
     resources:
-      # Guaranteed QoS (request = limit) for critical path stability
+      # Burstable (request < limit): Guaranteed 50m/50m throttled Convert under concurrent
+      # multi-item checkout (Jaeger: Convert p50 ~3ms vs p99 ~1.4s; checkout p95 ~1.7s).
+      # Same pattern as checkout: modest request keeps HPA % sane; higher limit allows burst.
       requests:
-        cpu: 50m
+        cpu: 100m
         memory: 64Mi
       limits:
-        cpu: 50m
-        memory: 64Mi
+        cpu: 500m
+        memory: 128Mi
     # High-RPS / low-CPU gRPC (native C++): RPS is the primary capacity signal; CPU often never hits 70%.
-    # maxReplicas 72: load-test pin at 12 with CPU ~412%/70% → desired ~71 (tiny 10m request amplifies %).
+    # maxReplicas 72: load-test pin at 12 with CPU ~412%/70% → desired ~71 (tiny request amplifies %).
     autoscaling:
       enabled: true
       minReplicas: 1
@@ -3238,4 +3240,4 @@ prometheus-adapter:
       memory: 256Mi
   replicas: 1
 
-# Change trail: @hungxqt - 2026-07-23 - Raise frontend-proxy memory/CPU after OOMKilled 503 outage.
+# Change trail: @hungxqt - 2026-07-24 - Raise currency CPU limit after checkout Convert tail latency.
