@@ -59,8 +59,8 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "sum by (k8s_pod_name, pod) (rate(rpc_server_duration_milliseconds_count{service_name=\"$service\"}[$__rate_interval])) or sum by (k8s_pod_name) (rate(traces_span_metrics_calls_total{service_name=\"$service\"}[$__rate_interval]))",
-          "legendFormat": "{{k8s_pod_name}}{{pod}}",
+          "expr": "sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\"}[$__rate_interval])) / 1024",
+          "legendFormat": "{{pod}} (KB/s)",
           "refId": "A"
         }
       ]
@@ -115,8 +115,8 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "100 * (sum by (k8s_pod_name, pod) (rate(rpc_server_duration_milliseconds_count{service_name=\"$service\"}[$__rate_interval])) or sum by (k8s_pod_name) (rate(traces_span_metrics_calls_total{service_name=\"$service\"}[$__rate_interval]))) / scalar(sum(rate(rpc_server_duration_milliseconds_count{service_name=\"$service\"}[$__rate_interval])) or sum(rate(traces_span_metrics_calls_total{service_name=\"$service\"}[$__rate_interval])))",
-          "legendFormat": "{{k8s_pod_name}}{{pod}}",
+          "expr": "100 * (sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\"}[$__rate_interval]))) / scalar(sum(rate(container_network_receive_bytes_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\"}[$__rate_interval])))",
+          "legendFormat": "{{pod}}",
           "refId": "A"
         }
       ]
