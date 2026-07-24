@@ -3081,8 +3081,8 @@ grafana:
     AIOPS_GRAFANA_WEBHOOK_URL: http://aiops-runtime:8080/api/v1/events/grafana
   plugins:
     # Pin plugin downloads so Grafana startup does not select an unpublished latest artifact.
-    - grafana-opensearch-datasource@2.33.0@https://grafana.com/api/plugins/grafana-opensearch-datasource/versions/2.33.0/download
-    - grafana-athena-datasource@3.2.0@https://grafana.com/api/plugins/grafana-athena-datasource/versions/3.2.0/download
+    - https://grafana.com/api/plugins/grafana-opensearch-datasource/versions/2.33.0/download;grafana-opensearch-datasource
+    - https://grafana.com/api/plugins/grafana-athena-datasource/versions/3.2.0/download;grafana-athena-datasource
   sidecar:
     alerts:
       enabled: true
