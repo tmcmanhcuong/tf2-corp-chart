@@ -12,12 +12,3 @@ datasources:
     # SEC-02: provisioned datasource is non-editable to prevent accidental edits
     editable: false
     isDefault: false
-    jsonData:
-      tracesToLogsV2:
-        datasourceUid: webstore-logs
-        spanStartTimeShift: "-20m"
-        spanEndTimeShift: "20m"
-        filterByTraceID: true
-        filterBySpanID: true
-        customQuery: true
-        query: traceId:"$${__trace.traceId}" AND spanId:"$${__span.spanId}"
