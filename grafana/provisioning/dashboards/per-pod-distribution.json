@@ -59,7 +59,7 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\"}[$__rate_interval])) / 1024",
+          "expr": "(sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\"}[$__rate_interval])) / 1024) * on (pod) group_left() (kube_pod_status_phase{namespace=\"techx-corp-prod\", phase=\"Running\"} == 1)",
           "legendFormat": "{{pod}} (KB/s)",
           "refId": "A"
         }
@@ -115,7 +115,7 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "100 * (sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\"}[$__rate_interval]))) / scalar(sum(rate(container_network_receive_bytes_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\"}[$__rate_interval])))",
+          "expr": "100 * ((sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\"}[$__rate_interval])) * on (pod) group_left() (kube_pod_status_phase{namespace=\"techx-corp-prod\", phase=\"Running\"} == 1)) / scalar(sum(rate(container_network_receive_bytes_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\"}[$__rate_interval]) * on (pod) group_left() (kube_pod_status_phase{namespace=\"techx-corp-prod\", phase=\"Running\"} == 1))))",
           "legendFormat": "{{pod}}",
           "refId": "A"
         }
@@ -283,7 +283,7 @@
             "uid": "webstore-metrics"
           },
           "editorMode": "code",
-          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\", pod=~\"$pod\", container!=\"\"}[$__rate_interval]))",
+          "expr": "(sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\", container!=\"\"}[$__rate_interval]))) * on (pod) group_left() (kube_pod_status_phase{namespace=\"techx-corp-prod\", phase=\"Running\"} == 1)",
           "legendFormat": "{{pod}}",
           "refId": "A"
         }
@@ -332,14 +332,14 @@
           "type": "prometheus",
           "uid": "webstore-metrics"
         },
-        "definition": "label_values(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\"}, pod)",
+        "definition": "label_values(kube_pod_status_phase{namespace=\"techx-corp-prod\", phase=\"Running\", pod=~\"$service-.*\"}, pod)",
         "includeAll": true,
         "allValue": ".*",
         "label": "Pod",
         "name": "pod",
         "options": [],
         "query": {
-          "query": "label_values(container_cpu_usage_seconds_total{namespace=\"techx-corp-prod\", pod=~\"$service-.*\"}, pod)",
+          "query": "label_values(kube_pod_status_phase{namespace=\"techx-corp-prod\", phase=\"Running\", pod=~\"$service-.*\"}, pod)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
