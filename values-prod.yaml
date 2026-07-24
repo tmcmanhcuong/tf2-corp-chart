@@ -261,7 +261,9 @@ components:
 
   currency:
     autoscaling:
-      minReplicas: 2
+      # Floor 3 pods: concurrent Convert from multi-item checkout (errgroup) needs headroom
+      # beyond HPA RPS/CPU averages (those stay low while Convert p99 is multi-second).
+      minReplicas: 3
     schedulingRules: *directive03-hard-spread
   email:
     replicas: 2
@@ -549,4 +551,4 @@ opentelemetry-collector:
           value: techx-corp-prod
           action: upsert
 
-# Change trail: @hungxqt - 2026-07-19 - Temporarily disable mem0.enabled in prod app chart only.
+# Change trail: @hungxqt - 2026-07-24 - Raise currency minReplicas to 3 for checkout Convert headroom.
