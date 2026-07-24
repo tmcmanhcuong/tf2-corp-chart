@@ -30,6 +30,8 @@ metadata:
     # Requires Linkerd control plane to be running (linkerd-control-plane ArgoCD Application).
     # Individual pods can opt-out with annotation: linkerd.io/inject: disabled
     linkerd.io/inject: enabled
+    # Skip outbound proxying for egress-proxy (port 10000) and Envoy admin (9901) to prevent TLS CONNECT tunnel breakage.
+    config.linkerd.io/skip-outbound-ports: "10000,9901"
     # Proxy resource profile — matches values set in linkerd-control-plane Application.
     # Override per-pod if a specific service needs different limits.
     config.linkerd.io/proxy-cpu-request: "10m"
